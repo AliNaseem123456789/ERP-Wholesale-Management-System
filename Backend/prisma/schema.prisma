@@ -1,0 +1,1656 @@
+// ============================================================================
+// This schema was generated with `prisma db pull` from the live Supabase database
+// on 2026-10-03. It describes the database exactly as it is.
+//
+// DATA SAFETY RULES
+//  - Never run `prisma migrate dev`, `prisma migrate reset` or `prisma db push`
+//    against the production database: they can drop or rewrite tables.
+//  - To change the database: add a new additive SQL file to prisma/sql/ (NNN_name.sql), apply it with
+//    `npm run db:migrate` (first `npm run db:export` for a JSON backup), mirror it here, then `npx prisma generate`.
+//  - The old prisma/migrations folder did not match the real database and was renamed to
+//    prisma/_old_migrations_DO_NOT_APPLY so it can never be applied by accident.
+//
+// Notes
+//  - users.role is a VARCHAR holding "USER" | "ADMIN" | "SUBACCOUNT" (the Role enum
+//    type exists in the database but no column uses it).
+//  - sub_accounts.permissions is TEXT containing JSON, e.g. {"can_place_order": true}.
+//  - Check constraints (not visible to Prisma): addresses_address_type_check,
+//    cart_items.check_quantity_positive.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model brands {
+  id         BigInt     @id @default(autoincrement())
+  name       String     @unique @db.VarChar(255)
+  company_id BigInt?
+  companies  companies? @relation(fields: [company_id], references: [id], onUpdate: NoAction)
+
+  @@index([company_id], map: "idx_brands_company")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model kv_store_9bf79e4a {
+  key   String @id
+  value Json
+
+  @@index([key])
+  @@index([key], map: "kv_store_9bf79e4a_key_idx1")
+  @@index([key], map: "kv_store_9bf79e4a_key_idx2")
+  @@index([key], map: "kv_store_9bf79e4a_key_idx3")
+}
+
+model products {
+  id          BigInt        @id @default(autoincrement())
+  compliance_category   String    @default("none") @db.VarChar(32)
+  nicotine_ml           Decimal?  @db.Decimal(10, 3)
+  is_flavored           Boolean   @default(false)
+  title       String        @db.VarChar(255)
+  brand       String        @db.VarChar(255)
+  description String?
+  sku         String?
+  categories  String[]
+  flavors     String[]
+  url         String?       @db.VarChar(255)
+  created_at  DateTime?     @default(now()) @db.Timestamptz(6)
+  price       Decimal?      @db.Decimal(38, 2)
+  company_id  BigInt?
+  is_active   Boolean       @default(true)
+  updated_at  DateTime?     @db.Timestamptz(6)
+  cost_price            Decimal   @default(0) @db.Decimal(38, 4)
+  reorder_point         Int       @default(0)
+  reorder_quantity      Int       @default(0)
+  barcode               String?   @db.VarChar(64)
+  unit                  String    @default("each") @db.VarChar(32)
+  preferred_supplier_id BigInt?
+  low_stock_alerted_at  DateTime? @db.Timestamptz(6)
+  cart_items  cart_items[]
+  order_items order_items[]
+  companies   companies?    @relation(fields: [company_id], references: [id], onUpdate: NoAction)
+  preferred_supplier    suppliers?             @relation("product_preferred_supplier", fields: [preferred_supplier_id], references: [id], onUpdate: NoAction)
+  supplier_products     supplier_products[]
+  inventory_levels      inventory_levels[]
+  inventory_lots        inventory_lots[]
+  stock_movements       stock_movements[]
+  purchase_order_items  purchase_order_items[]
+  goods_receipt_items   goods_receipt_items[]
+  stock_transfer_items  stock_transfer_items[]
+  price_list_items      price_list_items[]
+  invoice_items         invoice_items[]
+  credit_note_items     credit_note_items[]
+  return_items          return_items[]
+  quote_items           quote_items[]
+  product_variants      product_variants[]
+  supplier_return_items supplier_return_items[]
+  bill_items            bill_items[]
+
+  @@index([company_id], map: "idx_products_company")
+  @@index([barcode], map: "idx_products_barcode")
+}
+
+model users {
+  id                                         BigInt            @id @default(autoincrement())
+  email                                      String            @unique @db.VarChar(255)
+  password_hash                              String            @db.VarChar(255)
+  email_verified                             Boolean?          @default(false)
+  role                                       String            @default("USER") @db.VarChar(255)
+  last_login                                 DateTime?         @db.Timestamp(6)
+  created_at                                 DateTime          @default(now())
+  updated_at                                 DateTime          @default(now())
+  first_name                                 String?           @db.VarChar(255)
+  last_name                                  String?           @db.VarChar(255)
+  business_name                              String?           @db.VarChar(255)
+  phone                                      String?           @db.VarChar(255)
+  parent_id                                  BigInt?
+  addresses                                  addresses[]
+  cart_items                                 cart_items[]
+  credit_history                             credit_history[]
+  orders                                     orders[]
+  payment_history                            payment_history[]
+  refresh_tokens                             refresh_tokens[]
+  saved_carts                                saved_carts[]
+  sub_accounts_sub_accounts_parent_idTousers sub_accounts[]    @relation("sub_accounts_parent_idTousers")
+  sub_accounts_sub_accounts_user_idTousers   sub_accounts?     @relation("sub_accounts_user_idTousers")
+  users                                      users?            @relation("usersTousers", fields: [parent_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  other_users                                users[]           @relation("usersTousers")
+  wishlist_items                             wishlist_items[]
+  company_members                            company_members[]
+  company_invitations                        company_invitations[]
+  user_tokens                                user_tokens[]
+  audit_logs                                 audit_logs[]
+  stock_movements                            stock_movements[]
+  purchase_orders                            purchase_orders[]
+  goods_receipts                             goods_receipts[]
+  stock_transfers                            stock_transfers[]
+  company_customers                          company_customers[]
+  promotion_redemptions                      promotion_redemptions[]
+  invoices                                   invoices[]
+  return_requests                            return_requests[]
+  credit_notes                               credit_notes[]
+  quotes                                     quotes[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model addresses {
+  id                                           BigInt    @id @default(autoincrement())
+  user_id                                      BigInt?
+  address_type                                 String?   @db.VarChar(255)
+  is_default                                   Boolean?  @default(false)
+  full_name                                    String?   @db.VarChar(255)
+  company_name                                 String?   @db.VarChar(255)
+  address_line1                                String    @db.VarChar(255)
+  address_line2                                String?   @db.VarChar(255)
+  city                                         String    @db.VarChar(255)
+  state                                        String    @db.VarChar(255)
+  postal_code                                  String    @db.VarChar(255)
+  country                                      String?   @default("USA") @db.VarChar(255)
+  phone                                        String?   @db.VarChar(255)
+  created_at                                   DateTime? @default(now()) @db.Timestamp(6)
+  updated_at                                   DateTime? @db.Timestamp(6)
+  users                                        users?    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  orders_orders_billing_address_idToaddresses  orders[]  @relation("orders_billing_address_idToaddresses")
+  orders_orders_shipping_address_idToaddresses orders[]  @relation("orders_shipping_address_idToaddresses")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model cart_items {
+  id         BigInt   @id @default(autoincrement())
+  user_id    BigInt
+  product_id BigInt
+  quantity   Int      @default(1)
+  flavor       String     @default("") @db.VarChar(255)
+  created_at DateTime @default(now()) @db.Timestamp(6)
+  updated_at DateTime @default(now()) @db.Timestamp(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_cart_user")
+  products   products @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_product")
+
+  @@unique([user_id, product_id, flavor], map: "cart_items_user_product_flavor_unique")
+  @@index([user_id], map: "idx_cart_user_id")
+}
+
+model credit_history {
+  id           BigInt    @id @default(autoincrement())
+  user_id      BigInt?
+  order_id     BigInt?
+  amount       Decimal   @db.Decimal(38, 2)
+  reason       String?   @db.VarChar(255)
+  status       String?   @db.VarChar(255)
+  created_at   DateTime? @default(now()) @db.Timestamp(6)
+  reference_id String?   @db.VarChar(255)
+  updated_at   DateTime? @db.Timestamp(6)
+  type         String?   @db.VarChar(255)
+  company_id   BigInt?
+  companies    companies? @relation(fields: [company_id], references: [id], onUpdate: NoAction)
+  orders       orders?   @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users        users?    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model order_items {
+  id            BigInt    @id @default(autoincrement())
+  order_id      BigInt?
+  product_id    BigInt?
+  quantity      Int
+  price_at_time Decimal   @db.Decimal(38, 2)
+  flavor        String?   @db.VarChar(255)
+  created_at    DateTime? @default(now()) @db.Timestamp(6)
+  reserved_quantity Int   @default(0)
+  list_price    Decimal?  @db.Decimal(38, 4)
+  return_items  return_items[]
+  orders        orders?   @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products      products? @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model orders {
+  id                                              BigInt            @id @default(autoincrement())
+  excise_amount  Decimal  @default(0) @db.Decimal(38, 2)
+  compliance     Json?
+  user_id                                         BigInt?
+  status                                          String?           @default("pending") @db.VarChar(255)
+  total_amount                                    Decimal?          @default(0.00) @db.Decimal(38, 2)
+  business_name                                   String?           @db.VarChar(255)
+  shipping_address_id                             BigInt?
+  billing_address_id                              BigInt?
+  created_at                                      DateTime?         @default(now()) @db.Timestamp(6)
+  company_id                                      BigInt?
+  order_number                                    String?           @unique(map: "orders_order_number_unique") @db.VarChar(32)
+  checkout_group                                  String?           @db.VarChar(64)
+  shipping_amount                                 Decimal?          @default(0) @db.Decimal(38, 2)
+  tracking_number                                 String?           @db.VarChar(255)
+  notes                                           String?
+  updated_at                                      DateTime?         @db.Timestamptz(6)
+  shipped_at                                      DateTime?         @db.Timestamptz(6)
+  warehouse_id                                    BigInt?
+  subtotal_amount                                 Decimal?          @db.Decimal(38, 2)
+  discount_amount                                 Decimal           @default(0) @db.Decimal(38, 2)
+  tax_amount                                      Decimal           @default(0) @db.Decimal(38, 2)
+  payment_method                                  String?           @db.VarChar(32)
+  payment_terms_days                              Int?
+  promo_code                                      String?           @db.VarChar(64)
+  quote_id                                        BigInt?
+  invoices                                        invoices[]
+  return_requests                                 return_requests[]
+  promotion_redemptions                           promotion_redemptions[]
+  quotes                                          quotes[]
+  warehouses                                      warehouses?       @relation(fields: [warehouse_id], references: [id], onUpdate: NoAction)
+  companies                                       companies?        @relation(fields: [company_id], references: [id], onUpdate: NoAction)
+  credit_history                                  credit_history[]
+  order_items                                     order_items[]
+  addresses_orders_billing_address_idToaddresses  addresses?        @relation("orders_billing_address_idToaddresses", fields: [billing_address_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  addresses_orders_shipping_address_idToaddresses addresses?        @relation("orders_shipping_address_idToaddresses", fields: [shipping_address_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                                           users?            @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payment_history                                 payment_history[]
+
+  @@index([company_id, created_at(sort: Desc)], map: "idx_orders_company_created")
+  @@index([checkout_group], map: "idx_orders_checkout_group")
+}
+
+model payment_history {
+  id             BigInt    @id @default(autoincrement())
+  order_id       BigInt?
+  user_id        BigInt?
+  amount         Decimal   @db.Decimal(38, 2)
+  transaction_id String?   @unique @db.VarChar(255)
+  payment_method String?   @db.VarChar(255)
+  status         String?   @db.VarChar(255)
+  created_at     DateTime? @default(now()) @db.Timestamp(6)
+  company_id     BigInt?
+  companies      companies? @relation(fields: [company_id], references: [id], onUpdate: NoAction)
+  orders         orders?   @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users          users?    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model saved_carts {
+  id           BigInt    @id @default(autoincrement())
+  user_id      BigInt?
+  cart_name    String    @db.VarChar(255)
+  items        Json
+  created_at   DateTime? @default(now()) @db.Timestamptz(6)
+  total_amount Decimal?  @default(0.00) @db.Decimal(38, 2)
+  users        users?    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model wishlist_items {
+  id         BigInt   @id @default(autoincrement())
+  user_id    BigInt
+  product_id BigInt
+  created_at DateTime @default(now()) @db.Timestamp(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_wishlist_user")
+
+  @@unique([user_id, product_id], map: "unique_user_product_wishlist")
+  @@index([user_id], map: "idx_wishlist_user_id")
+}
+
+model refresh_tokens {
+  id          BigInt    @id @default(autoincrement())
+  token       String    @unique @db.VarChar(500)
+  user_id     BigInt
+  expires_at  DateTime  @db.Timestamp(6)
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
+  revoked     Boolean?  @default(false)
+  device_info String?   @db.VarChar(255)
+  ip_address  String?   @db.VarChar(255)
+  revoked_at  DateTime? @db.Timestamp(6)
+  user_agent  String?   @db.VarChar(255)
+  users       users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id, revoked, expires_at], map: "idx_refresh_tokens_active")
+  @@index([expires_at], map: "idx_refresh_tokens_expires_at")
+  @@index([token], map: "idx_refresh_tokens_token")
+  @@index([user_id], map: "idx_refresh_tokens_user_id")
+}
+
+model site_settings {
+  key        String    @id
+  value      Json
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+}
+
+model sub_accounts {
+  id                                  BigInt   @id @default(autoincrement())
+  user_id                             BigInt   @unique
+  parent_id                           BigInt
+  permissions                         String?  @default("{\"can_place_order\": true}")
+  created_at                          DateTime @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  updated_at                          DateTime @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  users_sub_accounts_parent_idTousers users    @relation("sub_accounts_parent_idTousers", fields: [parent_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_sub_accounts_user_idTousers   users    @relation("sub_accounts_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([parent_id], map: "idx_sub_accounts_parent_id")
+}
+
+enum Role {
+  USER
+  ADMIN
+  SUBACCOUNT
+}
+
+// ============================================================================
+// Added by prisma/sql/001_multitenancy_auth_email.sql
+// ============================================================================
+
+/// A business (tenant). Owns its staff, brands, products and orders.
+model companies {
+  id                  BigInt                @id @default(autoincrement())
+  name                String                @db.VarChar(255)
+  slug                String                @unique @db.VarChar(255)
+  legal_name          String?               @db.VarChar(255)
+  email               String?               @db.VarChar(255)
+  phone               String?               @db.VarChar(255)
+  website             String?               @db.VarChar(255)
+  logo_url            String?               @db.VarChar(500)
+  description         String?
+  tax_id              String?               @db.VarChar(255)
+  address_line1       String?               @db.VarChar(255)
+  address_line2       String?               @db.VarChar(255)
+  city                String?               @db.VarChar(255)
+  state               String?               @db.VarChar(255)
+  postal_code         String?               @db.VarChar(255)
+  country             String?               @default("USA") @db.VarChar(255)
+  currency            String                @default("USD") @db.VarChar(3)
+  status              String                @default("pending") @db.VarChar(32)
+  commission_rate     Decimal               @default(0) @db.Decimal(5, 2)
+  settings            Json                  @default("{}")
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime              @default(now()) @db.Timestamptz(6)
+  brands              brands[]
+  products            products[]
+  orders              orders[]
+  payment_history     payment_history[]
+  credit_history      credit_history[]
+  company_members     company_members[]
+  company_invitations company_invitations[]
+  email_outbox        email_outbox[]
+  audit_logs          audit_logs[]
+  company_sequences   company_sequences[]
+  warehouses          warehouses[]
+  suppliers           suppliers[]
+  inventory_levels    inventory_levels[]
+  inventory_lots      inventory_lots[]
+  stock_movements     stock_movements[]
+  purchase_orders     purchase_orders[]
+  goods_receipts      goods_receipts[]
+  stock_transfers     stock_transfers[]
+  supplier_returns    supplier_returns[]
+  price_lists         price_lists[]
+  customer_groups     customer_groups[]
+  company_customers   company_customers[]
+  promotions          promotions[]
+  invoices            invoices[]
+  invoice_payments    invoice_payments[]
+  return_requests     return_requests[]
+  credit_notes        credit_notes[]
+  quotes              quotes[]
+
+  @@index([status], map: "idx_companies_status")
+}
+
+model company_members {
+  id         BigInt    @id @default(autoincrement())
+  company_id BigInt
+  user_id    BigInt
+  role       String    @default("SALES") @db.VarChar(32)
+  status     String    @default("active") @db.VarChar(32)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at DateTime  @default(now()) @db.Timestamptz(6)
+  companies  companies @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([company_id, user_id], map: "company_members_company_user_unique")
+  @@index([user_id], map: "idx_company_members_user")
+}
+
+model company_invitations {
+  id          BigInt    @id @default(autoincrement())
+  company_id  BigInt
+  email       String    @db.VarChar(255)
+  role        String    @default("SALES") @db.VarChar(32)
+  token_hash  String    @unique @db.VarChar(64)
+  invited_by  BigInt?
+  expires_at  DateTime  @db.Timestamptz(6)
+  accepted_at DateTime? @db.Timestamptz(6)
+  revoked_at  DateTime? @db.Timestamptz(6)
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  companies   companies @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users       users?    @relation(fields: [invited_by], references: [id], onUpdate: NoAction)
+
+  @@index([company_id], map: "idx_company_invitations_company")
+}
+
+model user_tokens {
+  id         BigInt    @id @default(autoincrement())
+  user_id    BigInt
+  type       String    @db.VarChar(32)
+  token_hash String    @unique @db.VarChar(64)
+  expires_at DateTime  @db.Timestamptz(6)
+  used_at    DateTime? @db.Timestamptz(6)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id, type], map: "idx_user_tokens_user_type")
+}
+
+model email_outbox {
+  id         BigInt     @id @default(autoincrement())
+  company_id BigInt?
+  to_email   String     @db.VarChar(255)
+  subject    String     @db.VarChar(500)
+  html       String
+  text       String?
+  template   String?    @db.VarChar(64)
+  status     String     @default("pending") @db.VarChar(16)
+  attempts   Int        @default(0)
+  last_error String?
+  send_after DateTime   @default(now()) @db.Timestamptz(6)
+  sent_at    DateTime?  @db.Timestamptz(6)
+  created_at DateTime   @default(now()) @db.Timestamptz(6)
+  attachments Json?
+  companies  companies? @relation(fields: [company_id], references: [id], onUpdate: NoAction)
+
+  @@index([status, send_after], map: "idx_email_outbox_pending")
+}
+
+model audit_logs {
+  id         BigInt     @id @default(autoincrement())
+  company_id BigInt?
+  user_id    BigInt?
+  action     String     @db.VarChar(64)
+  entity     String?    @db.VarChar(64)
+  entity_id  String?    @db.VarChar(64)
+  changes    Json?
+  ip_address String?    @db.VarChar(64)
+  created_at DateTime   @default(now()) @db.Timestamptz(6)
+  companies  companies? @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users      users?     @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([company_id, created_at(sort: Desc)], map: "idx_audit_logs_company_created")
+}
+
+// ============================================================================
+// Added by prisma/sql/002_supply_chain.sql
+// ============================================================================
+
+model company_sequences {
+  company_id BigInt
+  key        String    @db.VarChar(32)
+  value      BigInt    @default(0)
+  companies  companies @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([company_id, key])
+}
+
+model warehouses {
+  id                  BigInt             @id @default(autoincrement())
+  company_id          BigInt
+  name                String             @db.VarChar(255)
+  code                String             @db.VarChar(32)
+  address_line1       String?            @db.VarChar(255)
+  address_line2       String?            @db.VarChar(255)
+  city                String?            @db.VarChar(255)
+  state               String?            @db.VarChar(255)
+  postal_code         String?            @db.VarChar(255)
+  country             String?            @default("USA") @db.VarChar(255)
+  phone               String?            @db.VarChar(255)
+  is_default          Boolean            @default(false)
+  is_active           Boolean            @default(true)
+  created_at          DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime           @default(now()) @db.Timestamptz(6)
+  companies           companies          @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  warehouse_bins      warehouse_bins[]
+  inventory_levels    inventory_levels[]
+  inventory_lots      inventory_lots[]
+  stock_movements     stock_movements[]
+  purchase_orders     purchase_orders[]
+  goods_receipts      goods_receipts[]
+  orders              orders[]
+  transfers_out       stock_transfers[]  @relation("transfer_from")
+  transfers_in        stock_transfers[]  @relation("transfer_to")
+  return_requests     return_requests[]
+  supplier_returns    supplier_returns[]
+
+  @@unique([company_id, code], map: "warehouses_company_code_unique")
+  @@index([company_id], map: "idx_warehouses_company")
+}
+
+model warehouse_bins {
+  id             BigInt           @id @default(autoincrement())
+  warehouse_id   BigInt
+  code           String           @db.VarChar(64)
+  description    String?          @db.VarChar(255)
+  is_active      Boolean          @default(true)
+  created_at     DateTime         @default(now()) @db.Timestamptz(6)
+  warehouses     warehouses       @relation(fields: [warehouse_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  inventory_lots inventory_lots[]
+
+  @@unique([warehouse_id, code], map: "warehouse_bins_warehouse_code_unique")
+}
+
+model suppliers {
+  id                 BigInt              @id @default(autoincrement())
+  company_id         BigInt
+  name               String              @db.VarChar(255)
+  code               String?             @db.VarChar(64)
+  contact_name       String?             @db.VarChar(255)
+  email              String?             @db.VarChar(255)
+  phone              String?             @db.VarChar(255)
+  website            String?             @db.VarChar(255)
+  address_line1      String?             @db.VarChar(255)
+  address_line2      String?             @db.VarChar(255)
+  city               String?             @db.VarChar(255)
+  state              String?             @db.VarChar(255)
+  postal_code        String?             @db.VarChar(255)
+  country            String?             @default("USA") @db.VarChar(255)
+  tax_id             String?             @db.VarChar(255)
+  payment_terms_days Int                 @default(30)
+  currency           String              @default("USD") @db.VarChar(3)
+  notes              String?
+  is_active          Boolean             @default(true)
+  created_at         DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime            @default(now()) @db.Timestamptz(6)
+  companies          companies           @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  supplier_products  supplier_products[]
+  purchase_orders    purchase_orders[]
+  preferred_for      products[]          @relation("product_preferred_supplier")
+  supplier_returns   supplier_returns[]
+  bills              bills[]
+  vendor_credits     vendor_credits[]
+
+  @@index([company_id], map: "idx_suppliers_company")
+}
+
+model supplier_products {
+  id             BigInt    @id @default(autoincrement())
+  supplier_id    BigInt
+  product_id     BigInt
+  supplier_sku   String?   @db.VarChar(255)
+  unit_cost      Decimal   @default(0) @db.Decimal(38, 4)
+  lead_time_days Int?
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime  @default(now()) @db.Timestamptz(6)
+  suppliers      suppliers @relation(fields: [supplier_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products       products  @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([supplier_id, product_id], map: "supplier_products_supplier_product_unique")
+  @@index([product_id], map: "idx_supplier_products_product")
+}
+
+/// Stock totals per warehouse & product (on_hand = sum of the product's lots in the warehouse).
+model inventory_levels {
+  id           BigInt     @id @default(autoincrement())
+  company_id   BigInt
+  warehouse_id BigInt
+  product_id   BigInt
+  on_hand      Int        @default(0)
+  reserved     Int        @default(0)
+  flavor       String     @default("") @db.VarChar(255)
+  updated_at   DateTime   @default(now()) @db.Timestamptz(6)
+  companies    companies  @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  warehouses   warehouses @relation(fields: [warehouse_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products     products   @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([warehouse_id, product_id, flavor], map: "inventory_levels_wh_product_flavor_unique")
+  @@index([company_id, product_id], map: "idx_inventory_levels_company_product")
+}
+
+model inventory_lots {
+  id                  BigInt                @id @default(autoincrement())
+  company_id          BigInt
+  warehouse_id        BigInt
+  product_id          BigInt
+  bin_id              BigInt?
+  lot_number          String?               @db.VarChar(64)
+  expiry_date         DateTime?             @db.Date
+  quantity            Int                   @default(0)
+  flavor       String     @default("") @db.VarChar(255)
+  unit_cost           Decimal?              @db.Decimal(38, 4)
+  received_at         DateTime              @default(now()) @db.Timestamptz(6)
+  companies           companies             @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  warehouses          warehouses            @relation(fields: [warehouse_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products            products              @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  warehouse_bins      warehouse_bins?       @relation(fields: [bin_id], references: [id], onUpdate: NoAction)
+  stock_movements     stock_movements[]
+  goods_receipt_items goods_receipt_items[]
+  supplier_return_items supplier_return_items[]
+
+  @@index([warehouse_id, product_id], map: "idx_inventory_lots_wh_product")
+  @@index([warehouse_id, product_id, flavor], map: "idx_inventory_lots_wh_product_flavor")
+  @@index([company_id, expiry_date], map: "idx_inventory_lots_company_expiry")
+}
+
+model stock_movements {
+  id             BigInt          @id @default(autoincrement())
+  company_id     BigInt
+  warehouse_id   BigInt
+  product_id     BigInt
+  lot_id         BigInt?
+  quantity       Int
+  flavor       String     @default("") @db.VarChar(255)
+  type           String          @db.VarChar(32)
+  reason         String?         @db.VarChar(64)
+  reference_type String?         @db.VarChar(32)
+  reference_id   String?         @db.VarChar(64)
+  unit_cost      Decimal?        @db.Decimal(38, 4)
+  balance_after  Int?
+  notes          String?
+  user_id        BigInt?
+  created_at     DateTime        @default(now()) @db.Timestamptz(6)
+  companies      companies       @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  warehouses     warehouses      @relation(fields: [warehouse_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products       products        @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  inventory_lots inventory_lots? @relation(fields: [lot_id], references: [id], onUpdate: NoAction)
+  users          users?          @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([company_id, created_at(sort: Desc)], map: "idx_stock_movements_company_created")
+  @@index([product_id, created_at(sort: Desc)], map: "idx_stock_movements_product")
+}
+
+model purchase_orders {
+  id                   BigInt                 @id @default(autoincrement())
+  company_id           BigInt
+  supplier_id          BigInt
+  warehouse_id         BigInt
+  po_number            String                 @db.VarChar(32)
+  status               String                 @default("draft") @db.VarChar(32)
+  order_date           DateTime               @default(dbgenerated("CURRENT_DATE")) @db.Date
+  expected_date        DateTime?              @db.Date
+  currency             String                 @default("USD") @db.VarChar(3)
+  subtotal             Decimal                @default(0) @db.Decimal(38, 2)
+  tax_amount           Decimal                @default(0) @db.Decimal(38, 2)
+  shipping_amount      Decimal                @default(0) @db.Decimal(38, 2)
+  total_amount         Decimal                @default(0) @db.Decimal(38, 2)
+  supplier_reference   String?                @db.VarChar(255)
+  notes                String?
+  sent_at              DateTime?              @db.Timestamptz(6)
+  created_by           BigInt?
+  created_at           DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime               @default(now()) @db.Timestamptz(6)
+  companies            companies              @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  suppliers            suppliers              @relation(fields: [supplier_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warehouses           warehouses             @relation(fields: [warehouse_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                users?                 @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  purchase_order_items purchase_order_items[]
+  goods_receipts       goods_receipts[]
+  supplier_returns     supplier_returns[]
+
+  @@unique([company_id, po_number], map: "purchase_orders_company_number_unique")
+  @@index([company_id, status], map: "idx_purchase_orders_company_status")
+  @@index([supplier_id], map: "idx_purchase_orders_supplier")
+}
+
+model purchase_order_items {
+  id                  BigInt                @id @default(autoincrement())
+  purchase_order_id   BigInt
+  product_id          BigInt
+  description         String?               @db.VarChar(500)
+  flavor       String     @default("") @db.VarChar(255)
+  quantity_ordered    Int
+  quantity_received   Int                   @default(0)
+  unit_cost           Decimal               @default(0) @db.Decimal(38, 4)
+  line_total          Decimal               @default(0) @db.Decimal(38, 2)
+  purchase_orders     purchase_orders       @relation(fields: [purchase_order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products            products              @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  goods_receipt_items goods_receipt_items[]
+
+  @@index([purchase_order_id], map: "idx_po_items_po")
+}
+
+model goods_receipts {
+  id                  BigInt                @id @default(autoincrement())
+  company_id          BigInt
+  purchase_order_id   BigInt?
+  warehouse_id        BigInt
+  receipt_number      String                @db.VarChar(32)
+  received_at         DateTime              @default(now()) @db.Timestamptz(6)
+  received_by         BigInt?
+  notes               String?
+  landed_cost         Decimal               @default(0) @db.Decimal(38, 2)
+  landed_allocation   String?               @db.VarChar(16)
+  landed_notes        String?               @db.VarChar(255)
+  companies           companies             @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  purchase_orders     purchase_orders?      @relation(fields: [purchase_order_id], references: [id], onUpdate: NoAction)
+  warehouses          warehouses            @relation(fields: [warehouse_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users               users?                @relation(fields: [received_by], references: [id], onUpdate: NoAction)
+  goods_receipt_items goods_receipt_items[]
+
+  @@unique([company_id, receipt_number], map: "goods_receipts_company_number_unique")
+  @@index([purchase_order_id], map: "idx_goods_receipts_po")
+}
+
+model goods_receipt_items {
+  id                     BigInt                @id @default(autoincrement())
+  goods_receipt_id       BigInt
+  purchase_order_item_id BigInt?
+  product_id             BigInt
+  quantity               Int
+  flavor       String     @default("") @db.VarChar(255)
+  unit_cost              Decimal               @default(0) @db.Decimal(38, 4)
+  landed_unit_cost       Decimal?              @db.Decimal(38, 4)
+  lot_id                 BigInt?
+  goods_receipts         goods_receipts        @relation(fields: [goods_receipt_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  purchase_order_items   purchase_order_items? @relation(fields: [purchase_order_item_id], references: [id], onUpdate: NoAction)
+  products               products              @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  inventory_lots         inventory_lots?       @relation(fields: [lot_id], references: [id], onUpdate: NoAction)
+}
+
+model stock_transfers {
+  id                   BigInt                 @id @default(autoincrement())
+  company_id           BigInt
+  transfer_number      String                 @db.VarChar(32)
+  from_warehouse_id    BigInt
+  to_warehouse_id      BigInt
+  status               String                 @default("completed") @db.VarChar(32)
+  notes                String?
+  created_by           BigInt?
+  created_at           DateTime               @default(now()) @db.Timestamptz(6)
+  shipped_at           DateTime?              @db.Timestamptz(6)
+  expected_date        DateTime?              @db.Date
+  received_at          DateTime?              @db.Timestamptz(6)
+  received_by          BigInt?
+  carrier              String?                @db.VarChar(255)
+  tracking_number      String?                @db.VarChar(255)
+  companies            companies              @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  from_warehouse       warehouses             @relation("transfer_from", fields: [from_warehouse_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  to_warehouse         warehouses             @relation("transfer_to", fields: [to_warehouse_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                users?                 @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  stock_transfer_items stock_transfer_items[]
+
+  @@unique([company_id, transfer_number], map: "stock_transfers_company_number_unique")
+}
+
+model stock_transfer_items {
+  id                BigInt          @id @default(autoincrement())
+  stock_transfer_id BigInt
+  product_id        BigInt
+  quantity          Int
+  quantity_received Int?
+  lots              Json?
+  flavor       String     @default("") @db.VarChar(255)
+  stock_transfers   stock_transfers @relation(fields: [stock_transfer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products          products        @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+// ============================================================================
+// Added by prisma/sql/003_sales.sql
+// (created_by / recorded_by columns are plain ids; the database enforces the foreign keys)
+// ============================================================================
+
+model price_lists {
+  id               BigInt             @id @default(autoincrement())
+  company_id       BigInt
+  name             String             @db.VarChar(255)
+  description      String?
+  is_default       Boolean            @default(false)
+  is_active        Boolean            @default(true)
+  created_at       DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime           @default(now()) @db.Timestamptz(6)
+  companies        companies          @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  price_list_items price_list_items[]
+  customer_groups  customer_groups[]
+
+  @@unique([company_id, name], map: "price_lists_company_name_unique")
+}
+
+model price_list_items {
+  id            BigInt      @id @default(autoincrement())
+  price_list_id BigInt
+  product_id    BigInt
+  min_quantity  Int         @default(1)
+  price         Decimal     @db.Decimal(38, 4)
+  price_lists   price_lists @relation(fields: [price_list_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products      products    @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([price_list_id, product_id, min_quantity], map: "price_list_items_unique")
+  @@index([product_id], map: "idx_price_list_items_product")
+}
+
+model customer_groups {
+  id                BigInt              @id @default(autoincrement())
+  company_id        BigInt
+  name              String              @db.VarChar(255)
+  description       String?
+  discount_percent  Decimal             @default(0) @db.Decimal(5, 2)
+  price_list_id     BigInt?
+  created_at        DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime            @default(now()) @db.Timestamptz(6)
+  companies         companies           @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  price_lists       price_lists?        @relation(fields: [price_list_id], references: [id], onUpdate: NoAction)
+  company_customers company_customers[]
+
+  @@unique([company_id, name], map: "customer_groups_company_name_unique")
+}
+
+/// A buyer's account with one seller: group, terms, credit limit, tax status.
+model company_customers {
+  id                 BigInt           @id @default(autoincrement())
+  company_id         BigInt
+  user_id            BigInt
+  customer_group_id  BigInt?
+  payment_terms_days Int              @default(0)
+  credit_limit       Decimal?         @db.Decimal(38, 2)
+  status             String           @default("active") @db.VarChar(32)
+  tax_exempt         Boolean          @default(false)
+  tax_id             String?          @db.VarChar(255)
+  notes              String?
+  created_at         DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime         @default(now()) @db.Timestamptz(6)
+  companies          companies        @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users              users            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  customer_groups    customer_groups? @relation(fields: [customer_group_id], references: [id], onUpdate: NoAction)
+
+  @@unique([company_id, user_id], map: "company_customers_company_user_unique")
+  @@index([user_id], map: "idx_company_customers_user")
+}
+
+model promotions {
+  id                    BigInt                  @id @default(autoincrement())
+  company_id            BigInt
+  code                  String                  @db.VarChar(64)
+  description           String?                 @db.VarChar(255)
+  type                  String                  @db.VarChar(32)
+  value                 Decimal                 @default(0) @db.Decimal(38, 2)
+  min_order_amount      Decimal                 @default(0) @db.Decimal(38, 2)
+  starts_at             DateTime?               @db.Timestamptz(6)
+  ends_at               DateTime?               @db.Timestamptz(6)
+  max_uses              Int?
+  max_uses_per_customer Int?
+  uses_count            Int                     @default(0)
+  is_active             Boolean                 @default(true)
+  created_at            DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime                @default(now()) @db.Timestamptz(6)
+  companies             companies               @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  promotion_redemptions promotion_redemptions[]
+
+  @@unique([company_id, code], map: "promotions_company_code_unique")
+}
+
+model promotion_redemptions {
+  id           BigInt     @id @default(autoincrement())
+  promotion_id BigInt
+  order_id     BigInt?
+  user_id      BigInt?
+  amount       Decimal    @default(0) @db.Decimal(38, 2)
+  created_at   DateTime   @default(now()) @db.Timestamptz(6)
+  promotions   promotions @relation(fields: [promotion_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  orders       orders?    @relation(fields: [order_id], references: [id], onUpdate: NoAction)
+  users        users?     @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([promotion_id, user_id], map: "idx_promotion_redemptions_promo_user")
+}
+
+model invoices {
+  id               BigInt             @id @default(autoincrement())
+  excise_amount  Decimal  @default(0) @db.Decimal(38, 2)
+  company_id       BigInt
+  user_id          BigInt?
+  order_id         BigInt?
+  invoice_number   String             @db.VarChar(32)
+  status           String             @default("issued") @db.VarChar(32)
+  issue_date       DateTime           @default(dbgenerated("CURRENT_DATE")) @db.Date
+  due_date         DateTime           @default(dbgenerated("CURRENT_DATE")) @db.Date
+  currency         String             @default("USD") @db.VarChar(3)
+  subtotal         Decimal            @default(0) @db.Decimal(38, 2)
+  discount_amount  Decimal            @default(0) @db.Decimal(38, 2)
+  tax_amount       Decimal            @default(0) @db.Decimal(38, 2)
+  shipping_amount  Decimal            @default(0) @db.Decimal(38, 2)
+  total_amount     Decimal            @default(0) @db.Decimal(38, 2)
+  amount_paid      Decimal            @default(0) @db.Decimal(38, 2)
+  amount_credited  Decimal            @default(0) @db.Decimal(38, 2)
+  payment_method   String?            @db.VarChar(32)
+  billing_snapshot Json?
+  notes            String?
+  sent_at          DateTime?          @db.Timestamptz(6)
+  voided_at        DateTime?          @db.Timestamptz(6)
+  created_by       BigInt?
+  created_at       DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime           @default(now()) @db.Timestamptz(6)
+  companies        companies          @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users            users?             @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+  orders           orders?            @relation(fields: [order_id], references: [id], onUpdate: NoAction)
+  invoice_items    invoice_items[]
+  invoice_payments invoice_payments[]
+  credit_notes     credit_notes[]
+
+  @@unique([company_id, invoice_number], map: "invoices_company_number_unique")
+  @@index([company_id, status], map: "idx_invoices_company_status")
+  @@index([user_id], map: "idx_invoices_user")
+}
+
+model invoice_items {
+  id          BigInt    @id @default(autoincrement())
+  invoice_id  BigInt
+  product_id  BigInt?
+  description String    @db.VarChar(500)
+  quantity    Int
+  unit_price  Decimal   @db.Decimal(38, 4)
+  line_total  Decimal   @db.Decimal(38, 2)
+  invoices    invoices  @relation(fields: [invoice_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products    products? @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+}
+
+model invoice_payments {
+  id          BigInt    @id @default(autoincrement())
+  company_id  BigInt
+  invoice_id  BigInt
+  amount      Decimal   @db.Decimal(38, 2)
+  method      String    @db.VarChar(32)
+  reference   String?   @db.VarChar(255)
+  paid_at     DateTime  @default(dbgenerated("CURRENT_DATE")) @db.Date
+  notes       String?
+  recorded_by BigInt?
+  account_id  BigInt?
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  companies   companies @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  invoices    invoices  @relation(fields: [invoice_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([invoice_id], map: "idx_invoice_payments_invoice")
+}
+
+model return_requests {
+  id             BigInt         @id @default(autoincrement())
+  company_id     BigInt
+  order_id       BigInt
+  user_id        BigInt?
+  rma_number     String         @db.VarChar(32)
+  status         String         @default("requested") @db.VarChar(32)
+  reason         String         @db.VarChar(64)
+  customer_notes String?
+  staff_notes    String?
+  resolution     String?        @db.VarChar(32)
+  warehouse_id   BigInt?
+  credit_note_id BigInt?
+  approved_at    DateTime?      @db.Timestamptz(6)
+  received_at    DateTime?      @db.Timestamptz(6)
+  closed_at      DateTime?      @db.Timestamptz(6)
+  created_at     DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime       @default(now()) @db.Timestamptz(6)
+  companies      companies      @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  orders         orders         @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users          users?         @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+  warehouses     warehouses?    @relation(fields: [warehouse_id], references: [id], onUpdate: NoAction)
+  return_items   return_items[]
+  credit_notes   credit_notes[]
+
+  @@unique([company_id, rma_number], map: "return_requests_company_number_unique")
+  @@index([company_id, status], map: "idx_return_requests_company_status")
+}
+
+model return_items {
+  id                BigInt          @id @default(autoincrement())
+  return_id         BigInt
+  order_item_id     BigInt
+  product_id        BigInt?
+  quantity          Int
+  quantity_received Int             @default(0)
+  condition         String?         @db.VarChar(32)
+  restock           Boolean         @default(true)
+  return_requests   return_requests @relation(fields: [return_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  order_items       order_items     @relation(fields: [order_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products          products?       @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+}
+
+model credit_notes {
+  id                 BigInt              @id @default(autoincrement())
+  company_id         BigInt
+  user_id            BigInt?
+  invoice_id         BigInt?
+  return_id          BigInt?
+  credit_note_number String              @db.VarChar(32)
+  status             String              @default("issued") @db.VarChar(32)
+  reason             String?             @db.VarChar(255)
+  subtotal           Decimal             @default(0) @db.Decimal(38, 2)
+  tax_amount         Decimal             @default(0) @db.Decimal(38, 2)
+  total_amount       Decimal             @default(0) @db.Decimal(38, 2)
+  amount_applied     Decimal             @default(0) @db.Decimal(38, 2)
+  amount_refunded    Decimal             @default(0) @db.Decimal(38, 2)
+  notes              String?
+  created_by         BigInt?
+  refund_account_id  BigInt?
+  created_at         DateTime            @default(now()) @db.Timestamptz(6)
+  companies          companies           @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users              users?              @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+  invoices           invoices?           @relation(fields: [invoice_id], references: [id], onUpdate: NoAction)
+  return_requests    return_requests?    @relation(fields: [return_id], references: [id], onUpdate: NoAction)
+  credit_note_items  credit_note_items[]
+
+  @@unique([company_id, credit_note_number], map: "credit_notes_company_number_unique")
+  @@index([invoice_id], map: "idx_credit_notes_invoice")
+}
+
+model credit_note_items {
+  id             BigInt       @id @default(autoincrement())
+  credit_note_id BigInt
+  product_id     BigInt?
+  description    String       @db.VarChar(500)
+  quantity       Int
+  unit_price     Decimal      @db.Decimal(38, 4)
+  line_total     Decimal      @db.Decimal(38, 2)
+  credit_notes   credit_notes @relation(fields: [credit_note_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products       products?    @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+}
+
+model quotes {
+  id              BigInt        @id @default(autoincrement())
+  excise_amount  Decimal  @default(0) @db.Decimal(38, 2)
+  company_id      BigInt
+  user_id         BigInt
+  quote_number    String        @db.VarChar(32)
+  status          String        @default("draft") @db.VarChar(32)
+  valid_until     DateTime?     @db.Date
+  subtotal        Decimal       @default(0) @db.Decimal(38, 2)
+  discount_amount Decimal       @default(0) @db.Decimal(38, 2)
+  tax_amount      Decimal       @default(0) @db.Decimal(38, 2)
+  shipping_amount Decimal       @default(0) @db.Decimal(38, 2)
+  total_amount    Decimal       @default(0) @db.Decimal(38, 2)
+  customer_notes  String?
+  notes           String?
+  order_id        BigInt?
+  sent_at         DateTime?     @db.Timestamptz(6)
+  accepted_at     DateTime?     @db.Timestamptz(6)
+  created_by      BigInt?
+  created_at      DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime      @default(now()) @db.Timestamptz(6)
+  companies       companies     @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users           users         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  orders          orders?       @relation(fields: [order_id], references: [id], onUpdate: NoAction)
+  quote_items     quote_items[]
+
+  @@unique([company_id, quote_number], map: "quotes_company_number_unique")
+  @@index([company_id, status], map: "idx_quotes_company_status")
+  @@index([user_id], map: "idx_quotes_user")
+}
+
+model quote_items {
+  id          BigInt   @id @default(autoincrement())
+  quote_id    BigInt
+  product_id  BigInt
+  description String?  @db.VarChar(500)
+  quantity    Int
+  flavor       String     @default("") @db.VarChar(255)
+  unit_price  Decimal  @default(0) @db.Decimal(38, 4)
+  line_total  Decimal  @default(0) @db.Decimal(38, 2)
+  quotes      quotes   @relation(fields: [quote_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products    products @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+
+model product_variants {
+  id         BigInt   @id @default(autoincrement())
+  product_id BigInt
+  flavor     String   @db.VarChar(255)
+  sku        String?  @db.VarChar(255)
+  barcode    String?  @db.VarChar(64)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  products   products @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([product_id, flavor], map: "product_variants_product_flavor_unique")
+  @@index([barcode], map: "idx_product_variants_barcode")
+}
+
+model supplier_returns {
+  id                    BigInt                  @id @default(autoincrement())
+  company_id            BigInt
+  supplier_id           BigInt
+  warehouse_id          BigInt
+  purchase_order_id     BigInt?
+  return_number         String                  @db.VarChar(32)
+  status                String                  @default("draft") @db.VarChar(32)
+  reason                String                  @db.VarChar(64)
+  notes                 String?
+  total_amount          Decimal                 @default(0) @db.Decimal(38, 2)
+  credit_amount         Decimal?                @db.Decimal(38, 2)
+  credit_reference      String?                 @db.VarChar(255)
+  shipped_at            DateTime?               @db.Timestamptz(6)
+  credited_at           DateTime?               @db.Timestamptz(6)
+  created_by            BigInt?
+  created_at            DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime                @default(now()) @db.Timestamptz(6)
+  companies             companies               @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  suppliers             suppliers               @relation(fields: [supplier_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warehouses            warehouses              @relation(fields: [warehouse_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  purchase_orders       purchase_orders?        @relation(fields: [purchase_order_id], references: [id], onUpdate: NoAction)
+  supplier_return_items supplier_return_items[]
+
+  @@unique([company_id, return_number], map: "supplier_returns_company_number_unique")
+  @@index([company_id, status], map: "idx_supplier_returns_company_status")
+  @@index([supplier_id], map: "idx_supplier_returns_supplier")
+}
+
+model supplier_return_items {
+  id                 BigInt           @id @default(autoincrement())
+  supplier_return_id BigInt
+  product_id         BigInt
+  flavor             String           @default("") @db.VarChar(255)
+  lot_id             BigInt?
+  quantity           Int
+  unit_cost          Decimal          @default(0) @db.Decimal(38, 4)
+  line_total         Decimal          @default(0) @db.Decimal(38, 2)
+  supplier_returns   supplier_returns @relation(fields: [supplier_return_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products           products         @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  inventory_lots     inventory_lots?  @relation(fields: [lot_id], references: [id], onUpdate: NoAction)
+}
+
+model accounts {
+  id                   BigInt                 @id @default(autoincrement())
+  company_id           BigInt
+  code                 String                 @db.VarChar(16)
+  name                 String                 @db.VarChar(255)
+  type                 String                 @db.VarChar(16)
+  subtype              String                 @db.VarChar(32)
+  system_key           String?                @db.VarChar(32)
+  description          String?
+  is_active            Boolean                @default(true)
+  created_at           DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime               @default(now()) @db.Timestamptz(6)
+  journal_lines        journal_lines[]
+  bill_items           bill_items[]
+  bill_payments        bill_payments[]
+  expenses             expenses[]             @relation("expense_account")
+  expenses_paid_from   expenses[]             @relation("expense_paid_from")
+  bank_reconciliations bank_reconciliations[]
+
+  @@unique([company_id, code], map: "accounts_company_code_unique")
+}
+
+model journal_entries {
+  id             BigInt          @id @default(autoincrement())
+  company_id     BigInt
+  entry_number   String          @db.VarChar(32)
+  entry_date     DateTime        @db.Date
+  memo           String?         @db.VarChar(500)
+  source_type    String          @db.VarChar(32)
+  source_id      String?         @db.VarChar(64)
+  reversal_of_id BigInt?
+  reversed       Boolean         @default(false)
+  total          Decimal         @default(0) @db.Decimal(38, 2)
+  created_by     BigInt?
+  created_at     DateTime        @default(now()) @db.Timestamptz(6)
+  journal_lines  journal_lines[]
+
+  @@unique([company_id, entry_number], map: "journal_entries_company_number_unique")
+  @@index([company_id, entry_date], map: "idx_journal_entries_company_date")
+  @@index([company_id, source_type, source_id], map: "idx_journal_entries_source")
+}
+
+model journal_lines {
+  id                BigInt          @id @default(autoincrement())
+  entry_id          BigInt
+  company_id        BigInt
+  account_id        BigInt
+  debit             Decimal         @default(0) @db.Decimal(38, 2)
+  credit            Decimal         @default(0) @db.Decimal(38, 2)
+  description       String?         @db.VarChar(500)
+  customer_id       BigInt?
+  supplier_id       BigInt?
+  cleared           Boolean         @default(false)
+  reconciliation_id BigInt?
+  journal_entries   journal_entries @relation(fields: [entry_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  accounts          accounts        @relation(fields: [account_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([entry_id], map: "idx_journal_lines_entry")
+  @@index([company_id, account_id], map: "idx_journal_lines_company_account")
+}
+
+model bills {
+  id                         BigInt                       @id @default(autoincrement())
+  company_id                 BigInt
+  supplier_id                BigInt
+  purchase_order_id          BigInt?
+  bill_number                String                       @db.VarChar(32)
+  supplier_invoice_number    String?                      @db.VarChar(255)
+  status                     String                       @default("open") @db.VarChar(32)
+  bill_date                  DateTime                     @default(dbgenerated("CURRENT_DATE")) @db.Date
+  due_date                   DateTime                     @default(dbgenerated("CURRENT_DATE")) @db.Date
+  total_amount               Decimal                      @default(0) @db.Decimal(38, 2)
+  amount_paid                Decimal                      @default(0) @db.Decimal(38, 2)
+  amount_credited            Decimal                      @default(0) @db.Decimal(38, 2)
+  notes                      String?
+  created_by                 BigInt?
+  created_at                 DateTime                     @default(now()) @db.Timestamptz(6)
+  updated_at                 DateTime                     @default(now()) @db.Timestamptz(6)
+  voided_at                  DateTime?                    @db.Timestamptz(6)
+  suppliers                  suppliers                    @relation(fields: [supplier_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  bill_items                 bill_items[]
+  bill_payments              bill_payments[]
+  vendor_credit_applications vendor_credit_applications[]
+
+  @@unique([company_id, bill_number], map: "bills_company_number_unique")
+  @@index([company_id, status], map: "idx_bills_company_status")
+  @@index([supplier_id], map: "idx_bills_supplier")
+}
+
+model bill_items {
+  id          BigInt    @id @default(autoincrement())
+  bill_id     BigInt
+  account_id  BigInt
+  product_id  BigInt?
+  description String    @db.VarChar(500)
+  quantity    Decimal   @default(1) @db.Decimal(38, 4)
+  unit_cost   Decimal   @default(0) @db.Decimal(38, 4)
+  line_total  Decimal   @default(0) @db.Decimal(38, 2)
+  bills       bills     @relation(fields: [bill_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  accounts    accounts  @relation(fields: [account_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  products    products? @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+}
+
+model bill_payments {
+  id          BigInt   @id @default(autoincrement())
+  company_id  BigInt
+  bill_id     BigInt
+  account_id  BigInt
+  amount      Decimal  @db.Decimal(38, 2)
+  method      String   @db.VarChar(32)
+  reference   String?  @db.VarChar(255)
+  paid_at     DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+  notes       String?
+  recorded_by BigInt?
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  bills       bills    @relation(fields: [bill_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  accounts    accounts @relation(fields: [account_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([bill_id], map: "idx_bill_payments_bill")
+}
+
+model vendor_credits {
+  id                         BigInt                       @id @default(autoincrement())
+  company_id                 BigInt
+  supplier_id                BigInt
+  supplier_return_id         BigInt?
+  credit_number              String                       @db.VarChar(32)
+  reference                  String?                      @db.VarChar(255)
+  credit_date                DateTime                     @default(dbgenerated("CURRENT_DATE")) @db.Date
+  amount                     Decimal                      @db.Decimal(38, 2)
+  amount_applied             Decimal                      @default(0) @db.Decimal(38, 2)
+  status                     String                       @default("open") @db.VarChar(32)
+  notes                      String?
+  created_by                 BigInt?
+  created_at                 DateTime                     @default(now()) @db.Timestamptz(6)
+  suppliers                  suppliers                    @relation(fields: [supplier_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vendor_credit_applications vendor_credit_applications[]
+
+  @@unique([company_id, credit_number], map: "vendor_credits_company_number_unique")
+}
+
+model vendor_credit_applications {
+  id               BigInt         @id @default(autoincrement())
+  vendor_credit_id BigInt
+  bill_id          BigInt
+  amount           Decimal        @db.Decimal(38, 2)
+  created_at       DateTime       @default(now()) @db.Timestamptz(6)
+  vendor_credits   vendor_credits @relation(fields: [vendor_credit_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  bills            bills          @relation(fields: [bill_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model expenses {
+  id                   BigInt   @id @default(autoincrement())
+  company_id           BigInt
+  expense_number       String   @db.VarChar(32)
+  expense_date         DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+  payee                String   @db.VarChar(255)
+  account_id           BigInt
+  paid_from_account_id BigInt
+  supplier_id          BigInt?
+  amount               Decimal  @db.Decimal(38, 2)
+  method               String?  @db.VarChar(32)
+  reference            String?  @db.VarChar(255)
+  notes                String?
+  status               String   @default("posted") @db.VarChar(16)
+  created_by           BigInt?
+  created_at           DateTime @default(now()) @db.Timestamptz(6)
+  accounts             accounts @relation("expense_account", fields: [account_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  paid_from            accounts @relation("expense_paid_from", fields: [paid_from_account_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([company_id, expense_number], map: "expenses_company_number_unique")
+  @@index([company_id, expense_date], map: "idx_expenses_company_date")
+}
+
+model bank_reconciliations {
+  id                BigInt   @id @default(autoincrement())
+  company_id        BigInt
+  account_id        BigInt
+  statement_date    DateTime @db.Date
+  statement_balance Decimal  @db.Decimal(38, 2)
+  cleared_balance   Decimal  @db.Decimal(38, 2)
+  lines_cleared     Int      @default(0)
+  notes             String?
+  created_by        BigInt?
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+  accounts          accounts @relation(fields: [account_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([account_id], map: "idx_bank_reconciliations_account")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5: HR & payroll (prisma/sql/006_hr_payroll.sql)
+// ---------------------------------------------------------------------------
+
+model departments {
+  id                  BigInt      @id @default(autoincrement())
+  company_id          BigInt
+  name                String      @db.VarChar(255)
+  code                String?     @db.VarChar(32)
+  description         String?
+  manager_employee_id BigInt?
+  is_active           Boolean     @default(true)
+  created_at          DateTime    @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime    @default(now()) @db.Timestamptz(6)
+  manager             employees?  @relation("department_manager", fields: [manager_employee_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "departments_manager_fk")
+  employees           employees[] @relation("employee_department")
+
+  @@unique([company_id, name], map: "departments_company_name_unique")
+}
+
+model employees {
+  id                      BigInt                    @id @default(autoincrement())
+  company_id              BigInt
+  user_id                 BigInt?
+  employee_number         String                    @db.VarChar(32)
+  first_name              String                    @db.VarChar(255)
+  last_name               String?                   @db.VarChar(255)
+  email                   String?                   @db.VarChar(255)
+  phone                   String?                   @db.VarChar(64)
+  department_id           BigInt?
+  job_title               String?                   @db.VarChar(255)
+  employment_type         String                    @default("full_time") @db.VarChar(16)
+  status                  String                    @default("active") @db.VarChar(16)
+  hire_date               DateTime                  @default(dbgenerated("CURRENT_DATE")) @db.Date
+  termination_date        DateTime?                 @db.Date
+  date_of_birth           DateTime?                 @db.Date
+  national_id             String?                   @db.VarChar(64)
+  tax_number              String?                   @db.VarChar(64)
+  address                 String?
+  emergency_contact_name  String?                   @db.VarChar(255)
+  emergency_contact_phone String?                   @db.VarChar(64)
+  pay_type                String                    @default("salary") @db.VarChar(16)
+  base_salary             Decimal                   @default(0) @db.Decimal(38, 2)
+  hourly_rate             Decimal                   @default(0) @db.Decimal(38, 4)
+  payment_method          String                    @default("bank_transfer") @db.VarChar(16)
+  bank_name               String?                   @db.VarChar(255)
+  bank_account_number     String?                   @db.VarChar(64)
+  bank_routing            String?                   @db.VarChar(64)
+  notes                   String?
+  created_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  departments             departments?              @relation("employee_department", fields: [department_id], references: [id], onUpdate: NoAction)
+  managed_departments     departments[]             @relation("department_manager")
+  employee_pay_components employee_pay_components[]
+  leave_requests          leave_requests[]
+  attendance              attendance[]
+  payslips                payslips[]
+
+  @@unique([company_id, employee_number], map: "employees_company_number_unique")
+  @@index([company_id, status], map: "idx_employees_company_status")
+}
+
+model pay_components {
+  id                      BigInt                    @id @default(autoincrement())
+  company_id              BigInt
+  code                    String                    @db.VarChar(32)
+  name                    String                    @db.VarChar(255)
+  kind                    String                    @db.VarChar(16)
+  calc                    String                    @default("fixed") @db.VarChar(16)
+  amount                  Decimal                   @default(0) @db.Decimal(38, 2)
+  percent                 Decimal                   @default(0) @db.Decimal(9, 4)
+  taxable                 Boolean                   @default(true)
+  applies_to_all          Boolean                   @default(false)
+  account_id              BigInt?
+  is_active               Boolean                   @default(true)
+  sort_order              Int                       @default(0)
+  created_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  employee_pay_components employee_pay_components[]
+
+  @@unique([company_id, code], map: "pay_components_company_code_unique")
+}
+
+model employee_pay_components {
+  id             BigInt         @id @default(autoincrement())
+  employee_id    BigInt
+  component_id   BigInt
+  amount         Decimal?       @db.Decimal(38, 2)
+  percent        Decimal?       @db.Decimal(9, 4)
+  excluded       Boolean        @default(false)
+  employees      employees      @relation(fields: [employee_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  pay_components pay_components @relation(fields: [component_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([employee_id, component_id], map: "employee_pay_components_unique")
+}
+
+model holidays {
+  id           BigInt   @id @default(autoincrement())
+  company_id   BigInt
+  holiday_date DateTime @db.Date
+  name         String   @db.VarChar(255)
+
+  @@unique([company_id, holiday_date], map: "holidays_company_date_unique")
+}
+
+model leave_types {
+  id             BigInt           @id @default(autoincrement())
+  company_id     BigInt
+  name           String           @db.VarChar(255)
+  paid           Boolean          @default(true)
+  annual_days    Decimal          @default(0) @db.Decimal(6, 2)
+  is_active      Boolean          @default(true)
+  created_at     DateTime         @default(now()) @db.Timestamptz(6)
+  leave_requests leave_requests[]
+
+  @@unique([company_id, name], map: "leave_types_company_name_unique")
+}
+
+model leave_requests {
+  id             BigInt       @id @default(autoincrement())
+  company_id     BigInt
+  employee_id    BigInt
+  leave_type_id  BigInt
+  start_date     DateTime     @db.Date
+  end_date       DateTime     @db.Date
+  half_day       Boolean      @default(false)
+  days           Decimal      @default(0) @db.Decimal(6, 2)
+  reason         String?
+  status         String       @default("pending") @db.VarChar(16)
+  requested_by   BigInt?
+  decided_by     BigInt?
+  decided_at     DateTime?    @db.Timestamptz(6)
+  decision_notes String?
+  created_at     DateTime     @default(now()) @db.Timestamptz(6)
+  employees      employees    @relation(fields: [employee_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  leave_types    leave_types  @relation(fields: [leave_type_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  attendance     attendance[]
+
+  @@index([company_id, status], map: "idx_leave_requests_company_status")
+  @@index([employee_id, start_date], map: "idx_leave_requests_employee")
+}
+
+model attendance {
+  id               BigInt          @id @default(autoincrement())
+  company_id       BigInt
+  employee_id      BigInt
+  work_date        DateTime        @db.Date
+  status           String          @db.VarChar(16)
+  day_units        Decimal         @default(1) @db.Decimal(3, 2)
+  check_in         String?         @db.VarChar(5)
+  check_out        String?         @db.VarChar(5)
+  hours            Decimal?        @db.Decimal(6, 2)
+  overtime_hours   Decimal         @default(0) @db.Decimal(6, 2)
+  leave_request_id BigInt?
+  notes            String?         @db.VarChar(500)
+  recorded_by      BigInt?
+  created_at       DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime        @default(now()) @db.Timestamptz(6)
+  employees        employees       @relation(fields: [employee_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  leave_requests   leave_requests? @relation(fields: [leave_request_id], references: [id], onUpdate: NoAction)
+
+  @@unique([employee_id, work_date], map: "attendance_employee_date_unique")
+  @@index([company_id, work_date], map: "idx_attendance_company_date")
+}
+
+model payroll_runs {
+  id               BigInt     @id @default(autoincrement())
+  company_id       BigInt
+  run_number       String     @db.VarChar(32)
+  period_start     DateTime   @db.Date
+  period_end       DateTime   @db.Date
+  pay_date         DateTime   @db.Date
+  status           String     @default("draft") @db.VarChar(16)
+  employee_count   Int        @default(0)
+  total_gross      Decimal    @default(0) @db.Decimal(38, 2)
+  total_deductions Decimal    @default(0) @db.Decimal(38, 2)
+  total_employer   Decimal    @default(0) @db.Decimal(38, 2)
+  total_net        Decimal    @default(0) @db.Decimal(38, 2)
+  notes            String?
+  paid_account_id  BigInt?
+  paid_reference   String?    @db.VarChar(255)
+  created_by       BigInt?
+  approved_by      BigInt?
+  approved_at      DateTime?  @db.Timestamptz(6)
+  paid_at          DateTime?  @db.Date
+  created_at       DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime   @default(now()) @db.Timestamptz(6)
+  payslips         payslips[]
+
+  @@unique([company_id, run_number], map: "payroll_runs_company_number_unique")
+}
+
+model payslips {
+  id               BigInt          @id @default(autoincrement())
+  company_id       BigInt
+  payroll_run_id   BigInt
+  employee_id      BigInt
+  payslip_number   String          @db.VarChar(48)
+  working_days     Decimal         @default(0) @db.Decimal(6, 2)
+  paid_days        Decimal         @default(0) @db.Decimal(6, 2)
+  unpaid_days      Decimal         @default(0) @db.Decimal(6, 2)
+  hours_worked     Decimal         @default(0) @db.Decimal(8, 2)
+  overtime_hours   Decimal         @default(0) @db.Decimal(8, 2)
+  gross            Decimal         @default(0) @db.Decimal(38, 2)
+  taxable          Decimal         @default(0) @db.Decimal(38, 2)
+  total_deductions Decimal         @default(0) @db.Decimal(38, 2)
+  employer_total   Decimal         @default(0) @db.Decimal(38, 2)
+  net              Decimal         @default(0) @db.Decimal(38, 2)
+  snapshot         Json            @default("{}")
+  warnings         Json            @default("[]")
+  emailed_at       DateTime?       @db.Timestamptz(6)
+  created_at       DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime        @default(now()) @db.Timestamptz(6)
+  payroll_runs     payroll_runs    @relation(fields: [payroll_run_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  employees        employees       @relation(fields: [employee_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  payslip_lines    payslip_lines[]
+
+  @@unique([payroll_run_id, employee_id], map: "payslips_run_employee_unique")
+  @@index([employee_id], map: "idx_payslips_employee")
+}
+
+model payslip_lines {
+  id           BigInt   @id @default(autoincrement())
+  payslip_id   BigInt
+  component_id BigInt?
+  kind         String   @db.VarChar(16)
+  code         String?  @db.VarChar(32)
+  name         String   @db.VarChar(255)
+  amount       Decimal  @db.Decimal(38, 2)
+  taxable      Boolean  @default(false)
+  account_id   BigInt?
+  is_manual    Boolean  @default(false)
+  sort_order   Int      @default(0)
+  payslips     payslips @relation(fields: [payslip_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([payslip_id], map: "idx_payslip_lines_payslip")
+}
+
+// ---------------------------------------------------------------------------
+// Operations (prisma/sql/007_operations.sql)
+// ---------------------------------------------------------------------------
+
+model notifications {
+  id         BigInt    @id @default(autoincrement())
+  user_id    BigInt
+  company_id BigInt?
+  type       String    @db.VarChar(48)
+  title      String    @db.VarChar(255)
+  body       String?   @db.VarChar(1000)
+  link       String?   @db.VarChar(500)
+  dedupe_key String?   @db.VarChar(160)
+  read_at    DateTime? @db.Timestamptz(6)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([user_id, created_at(sort: Desc)], map: "idx_notifications_user")
+}
+
+model compliance_rules {
+  id               BigInt   @id @default(autoincrement())
+  company_id       BigInt
+  state            String   @db.VarChar(2)
+  category         String   @default("*") @db.VarChar(32)
+  tax_type         String   @default("none") @db.VarChar(16)
+  tax_rate         Decimal  @default(0) @db.Decimal(12, 4)
+  flavor_ban       Boolean  @default(false)
+  license_required Boolean  @default(false)
+  ship_banned      Boolean  @default(false)
+  age_verification Boolean  @default(false)
+  report_shipments Boolean  @default(false)
+  notes            String?  @db.VarChar(1000)
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([company_id, state, category], map: "compliance_rules_unique")
+}
+
+model customer_licenses {
+  id             BigInt    @id @default(autoincrement())
+  company_id     BigInt
+  user_id        BigInt
+  state          String    @db.VarChar(2)
+  license_number String    @db.VarChar(128)
+  expires_on     DateTime? @db.Date
+  notes          String?   @db.VarChar(500)
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@unique([company_id, user_id, state], map: "customer_licenses_unique")
+}
+
+model report_schedules {
+  id           BigInt    @id @default(autoincrement())
+  company_id   BigInt
+  name         String    @db.VarChar(255)
+  report       String    @db.VarChar(48)
+  frequency    String    @db.VarChar(16)
+  day_of_week  Int?
+  day_of_month Int?
+  hour         Int       @default(8)
+  timezone     String    @default("UTC") @db.VarChar(64)
+  recipients   String[]  @default([])
+  is_active    Boolean   @default(true)
+  next_run_at  DateTime? @db.Timestamptz(6)
+  last_run_at  DateTime? @db.Timestamptz(6)
+  created_by   BigInt?
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime  @default(now()) @db.Timestamptz(6)
+}
+
+model report_runs {
+  id          BigInt    @id @default(autoincrement())
+  company_id  BigInt
+  schedule_id BigInt?
+  report      String    @db.VarChar(48)
+  title       String    @db.VarChar(255)
+  period_from DateTime? @db.Date
+  period_to   DateTime? @db.Date
+  row_count   Int       @default(0)
+  csv         String    @default("")
+  summary     Json      @default("[]")
+  status      String    @default("ok") @db.VarChar(16)
+  error       String?
+  recipients  String[]  @default([])
+  created_by  BigInt?
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([company_id, created_at(sort: Desc)], map: "idx_report_runs_company")
+}
