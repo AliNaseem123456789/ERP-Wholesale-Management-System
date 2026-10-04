@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Environment files (secrets). The .env.example files are committed.
+.env
+.env.*
+!.env.example
+
+# Build output
+dist/
+build/
+out/
+
+# Local database exports and code backups (may contain customer data)
+Backend/backups/
+_backups/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
