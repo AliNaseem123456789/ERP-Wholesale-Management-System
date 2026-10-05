@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://smoke-wholesale-backend-mczv.onrender.com/api/:path*"
+      "destination": "https://erp-wholesale-management-system.onrender.com/api/:path*"
     },
     { "source": "/(.*)", "destination": "/" }
   ]
