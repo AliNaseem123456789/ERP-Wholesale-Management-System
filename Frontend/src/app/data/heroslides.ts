@@ -7,27 +7,32 @@ export interface Slide {
 export const slides: Slide[] = [
   {
     image: "/logos/banner5.jpeg",
-    title: "FUTURE OF // WHOLESALE",
-    subtitle: "Modern solutions. Rapid fulfillment. Unbeatable wholesale pricing."
+    title: "THE FUTURE OF // WHOLESALE",
+    subtitle:
+      "Modern tooling, rapid fulfillment and pricing that keeps you ahead of the market."
   },
   {
     image: "/logos/banner6.jpeg",
-    title: "SMART SUPPLY // NETWORK",
-    subtitle: "Reliable sourcing. Scalable distribution."
+    title: "ONE CART // EVERY SUPPLIER",
+    subtitle:
+      "Browse approved wholesalers side by side and check out once — each seller still gets their own order."
   },
   {
     image: "/logos/banner7.jpeg",
-    title: "POWERING // BUSINESSES",
-    subtitle: "Built for speed, efficiency, and growth."
+    title: "BUILT TO // MOVE FAST",
+    subtitle:
+      "From quote to invoice in minutes, not days. Every workflow tuned for speed, accuracy and growth."
   },
   {
     image: "/logos/banner8.jpeg",
-    title: "NEXT-GEN // LOGISTICS",
-    subtitle: "Seamless operations from order to delivery."
+    title: "ORDER TO // DELIVERY",
+    subtitle:
+      "Live stock, real-time tracking and a supply chain that runs end-to-end without the guesswork."
   },
   {
     image: "/logos/banner9.jpeg",
     title: "WHOLESALE // REDEFINED",
-    subtitle: "Technology-driven pricing advantages."
+    subtitle:
+      "Your price list, volume tiers and credit terms load automatically — no quote emails, no waiting."
   }
 ];

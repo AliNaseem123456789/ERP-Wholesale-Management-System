@@ -130,7 +130,7 @@ export const ContactPage: React.FC<ContactPageProps> = () => {
                     <div className="font-semibold text-gray-900 mb-1">
                       Email
                     </div>
-                    <div className="text-gray-600">support@sootasmoke.com</div>
+                    <div className="text-gray-600">support@ERPwholesale.com</div>
                   </div>
                 </div>
 

@@ -94,10 +94,10 @@ export const Header: React.FC = () => {
               className="flex items-center gap-2 cursor-pointer"
             >
               <span className="text-2xl font-extrabold text-cyan-400">
-                Soota
+                ERP
               </span>
               <span className="text-sm text-white tracking-wide">
-                Smoke Shop
+                WHOLESALE
               </span>
             </div>
 

@@ -177,36 +177,98 @@ const uploadImage = async (req, res) => {
 };
 
 // ---- homepage feature banners (site_settings) -------------------------------
-
 const updateFeatureSection = async (req, res) => {
+  // ---- 1. validate slotKey ------------------------------------------------
   const slotKey = String(req.body.slotKey || "");
-  if (!/^feature_[a-z0-9_]+$/i.test(slotKey)) throw new HttpError(400, "Invalid slot key");
+  // Allowed shape: feature_<lowercase/digits/underscore>. Anything else is
+  // either a typo on the client or an attempt to clobber unrelated settings.
+  if (!/^feature_[a-z0-9_]+$/i.test(slotKey)) {
+    console.warn("[updateFeatureSection] reject: invalid slotKey =", JSON.stringify(req.body.slotKey));
+    throw new HttpError(400, "Invalid slot key");
+  }
+
+  // ---- 2. resolve the destination link (may legitimately be empty) --------
   const link = req.body.link ?? "";
 
+  // ---- 3. figure out which image URL to keep / replace --------------------
   const current = await prisma.site_settings.findUnique({ where: { key: slotKey } });
   let imageUrl = req.body.existingImage || current?.value?.image || null;
+  console.log("[updateFeatureSection] slotKey=%s | existingImage=%s | current.value.image=%s | resolved=%s",
+    slotKey,
+    req.body.existingImage ?? "(none)",
+    current?.value?.image ?? "(none)",
+    imageUrl ?? "(none)"
+  );
 
+  // ---- 4. if a new file came in, upload it --------------------------------
   if (req.file) {
-    requireStorage();
-    if (!req.file.mimetype?.startsWith("image/")) throw new HttpError(400, "Only image files are allowed");
+    console.log("[updateFeatureSection] file received: name=%s size=%d mimetype=%s",
+      req.file.originalname, req.file.size, req.file.mimetype);
+
+    // requireStorage() throws if Supabase creds are missing — this is the
+    // single most common failure point in production.
+    try {
+      requireStorage();
+    } catch (err) {
+      console.error("[updateFeatureSection] requireStorage() failed — check SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY env vars:", err?.message || err);
+      throw err;
+    }
+
+    if (!req.file.mimetype?.startsWith("image/")) {
+      console.warn("[updateFeatureSection] reject: non-image mimetype =", req.file.mimetype);
+      throw new HttpError(400, "Only image files are allowed");
+    }
+
+    // Deterministic path per slot → upsert:true means old image is replaced,
+    // no orphaned files accumulate in the bucket.
     const filePath = `features/${slotKey}.webp`;
+    console.log("[updateFeatureSection] uploading to bucket site-assets path=%s contentType=%s", filePath, req.file.mimetype);
+
     const { error } = await supabaseAdmin.storage
       .from("site-assets")
       .upload(filePath, req.file.buffer, { contentType: req.file.mimetype, upsert: true });
-    if (error) throw error;
+
+    if (error) {
+      // Most common causes here:
+      //   - bucket "site-assets" does not exist
+      //   - RLS policy on storage.objects blocks the service role (rare)
+      //   - key is actually the anon/publishable key, not service_role
+      //   - file exceeds the bucket's size limit
+      console.error("[updateFeatureSection] supabase upload failed: status=%s message=%s",
+        error.statusCode ?? "(no status)", error.message);
+      throw error;
+    }
+
     const { data: { publicUrl } } = supabaseAdmin.storage.from("site-assets").getPublicUrl(filePath);
+    // Cache-bust so the CDN doesn't serve the previous image at the same URL.
     imageUrl = `${publicUrl}?t=${Date.now()}`;
+    console.log("[updateFeatureSection] upload ok, publicUrl=%s", imageUrl);
+  } else {
+    console.log("[updateFeatureSection] no file in request — keeping image=%s", imageUrl ?? "(none)");
   }
 
+  // ---- 5. persist into site_settings --------------------------------------
   const value = { image: imageUrl, link };
-  await prisma.site_settings.upsert({
-    where: { key: slotKey },
-    create: { key: slotKey, value },
-    update: { value },
-  });
+  try {
+    await prisma.site_settings.upsert({
+      where: { key: slotKey },
+      create: { key: slotKey, value },
+      update: { value },
+    });
+  } catch (err) {
+    // Common causes:
+    //   - `value` column is jsonb and imageUrl is undefined (shouldn't happen,
+    //     but if supabaseAdmin returns {} instead of {publicUrl} it can)
+    //   - Prisma can't reach the DB (connection string / pooler)
+    //   - a unique constraint on `key` that upsert couldn't resolve
+    console.error("[updateFeatureSection] prisma upsert failed for key=%s value=%o:",
+      slotKey, value, err);
+    throw err;
+  }
+
+  console.log("[updateFeatureSection] done key=%s image=%s link=%s", slotKey, imageUrl ?? "(none)", link || "(empty)");
   res.status(200).json({ message: "Feature updated", url: imageUrl });
 };
-
 const getSiteSettings = async (req, res) => {
   const data = await prisma.site_settings.findMany();
   res.status(200).json(data);

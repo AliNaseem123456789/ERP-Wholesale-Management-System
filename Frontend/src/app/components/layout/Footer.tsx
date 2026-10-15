@@ -48,7 +48,7 @@ export const Footer: React.FC = () => {
           <div className="space-y-2">
             <div>
               <h3 className="text-xl font-black tracking-tighter uppercase">
-                SOOTA SMOKE
+                ERP WHOLESALE
               </h3>
               <p className="text-xs font-bold uppercase">
                 Exceeding The Expectations
@@ -104,7 +104,7 @@ export const Footer: React.FC = () => {
             </h4>
             <div className="space-y-2 text-sm">
               <p className="text-blue-600 truncate">
-                support@sootasmoke.com
+                support@ERPwholesale.com
               </p>
               <p>(516) 485-4343</p>
               <p className="leading-tight">
@@ -126,7 +126,7 @@ export const Footer: React.FC = () => {
         </div>
       </div>
       <div className="bg-[#f8f8f8] border-t border-gray-200 py-3 px-6 text-center text-xs text-gray-500">
-        © 2026 Soota Smoke Shop. All rights reserved.
+        © 2026 ERP WHOELSALE SYSTEM. All rights reserved.
       </div>
     </footer>
   );

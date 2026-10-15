@@ -1,4 +1,4 @@
-# Soota Smoke Shop - Quick Reference
+# ERP Wholesale System - Quick Reference
 
 ## Project Structure
 
