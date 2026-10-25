@@ -73,7 +73,7 @@ const withStock = async (req, products) => {
   const ids = trackedProducts.map((p) => p.id);
   const preIds = trackedProducts.filter((p) => p.allow_preorder).map((p) => p.id);
   const [avail, byFlavor, incoming] = await Promise.all([
-    inv.availabilityFor(ids), req?.user ? inv.availabilityByFlavor(ids) : new Map(), inv.incomingFromSuppliers(preIds),
+    inv.availabilityFor(ids), req?.user || preIds.length ? inv.availabilityByFlavor(ids) : new Map(), inv.incomingFromSuppliers(preIds),
   ]);
   for (const p of list) {
     if (!tracked.has(String(p.company_id ?? p.company?.id))) {
@@ -82,14 +82,22 @@ const withStock = async (req, products) => {
     }
     const a = Math.max(0, avail.get(String(p.id)) ?? 0);
     p.stock_status = a > 0 ? "in_stock" : "out_of_stock";
-    // pre-orders: products that may be ordered ahead of stock already ordered from suppliers
+    // pre-orders: products that may be ordered ahead of stock already ordered from suppliers.
+    // What earlier pre-orders took (availability below zero) is taken off the incoming quantity,
+    // so the same incoming units can't be pre-ordered twice.
     if (p.allow_preorder) {
       const keys = inv.hasFlavors(p) ? inv.flavorsOf(p) : [""];
+      const net = (k) => {
+        const inc = incoming.get(inv.flavorKey(p.id, k))?.qty || 0;
+        const raw = byFlavor.get(inv.flavorKey(p.id, k)) ?? 0;
+        return Math.max(0, inc + Math.min(0, raw));
+      };
       const inc = keys.map((k) => incoming.get(inv.flavorKey(p.id, k))).filter(Boolean);
       if (inc.length) {
-        if (a <= 0) p.stock_status = "preorder";
+        const left = keys.reduce((s, k) => s + net(k), 0);
+        if (a <= 0 && left > 0) p.stock_status = "preorder";
         p.expected_date = inc.map((x) => x.expected).filter(Boolean).sort()[0] || null;
-        if (req?.user) p.incoming_stock = Object.fromEntries(keys.map((k) => [k, incoming.get(inv.flavorKey(p.id, k))?.qty || 0]));
+        if (req?.user) p.incoming_stock = Object.fromEntries(keys.map((k) => [k, net(k)]));
       }
     }
     if (req?.user) {

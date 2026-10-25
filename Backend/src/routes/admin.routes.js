@@ -20,6 +20,9 @@ router.post("/jobs/:job", async (req, res) => {
   const jobs = require("../services/scheduler");
   if (req.params.job === "alerts") return res.json({ message: `${await jobs.dailyAlerts()} notification(s) created` });
   if (req.params.job === "reports") return res.json({ message: `${await jobs.runDueReports()} scheduled report(s) sent` });
+  if (req.params.job === "recurring") return res.json({ message: `${await require("../services/recurring").runDue()} recurring order(s) run` });
+  if (req.params.job === "stock-alerts") return res.json({ message: `${await require("../services/stockAlerts").checkAlerts()} back-in-stock alert(s) sent` });
+  if (req.params.job === "quote-reminders") return res.json({ message: `${await require("../services/quoteFlow").quoteReminders()} quote reminder(s) sent` });
   res.status(404).json({ message: "Unknown job" });
 });
 router.get("/users", a.getAllUsers);
