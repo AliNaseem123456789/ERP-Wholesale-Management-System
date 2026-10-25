@@ -50,6 +50,7 @@ const zip = (files) => {
   return Buffer.concat([...locals, centralBuf, end]);
 };
 
+const MAX_UNPACKED = 64 * 1024 * 1024; // a part bigger than this when unpacked is refused (protects against zip bombs)
 const unzip = (buf) => {
   let eocd = -1;
   for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65557); i--) if (buf.readUInt32LE(i) === 0x06054b50) { eocd = i; break; }
@@ -71,7 +72,7 @@ const unzip = (buf) => {
     const lExtraLen = buf.readUInt16LE(localOffset + 28);
     const start = localOffset + 30 + lNameLen + lExtraLen;
     const raw = buf.slice(start, start + size);
-    files.set(name, () => (method === 0 ? raw : method === 8 ? zlib.inflateRawSync(raw) : (() => { throw new HttpError(400, "Unsupported Excel compression"); })()));
+    files.set(name, () => (method === 0 ? raw : method === 8 ? zlib.inflateRawSync(raw, { maxOutputLength: MAX_UNPACKED }) : (() => { throw new HttpError(400, "Unsupported Excel compression"); })()));
   }
   return files;
 };
@@ -133,7 +134,15 @@ const serialToDate = (n) => {
 };
 
 /** Buffer of an .xlsx -> array of rows (arrays of strings) of the first sheet. */
-const read = (buf, { maxRows = 20000 } = {}) => {
+const read = (buf, opts = {}) => {
+  try {
+    return readSheet(buf, opts);
+  } catch (err) {
+    if (err instanceof HttpError) throw err;
+    throw new HttpError(400, err.code === "ERR_BUFFER_TOO_LARGE" ? "The Excel file is too big once unpacked" : "The Excel file couldn't be read. Save it again as .xlsx, or use CSV.");
+  }
+};
+const readSheet = (buf, { maxRows = 20000 } = {}) => {
   const files = unzip(buf);
   const get = (name) => { const f = files.get(name); return f ? f().toString("utf8") : null; };
   const workbook = get("xl/workbook.xml");

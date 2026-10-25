@@ -39,7 +39,8 @@ const create = async (req, b, { asCompany = null } = {}) => {
 
   const data = { kind, reason, details, reporter_id: uid };
   if (kind === "listing") {
-    const p = await prisma.products.findFirst({ where: { id: toId(b.product_id, "product_id") }, select: { id: true, company_id: true } });
+    const { publicWhere } = require("./catalog");
+    const p = await prisma.products.findFirst({ where: { ...publicWhere(req), id: toId(b.product_id, "product_id") }, select: { id: true, company_id: true } });
     if (!p) throw new HttpError(404, "Product not found");
     Object.assign(data, { product_id: p.id, company_id: p.company_id });
   } else if (kind === "order") {
@@ -51,7 +52,8 @@ const create = async (req, b, { asCompany = null } = {}) => {
     if (!c) throw new HttpError(404, "Seller not found");
     data.company_id = c.id;
   } else {
-    const r = await prisma.reviews.findFirst({ where: { id: toId(b.review_id, "review_id"), ...(asCompany ? { company_id: asCompany } : {}) }, select: { id: true, company_id: true, product_id: true } });
+    // buyers can only report reviews they can see; a seller can report any review of its own products
+    const r = await prisma.reviews.findFirst({ where: { id: toId(b.review_id, "review_id"), ...(asCompany ? { company_id: asCompany } : { status: "published" }) }, select: { id: true, company_id: true, product_id: true } });
     if (!r) throw new HttpError(404, "Review not found");
     Object.assign(data, { review_id: r.id, company_id: r.company_id, product_id: r.product_id });
   }
@@ -157,7 +159,10 @@ const adminUpdate = async (req, id, b) => {
     done.push("review hidden");
   } else if (b.action === "suspend_company") {
     if (!r.company_id) throw new HttpError(400, "This report isn't about a seller");
-    await prisma.companies.update({ where: { id: r.company_id }, data: { status: "suspended", updated_at: new Date() } });
+    const company = await prisma.companies.update({ where: { id: r.company_id }, data: { status: "suspended", updated_at: new Date() } });
+    // same email the owners get when a company is suspended from Admin → Companies
+    const owners = await prisma.company_members.findMany({ where: { company_id: r.company_id, role: "OWNER" }, select: { users: { select: { email: true } } } });
+    for (const o of owners) await queueEmail({ to: o.users.email, template: "companyStatus", companyId: r.company_id, data: { companyName: company.name, status: "suspended" } });
     done.push("seller suspended");
   } else if (b.action) throw new HttpError(400, "Unknown action");
   if (done.length) data.admin_note = [data.admin_note ?? r.admin_note, `${new Date().toISOString().slice(0, 10)}: ${done.join(", ")}`].filter(Boolean).join("\n");
