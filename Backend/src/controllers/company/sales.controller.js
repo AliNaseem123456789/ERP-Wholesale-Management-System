@@ -45,6 +45,16 @@ const updateSettings = async (req, res) => {
   if (b.invoiceNotes !== undefined) sales.invoiceNotes = String(b.invoiceNotes || "").slice(0, 2000);
   if (b.returnWindowDays !== undefined) sales.returnWindowDays = int(b.returnWindowDays, "Return window", { min: 0, max: 365 });
   if (b.quoteValidityDays !== undefined) sales.quoteValidityDays = int(b.quoteValidityDays, "Quote validity", { min: 1, max: 365 });
+  if (b.quoteFollowUpDays !== undefined) sales.quoteFollowUpDays = int(b.quoteFollowUpDays, "Quote follow-up", { min: 0, max: 90 });
+  if (b.minMarginPercent !== undefined) {
+    if (b.minMarginPercent === null || b.minMarginPercent === "") sales.minMarginPercent = null;
+    else {
+      const m = Number(b.minMarginPercent);
+      if (!Number.isFinite(m) || m < -100 || m > 100) throw new HttpError(400, "Minimum margin must be between -100 and 100 %");
+      sales.minMarginPercent = m;
+    }
+  }
+  if (b.blockBelowCost !== undefined) sales.blockBelowCost = !!b.blockBelowCost;
   const settings = { ...(req.company.settings || {}), sales };
   await prisma.companies.update({ where: { id: req.company.id }, data: { settings, updated_at: new Date() } });
   await audit(req, "sales.settings", { entity: "company", entityId: req.company.id, changes: sales });

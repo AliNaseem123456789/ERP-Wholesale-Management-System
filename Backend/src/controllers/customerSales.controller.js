@@ -11,6 +11,7 @@ const { expireQuotes, buildLines, quoteTotals, acceptQuote } = require("../servi
 const { getSalesSettings } = require("../services/salesSettings");
 const { nextNumber } = require("../services/sequences");
 const { REASONS, createReturn, returnableFor } = require("../services/returns");
+const flow = require("../services/quoteFlow");
 
 const TX = { timeout: 30000, maxWait: 10000 };
 const companySelect = { id: true, name: true, slug: true, logo_url: true };
@@ -96,12 +97,13 @@ const quoteInclude = {
 // Quotes staff started themselves stay internal until they are first sent.
 const visibleQuote = { NOT: { created_by: { not: null }, sent_at: null } };
 
-const shapeQuote = ({ companies, orders, quote_items, created_by, ...q }) => ({
+const shapeQuote = ({ companies, orders, quote_items, created_by, follow_up_sent_at, expiry_reminder_sent_at, ...q }) => ({
   ...q,
   company: companies,
   order: orders,
   items: quote_items?.map(({ products, ...i }) => ({ ...i, title: products?.title, sku: products?.sku, image: products?.url })),
   can_accept: q.status === "sent",
+  can_counter: q.status === "sent",
 });
 
 const listQuotes = async (req, res) => {
@@ -123,7 +125,42 @@ const loadQuote = async (req, id = req.params.id) => {
 
 const getQuote = async (req, res) => {
   await expireQuotes(prisma, { user_id: me(req), id: toId(req.params.id) });
-  res.json({ data: await loadQuote(req) });
+  const q = await loadQuote(req);
+  res.json({ data: { ...q, messages: await flow.messagesOf(prisma, q.id), versions: await flow.versionsOf(prisma, q.id) } });
+};
+
+/**
+ * POST /account/quotes/:id/counter { message?, lines?: [{ item_id, unit_price?, quantity? }], total? }
+ * Asks the seller for changes. The quote waits ("countered") until the seller sends a new version.
+ */
+const counterQuote = async (req, res) => {
+  const q = await prisma.$transaction(async (tx) => {
+    const [row] = await tx.$queryRaw`SELECT id, status FROM quotes WHERE id = ${toId(req.params.id)} AND user_id = ${me(req)} FOR UPDATE`;
+    if (!row) throw new HttpError(404, "Quote not found");
+    if (row.status !== "sent") throw new HttpError(400, `This quote is ${row.status}; you can ask for changes on a quote that was sent to you`);
+    const quote = await tx.quotes.findUnique({ where: { id: row.id }, include: { quote_items: true, companies: { select: { id: true, name: true } } } });
+    const proposal = flow.proposalFrom(quote, req.body);
+    const body = req.body.message ? String(req.body.message).trim().slice(0, 4000) : "";
+    if (!proposal && !body) throw new HttpError(400, "Propose a price or quantity, or write what you'd like changed");
+    await tx.quote_messages.create({ data: { quote_id: quote.id, author_side: "customer", author_id: me(req), body: body || null, proposal: proposal || undefined, version: quote.version } });
+    return tx.quotes.update({ where: { id: quote.id }, data: { status: "countered", countered_at: new Date(), updated_at: new Date() }, include: { companies: { select: { id: true, name: true } } } });
+  }, TX);
+  const user = await prisma.users.findUnique({ where: { id: me(req) } });
+  await require("../services/inapp").notifyStaff(q.company_id, "quotes.manage", {
+    type: "quote.countered", title: `${customerName(user)} asked for changes on ${q.quote_number}`, body: req.body.message ? String(req.body.message).slice(0, 300) : "See the proposed prices", link: `/business/quotes/${q.id}`,
+  });
+  res.json({ message: `Your proposal was sent to ${q.companies.name}`, data: await loadQuote(req) });
+};
+
+// POST /account/quotes/:id/messages { body }
+const postQuoteMessage = async (req, res) => {
+  const q = await loadQuote(req);
+  const body = String(req.body.body || "").trim().slice(0, 4000);
+  if (!body) throw new HttpError(400, "Write a message");
+  await prisma.quote_messages.create({ data: { quote_id: BigInt(q.id), author_side: "customer", author_id: me(req), body, version: q.version } });
+  const user = await prisma.users.findUnique({ where: { id: me(req) } });
+  await require("../services/inapp").notifyStaff(q.company_id, "quotes.manage", { type: "quote.message", title: `Message from ${customerName(user)} on ${q.quote_number}`, body: body.slice(0, 300), link: `/business/quotes/${q.id}` });
+  res.status(201).json({ message: "Message sent", data: { ...q, messages: await flow.messagesOf(prisma, q.id) } });
 };
 
 const quotePdf = async (req, res) => {
@@ -141,7 +178,8 @@ const requestQuote = async (req, res) => {
   if (!company) throw new HttpError(404, "Seller not found");
   let items = req.body.items;
   if (!Array.isArray(items) || !items.length) {
-    const cart = await prisma.cart_items.findMany({ where: { user_id: me(req), products: { is: { company_id: companyId } } }, select: { product_id: true, flavor: true, quantity: true } });
+    const cartRow = await require("../services/carts").resolveCart(req.user.id, req.body.cart_id);
+    const cart = await prisma.cart_items.findMany({ where: { cart_id: cartRow.id, products: { is: { company_id: companyId } } }, select: { product_id: true, flavor: true, quantity: true } });
     items = cart.map((c) => ({ product_id: c.product_id, flavor: c.flavor, quantity: c.quantity }));
     if (!items.length) throw new HttpError(400, `Your cart has no products from ${company.name}`);
   }
@@ -190,6 +228,8 @@ const requestQuote = async (req, res) => {
 const acceptQuoteHandler = async (req, res) => {
   await expireQuotes(prisma, { user_id: me(req), id: toId(req.params.id) });
   const { order, quote, company } = await prisma.$transaction((tx) => acceptQuote(tx, { quoteId: toId(req.params.id), userId: req.user.id, body: req.body }), TX);
+  // part of a request to several sellers: the other offers are declined
+  if (quote.rfq_id) await flow.closeRfq(quote.rfq_id, quote.id);
   const user = await prisma.users.findUnique({ where: { id: me(req) } });
   const items = await prisma.order_items.findMany({ where: { order_id: order.id }, include: { products: { select: { title: true } } } });
   const emailItems = items.map((i) => ({ title: i.products?.title, quantity: i.quantity, price: Number(i.price_at_time) }));
@@ -220,7 +260,7 @@ const declineQuote = async (req, res) => {
   const q = await prisma.$transaction(async (tx) => {
     const [row] = await tx.$queryRaw`SELECT id, status FROM quotes WHERE id = ${toId(req.params.id)} AND user_id = ${me(req)} FOR UPDATE`;
     if (!row) throw new HttpError(404, "Quote not found");
-    if (!["sent", "requested"].includes(row.status)) throw new HttpError(400, `This quote is ${row.status}`);
+    if (!["sent", "requested", "countered"].includes(row.status)) throw new HttpError(400, `This quote is ${row.status}`);
     return tx.quotes.update({
       where: { id: row.id },
       data: { status: row.status === "requested" ? "cancelled" : "declined", updated_at: new Date(), ...(req.body?.reason ? { customer_notes: String(req.body.reason).slice(0, 2000) } : {}) },
@@ -328,7 +368,7 @@ const cancelReturn = async (req, res) => {
   res.json({ message: `Return ${r.rma_number} cancelled` });
 };
 
-module.exports = {
+module.exports = { counterQuote, postQuoteMessage,
   listInvoices, getInvoice, invoicePdf, creditNotePdf,
   listQuotes, getQuote, quotePdf, requestQuote, acceptQuote: acceptQuoteHandler, declineQuote,
   listReturns, getReturn, returnableLines, requestReturn, cancelReturn,

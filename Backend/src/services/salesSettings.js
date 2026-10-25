@@ -10,6 +10,9 @@ const DEFAULTS = {
   quoteValidityDays: 14,
   allowCashOnDelivery: true,
   returnWindowDays: 30,    // customers can request a return this many days after shipping; 0 = no online returns
+  quoteFollowUpDays: 3,    // remind the customer (and the sales team) when a sent quote has no answer after this many days; 0 = never
+  minMarginPercent: null,  // warn when a quoted line's margin is below this %; null = no check
+  blockBelowCost: false,   // refuse to send quotes with lines priced below cost (managers can still override)
 };
 
 const getSalesSettings = (company) => {

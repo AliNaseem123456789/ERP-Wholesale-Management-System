@@ -90,6 +90,8 @@ const productData = (body) => {
     }
   }
   if (body.is_featured !== undefined) data.is_featured = body.is_featured === true || body.is_featured === "true" || body.is_featured === "yes" || body.is_featured === 1 || body.is_featured === "1";
+  // customers may order more than is in stock, up to stock already ordered from suppliers
+  if (body.allow_preorder !== undefined) data.allow_preorder = body.allow_preorder === true || body.allow_preorder === "true" || body.allow_preorder === "yes" || body.allow_preorder === 1 || body.allow_preorder === "1";
   if (body.visibility !== undefined) {
     if (!["public", "groups"].includes(body.visibility)) throw new HttpError(400, "Visibility must be public or groups");
     data.visibility = body.visibility;

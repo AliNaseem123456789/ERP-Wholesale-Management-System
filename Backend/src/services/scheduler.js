@@ -100,9 +100,12 @@ let lastAlerts = 0;
 const tick = async () => {
   try {
     await runDueReports();
+    await require("./recurring").runDue();
+    await require("./stockAlerts").checkAlerts();
     if (Date.now() - lastAlerts > 60 * 60 * 1000) {
       lastAlerts = Date.now();
       await dailyAlerts();
+      await require("./quoteFlow").quoteReminders();
     }
   } catch (err) {
     console.error("Scheduler tick failed:", err.message);
@@ -114,7 +117,7 @@ const startScheduler = (intervalMs = Number(process.env.SCHEDULER_INTERVAL_MS) |
   timer = setInterval(tick, intervalMs);
   timer.unref?.();
   setTimeout(tick, 5000).unref?.();
-  console.log(`Scheduler: every ${Math.round(intervalMs / 1000)}s (scheduled reports, daily alerts)`);
+  console.log(`Scheduler: every ${Math.round(intervalMs / 1000)}s (scheduled reports, recurring orders, stock alerts, daily alerts)`);
 };
 
 module.exports = { startScheduler, runDueReports, executeSchedule, dailyAlerts, tick };

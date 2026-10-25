@@ -6,6 +6,13 @@ const router = Router();
 router.use(verifyTokenFromCookie);
 
 router.get("/", c.fetchCartProducts);
+router.get("/carts", c.listCarts);
+router.post("/carts", c.createCart);
+router.patch("/carts/:id", c.updateCart);
+router.delete("/carts/:id", c.deleteCart);
+router.post("/carts/:id/move", c.moveLines);
+router.post("/reorder/:orderId", c.reorder);
+router.patch("/saved-cart-templates/:id", c.updateSavedTemplate);
 router.post("/add", c.addToCart);
 router.post("/save-cart-template", c.saveCartTemplate);
 router.get("/saved-cart-templates", c.fetchSavedTemplates);

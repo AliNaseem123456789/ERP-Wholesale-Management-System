@@ -10,13 +10,14 @@ const publicProductWhere = {
   status: "published",
   is_active: true,
   visibility: "public",
-  companies: { is: { status: "active" } },
+  companies: { is: { status: "active", storefront_published: true } },
 };
 
 /** Storefront filter for this viewer: published + active seller + (public or one of the viewer's customer groups). */
 const publicWhere = (req) => {
   const userId = req?.user?.id;
-  const base = { status: "published", is_active: true, companies: { is: { status: "active" } } };
+  // approved seller whose storefront isn't unpublished by a platform admin
+  const base = { status: "published", is_active: true, companies: { is: { status: "active", storefront_published: true } } };
   if (!userId) return { ...base, visibility: "public" };
   return {
     ...base,
@@ -37,7 +38,7 @@ const companyBrief = { select: { id: true, name: true, slug: true, logo_url: tru
 const PUBLIC_FIELDS = [
   "id", "title", "brand", "brand_id", "description", "short_description", "sku", "barcode", "categories", "flavors",
   "url", "created_at", "updated_at", "company_id", "is_active", "status", "unit", "slug", "min_order_qty", "order_multiple",
-  "pack_size", "is_featured", "published_at", "compliance_category", "nicotine_ml", "is_flavored",
+  "pack_size", "is_featured", "published_at", "compliance_category", "nicotine_ml", "is_flavored", "allow_preorder",
 ];
 const PUBLIC_VARIANT_FIELDS = ["id", "flavor", "name", "sku", "barcode", "status", "min_order_qty", "image_url", "sort_order"];
 
@@ -70,7 +71,10 @@ const withStock = async (req, products) => {
   const tracked = await trackedCompanyIds(prisma, companyIds);
   const trackedProducts = list.filter((p) => tracked.has(String(p.company_id ?? p.company?.id)));
   const ids = trackedProducts.map((p) => p.id);
-  const [avail, byFlavor] = await Promise.all([inv.availabilityFor(ids), req?.user ? inv.availabilityByFlavor(ids) : new Map()]);
+  const preIds = trackedProducts.filter((p) => p.allow_preorder).map((p) => p.id);
+  const [avail, byFlavor, incoming] = await Promise.all([
+    inv.availabilityFor(ids), req?.user ? inv.availabilityByFlavor(ids) : new Map(), inv.incomingFromSuppliers(preIds),
+  ]);
   for (const p of list) {
     if (!tracked.has(String(p.company_id ?? p.company?.id))) {
       p.stock_status = null;
@@ -78,6 +82,16 @@ const withStock = async (req, products) => {
     }
     const a = Math.max(0, avail.get(String(p.id)) ?? 0);
     p.stock_status = a > 0 ? "in_stock" : "out_of_stock";
+    // pre-orders: products that may be ordered ahead of stock already ordered from suppliers
+    if (p.allow_preorder) {
+      const keys = inv.hasFlavors(p) ? inv.flavorsOf(p) : [""];
+      const inc = keys.map((k) => incoming.get(inv.flavorKey(p.id, k))).filter(Boolean);
+      if (inc.length) {
+        if (a <= 0) p.stock_status = "preorder";
+        p.expected_date = inc.map((x) => x.expected).filter(Boolean).sort()[0] || null;
+        if (req?.user) p.incoming_stock = Object.fromEntries(keys.map((k) => [k, incoming.get(inv.flavorKey(p.id, k))?.qty || 0]));
+      }
+    }
     if (req?.user) {
       p.available = a;
       if (inv.hasFlavors(p)) {

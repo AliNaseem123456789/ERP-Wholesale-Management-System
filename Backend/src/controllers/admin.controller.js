@@ -384,6 +384,9 @@ const updateCompany = async (req, res) => {
     if (!Number.isFinite(rate) || rate < 0 || rate > 100) throw new HttpError(400, "Commission must be between 0 and 100");
     data.commission_rate = rate;
   }
+  if (req.body.is_featured !== undefined) data.is_featured = !!req.body.is_featured;
+  // unpublishing hides the company page and its products from the marketplace (orders and back office keep working)
+  if (req.body.storefront_published !== undefined) data.storefront_published = !!req.body.storefront_published;
 
   const company = await prisma.companies.update({ where: { id }, data });
   await audit(req, "admin.company.update", { companyId: id, entity: "company", entityId: id, changes: data });

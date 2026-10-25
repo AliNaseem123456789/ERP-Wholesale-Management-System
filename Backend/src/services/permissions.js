@@ -6,7 +6,7 @@ const ROLE_PERMISSIONS = {
   OWNER: ["*"],
   MANAGER: [
     "company.view", "dashboard.view", "members.view", "members.manage",
-    "products.*", "orders.*", "customers.*", "pricing.*", "sales.*", "quotes.*", "invoices.*", "returns.*",
+    "products.*", "storefront.*", "orders.*", "customers.*", "pricing.*", "sales.*", "quotes.*", "invoices.*", "returns.*",
     "inventory.*", "purchasing.*", "accounting.view", "hr.view", "hr.attendance", "hr.leave", "reports.view", "audit.view",
   ],
   ACCOUNTANT: [
@@ -28,7 +28,7 @@ const ROLE_PERMISSIONS = {
 // Human-readable list for the UI.
 const ROLE_DESCRIPTIONS = {
   OWNER: "Full access, including billing, team and company settings",
-  MANAGER: "Runs day-to-day operations: products, orders, sales, team, inventory, purchasing, attendance and leave approvals",
+  MANAGER: "Runs day-to-day operations: products, storefront, orders, sales, team, inventory, purchasing, attendance and leave approvals",
   ACCOUNTANT: "Bookkeeping: invoices, payments, supplier bills, expenses, journal, bank reconciliation and financial reports",
   WAREHOUSE: "Stock, receiving, order fulfilment and receiving returns",
   SALES: "Customers, pricing, promotions, quotes, orders and returns",

@@ -58,6 +58,15 @@ router.post("/attributes/:id/options", ac.addOption);
 router.patch("/attribute-options/:optionId", ac.updateOption);
 router.delete("/attribute-options/:optionId", ac.deleteOption);
 router.get("/catalogue/health", ac.catalogueHealth);
+router.get("/marketplace", ac.getMarketplace);
+router.put("/marketplace", ac.saveMarketplace);
+router.get("/collections", ac.listGlobalCollections);
+router.post("/collections", ac.createGlobalCollection);
+router.get("/collections/:id", ac.getGlobalCollection);
+router.patch("/collections/:id", ac.updateGlobalCollection);
+router.delete("/collections/:id", ac.deleteGlobalCollection);
+router.get("/products/search", ac.searchAllProducts);
+router.get("/companies/:id/storefront", ac.previewStorefront);
 
 router.get("/emails", a.listEmails);
 router.post("/emails/test", a.sendTestEmail);

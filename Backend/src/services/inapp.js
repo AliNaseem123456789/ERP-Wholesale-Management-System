@@ -52,6 +52,7 @@ const FROM_TEMPLATE = {
   invoice: (d) => ({ type: "invoice.issued", title: `Invoice ${d.invoiceNumber} from ${d.companyName}`, body: `${money(d.total)}${d.dueDate ? `, due ${d.dueDate}` : ""}`, link: "/account?tab=invoices" }),
   paymentReceived: (d) => ({ type: "invoice.payment", title: `Payment received for ${d.invoiceNumber}`, body: `${money(d.amount)} · balance ${money(d.balance)}`, link: "/account?tab=invoices" }),
   creditNote: (d) => ({ type: "credit_note", title: `Credit note ${d.creditNoteNumber} from ${d.companyName}`, body: money(d.total), link: "/account?tab=invoices" }),
+  notice: (d) => ({ type: d.type || "notice", title: d.title, body: (d.lines || []).join(" ").slice(0, 900), link: d.link || null }),
   quoteSent: (d) => ({ type: "quote.sent", title: `Quotation ${d.quoteNumber} from ${d.companyName}`, body: `${money(d.total)}${d.validUntil ? `, valid until ${d.validUntil}` : ""}`, link: "/account?tab=quotes" }),
   quoteRequested: (d) => ({ type: "quote.requested", title: `Quote request ${d.quoteNumber}`, body: `From ${d.customer}`, link: "/business/quotes" }),
   quoteResponse: (d) => ({ type: "quote.response", title: `Quote ${d.quoteNumber} ${d.accepted ? "accepted" : "declined"}`, body: d.accepted ? `Now order ${d.orderNumber}` : `By ${d.customer}`, link: d.accepted ? "/business/orders" : "/business/quotes" }),

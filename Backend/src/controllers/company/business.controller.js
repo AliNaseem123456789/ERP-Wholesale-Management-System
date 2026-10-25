@@ -12,13 +12,27 @@ const { getDefaultWarehouse } = require("../../services/inventory");
 const PROFILE_FIELDS = [
   "name", "legal_name", "email", "phone", "website", "description", "tax_id",
   "address_line1", "address_line2", "city", "state", "postal_code", "country",
+  // public storefront information
+  "tagline", "public_email", "public_phone", "delivery_info", "payment_info",
 ];
+const LONG_FIELDS = ["description", "delivery_info", "payment_info"];
 
 const pickProfile = (body) => {
   const data = {};
   for (const f of PROFILE_FIELDS) {
-    if (body[f] !== undefined) data[f] = body[f] === "" || body[f] === null ? null : String(body[f]).trim().slice(0, f === "description" ? 5000 : 255);
+    if (body[f] !== undefined) data[f] = body[f] === "" || body[f] === null ? null : String(body[f]).trim().slice(0, LONG_FIELDS.includes(f) ? 5000 : f === "public_phone" ? 64 : 255);
   }
+  if (body.min_order_value !== undefined) {
+    const n = body.min_order_value === "" || body.min_order_value === null ? null : Number(body.min_order_value);
+    if (n !== null && (!Number.isFinite(n) || n < 0)) throw new HttpError(400, "Minimum order value must be 0 or more");
+    data.min_order_value = n;
+  }
+  if (body.lead_time_days !== undefined) {
+    const n = body.lead_time_days === "" || body.lead_time_days === null ? null : Number(body.lead_time_days);
+    if (n !== null && (!Number.isInteger(n) || n < 0 || n > 365)) throw new HttpError(400, "Lead time must be 0 to 365 days");
+    data.lead_time_days = n;
+  }
+  if (data.public_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.public_email)) throw new HttpError(400, "Invalid public email");
   if (data.name === null) throw new HttpError(400, "Company name is required");
   if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) throw new HttpError(400, "Invalid company email");
   return data;
@@ -83,6 +97,30 @@ const updateProfile = async (req, res) => {
 };
 
 // POST /company/logo (multipart "image")
+// Images for the storefront (banner, section images): stored under companies/<id>/ only.
+const storeCompanyImage = async (companyId, file, name) => {
+  if (!supabaseAdmin) throw new HttpError(503, "Image storage is not configured on the server");
+  if (!file?.mimetype?.startsWith("image/") || file.mimetype === "image/svg+xml") throw new HttpError(400, "Please upload a JPG, PNG, WebP or GIF image");
+  const path = `companies/${companyId}/${name}`;
+  const { error } = await supabaseAdmin.storage.from("site-assets").upload(path, file.buffer, { contentType: file.mimetype, upsert: true });
+  if (error) throw error;
+  return supabaseAdmin.storage.from("site-assets").getPublicUrl(path).data.publicUrl;
+};
+
+// POST /company/banner (multipart "image")
+const uploadBanner = async (req, res) => {
+  const url = `${await storeCompanyImage(req.company.id, req.file, "banner")}?t=${Date.now()}`;
+  await prisma.companies.update({ where: { id: req.company.id }, data: { banner_url: url, updated_at: new Date() } });
+  await audit(req, "company.banner", { entity: "company", entityId: req.company.id });
+  res.json({ url });
+};
+
+// POST /company/storefront/images (multipart "image") -> an image address to use in storefront sections
+const uploadStorefrontImage = async (req, res) => {
+  const url = await storeCompanyImage(req.company.id, req.file, `storefront/${require("crypto").randomUUID()}`);
+  res.status(201).json({ url });
+};
+
 const uploadLogo = async (req, res) => {
   if (!supabaseAdmin) throw new HttpError(503, "Image storage is not configured on the server");
   if (!req.file?.mimetype?.startsWith("image/")) throw new HttpError(400, "Please upload an image");
@@ -195,4 +233,4 @@ const auditLog = async (req, res) => {
   });
 };
 
-module.exports = { myMemberships, roles, registerCompany, getProfile, updateProfile, uploadLogo, dashboard, auditLog };
+module.exports = { uploadBanner, uploadStorefrontImage, storeCompanyImage, myMemberships, roles, registerCompany, getProfile, updateProfile, uploadLogo, dashboard, auditLog };

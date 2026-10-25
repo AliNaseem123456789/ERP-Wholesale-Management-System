@@ -12,6 +12,7 @@ const productSelect = {
   categories: true,
   is_active: true,
   company_id: true,
+  allow_preorder: true,
   companies: companyBrief,
 };
 
@@ -30,10 +31,11 @@ const shapeItem = (item) => {
   return { ...item, products: { ...p, company: companies ?? null } };
 };
 
-const getCart = async (userId) =>
+// Lines of one cart (cartId), or of the user's default cart.
+const getCart = async (userId, cartId = null) =>
   (
     await prisma.cart_items.findMany({
-      where: { user_id: BigInt(userId) },
+      where: { user_id: BigInt(userId), cart_id: cartId ? BigInt(cartId) : (await require("./carts").defaultCart(userId)).id },
       select: cartItemSelect,
       orderBy: [{ created_at: "asc" }, { id: "asc" }],
     })

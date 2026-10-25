@@ -55,6 +55,7 @@ app.use("/api/credit", accountRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/notifications", require("./routes/notifications.routes"));
 app.use("/api/company", companyRoutes);
+app.use("/api/marketplace", require("./routes/marketplace.routes"));
 app.use("/api", publicRoutes);
 
 app.use("/api", (req, res) => res.status(404).json({ message: "Not found" }));

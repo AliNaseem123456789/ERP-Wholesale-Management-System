@@ -327,6 +327,21 @@ const availabilityByFlavor = async (productIds, db = prisma) => {
   return out;
 };
 
+/**
+ * Stock on its way from suppliers: purchase orders sent but not fully received.
+ * Map `${productId}|${flavor}` -> { qty, expected } (expected = earliest expected date, or null).
+ */
+const incomingFromSuppliers = async (productIds, db = prisma) => {
+  if (!productIds.length) return new Map();
+  const rows = await db.$queryRaw`
+    SELECT i.product_id, i.flavor, SUM(i.quantity_ordered - i.quantity_received)::int AS qty, MIN(po.expected_date) AS expected
+    FROM purchase_order_items i JOIN purchase_orders po ON po.id = i.purchase_order_id
+    WHERE i.product_id IN (${Prisma.join(productIds.map((id) => BigInt(id)))}) AND po.status IN ('sent', 'partially_received')
+      AND i.quantity_ordered > i.quantity_received
+    GROUP BY i.product_id, i.flavor`;
+  return new Map(rows.map((r) => [flavorKey(r.product_id, r.flavor), { qty: Number(r.qty), expected: r.expected ? new Date(r.expected).toISOString().slice(0, 10) : null }]));
+};
+
 // Available quantity of one product line (flavour-aware) from the two maps above.
 const availableOf = (product, flavor, byFlavor) =>
   hasFlavors(product) ? Math.max(0, byFlavor.get(flavorKey(product.id, flavor)) ?? 0) : Math.max(0, byFlavor.get(flavorKey(product.id, "")) ?? 0);
@@ -408,6 +423,7 @@ module.exports = {
   availabilityByFlavor,
   pendingHolds,
   lockProductsForSale,
+  incomingFromSuppliers,
   availableOf,
   flavorKey,
   normFlavor,

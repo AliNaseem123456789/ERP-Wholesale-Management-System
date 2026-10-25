@@ -189,6 +189,14 @@ const templates = {
     text: plain(`${companyName} sent you quotation ${quoteNumber} for ${money(total)}${validUntil ? `, valid until ${validUntil}` : ""}.`, `${appUrl}/account?tab=quotes`),
   }),
 
+  // General notice: back in stock, recurring orders, quote follow-ups, counter-offers...
+  // { title, lines: [text], link: "/path", linkLabel, type, items? }
+  notice: ({ title, lines = [], link, linkLabel, items }) => ({
+    subject: title,
+    html: layout(title, `${lines.map((l) => `<p>${esc(l)}</p>`).join("")}${items?.length ? itemsTable(items) : ""}${link ? button(`${appUrl}${link}`, linkLabel || "Open") : ""}`),
+    text: plain(...lines, ...(items || []).map((i) => `${i.quantity} x ${i.title}`), link && `${appUrl}${link}`),
+  }),
+
   quoteRequested: ({ companyName, quoteNumber, customer, items, notes }) => ({
     subject: `Quote request ${quoteNumber} from ${customer}`,
     html: layout(`Quote request ${quoteNumber}`, `<p><b>${esc(customer)}</b> asked <b>${esc(companyName)}</b> for a quotation:</p>${itemsTable(items)}${notes ? `<p><b>Notes:</b> ${esc(notes)}</p>` : ""}${button(`${appUrl}/business/quotes`, "Prepare the quote")}`),

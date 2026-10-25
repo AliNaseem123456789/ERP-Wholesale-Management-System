@@ -386,3 +386,80 @@ module.exports = {
   listAttributes, createAttribute, updateAttribute, deleteAttribute, addOption, updateOption, deleteOption,
   updateBrand, mergeBrand, catalogueHealth,
 };
+
+// ---- marketplace settings, platform collections, storefront previews --------------------------------
+const mset = require("../services/marketplaceSettings");
+const colSvc = require("../services/collections");
+const sfSvc = require("../services/storefront");
+
+// GET /admin/marketplace -> settings + what can be chosen
+const getMarketplace = async (req, res) => {
+  const s = await mset.getMarketplaceSettings();
+  const big = (a) => a.map((x) => BigInt(x));
+  const [brands, categories, companies] = await Promise.all([
+    prisma.brands.findMany({ where: { id: { in: big(s.featured.brand_ids) } }, select: { id: true, name: true, slug: true } }),
+    prisma.categories.findMany({ where: { id: { in: big(s.featured.category_ids) } }, select: { id: true, name: true, slug: true } }),
+    prisma.companies.findMany({ where: { id: { in: big(s.featured.company_ids) } }, select: { id: true, name: true, slug: true } }),
+  ]);
+  res.json({ data: s, chosen: { brands, categories, companies }, all_themes: Object.entries(sfSvc.THEMES).map(([k, t]) => ({ key: k, name: t.name })), all_sections: Object.entries(sfSvc.SECTIONS).map(([k, t]) => ({ type: k, label: t.label })) });
+};
+
+// PUT /admin/marketplace { nav, featured, banners, storefront }
+const saveMarketplace = async (req, res) => {
+  const value = await mset.sanitizeSettings(req.body);
+  await mset.saveMarketplaceSettings(value);
+  await audit(req, "admin.marketplace", { entity: "site_settings", changes: { nav: value.nav.length, banners: value.banners.length } });
+  res.json({ message: "Marketplace settings saved", data: value });
+};
+
+// platform collections (company_id NULL)
+const findGlobalCollection = async (req) => {
+  const c = await prisma.collections.findFirst({ where: { id: toId(req.params.id), company_id: null } });
+  if (!c) throw new HttpError(404, "Collection not found");
+  return c;
+};
+const listGlobalCollections = async (req, res) => {
+  const rows = await prisma.collections.findMany({ where: { company_id: null }, orderBy: [{ sort_order: "asc" }, { name: "asc" }], include: { _count: { select: { collection_products: true } } } });
+  res.json({ data: rows.map(({ _count, ...c }) => ({ ...c, product_count: _count.collection_products, live: colSvc.live(c) })) });
+};
+const getGlobalCollection = async (req, res) => res.json({ data: await colSvc.detail(prisma, await findGlobalCollection(req)) });
+const createGlobalCollection = async (req, res) => {
+  const c = await prisma.$transaction((tx) => colSvc.create(tx, { companyId: null, userId: req.user.id, body: req.body }), TX);
+  await audit(req, "admin.collection.create", { entity: "collection", entityId: c.id, changes: { name: c.name } });
+  res.status(201).json({ data: await colSvc.detail(prisma, c) });
+};
+const updateGlobalCollection = async (req, res) => {
+  const current = await findGlobalCollection(req);
+  const c = await prisma.$transaction((tx) => colSvc.update(tx, { collection: current, body: req.body }), TX);
+  res.json({ data: await colSvc.detail(prisma, c) });
+};
+const deleteGlobalCollection = async (req, res) => {
+  const c = await findGlobalCollection(req);
+  await prisma.collections.delete({ where: { id: c.id } });
+  res.json({ message: "Collection deleted" });
+};
+
+// GET /admin/products/search?q -> any published product (for platform collections)
+const searchAllProducts = async (req, res) => {
+  const q = String(req.query.q || "").trim();
+  const rows = await prisma.products.findMany({
+    where: { status: "published", ...(q ? { OR: [{ title: { contains: q, mode: "insensitive" } }, { sku: { contains: q, mode: "insensitive" } }, { brand: { contains: q, mode: "insensitive" } }] } : {}) },
+    take: 30, orderBy: { title: "asc" }, select: { id: true, title: true, brand: true, sku: true, companies: { select: { name: true } } },
+  });
+  res.json({ data: rows.map(({ companies, ...p }) => ({ ...p, company: companies?.name })) });
+};
+
+// GET /admin/companies/:id/storefront?source=draft|published -> preview any company's storefront
+const previewStorefront = async (req, res) => {
+  const company = await prisma.companies.findUnique({ where: { id: toId(req.params.id) } });
+  if (!company) throw new HttpError(404, "Company not found");
+  const store = await prisma.storefronts.findUnique({ where: { company_id: company.id } });
+  const cfg = req.query.source === "draft" && store?.draft?.sections ? store.draft : store?.published?.sections ? store.published : sfSvc.defaultConfig(company);
+  const { storefrontPayload } = require("./marketplace.controller");
+  res.json({ data: await storefrontPayload(req, company, cfg), preview: true, has_published: !!store?.published, storefront_published: company.storefront_published });
+};
+
+Object.assign(module.exports, {
+  getMarketplace, saveMarketplace, listGlobalCollections, getGlobalCollection, createGlobalCollection, updateGlobalCollection, deleteGlobalCollection,
+  searchAllProducts, previewStorefront,
+});

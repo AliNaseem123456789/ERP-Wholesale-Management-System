@@ -23,6 +23,7 @@ const dataio = require("../controllers/company/dataio.controller");
 const scan = require("../controllers/company/scan.controller");
 const compliancec = require("../controllers/company/compliance.controller");
 const reportsHub = require("../controllers/company/reportsHub.controller");
+const storefront = require("../controllers/company/storefront.controller");
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 const router = express.Router();
@@ -38,6 +39,23 @@ router.use(companyContext);
 router.get("/profile", business.getProfile);
 router.patch("/profile", perm("company.manage"), business.updateProfile);
 router.post("/logo", perm("company.manage"), upload.single("image"), business.uploadLogo);
+router.post("/banner", perm("company.manage", "storefront.manage"), upload.single("image"), business.uploadBanner);
+
+// storefront & collections
+router.get("/collections", perm("products.view", "storefront.manage"), storefront.listCollections);
+router.post("/collections", perm("products.manage", "storefront.manage"), storefront.createCollection);
+router.get("/collections/:id", perm("products.view", "storefront.manage"), storefront.getCollection);
+router.patch("/collections/:id", perm("products.manage", "storefront.manage"), storefront.updateCollection);
+router.delete("/collections/:id", perm("products.manage", "storefront.manage"), storefront.deleteCollection);
+router.get("/storefront", perm("storefront.manage", "company.manage"), storefront.getStorefront);
+router.put("/storefront", perm("storefront.manage", "company.manage"), storefront.saveDraft);
+router.get("/storefront/preview", perm("storefront.manage", "company.manage"), storefront.preview);
+router.post("/storefront/publish", perm("storefront.manage", "company.manage"), storefront.publish);
+router.post("/storefront/unpublish", perm("storefront.manage", "company.manage"), storefront.unpublish);
+router.post("/storefront/reset", perm("storefront.manage", "company.manage"), storefront.resetDraft);
+router.get("/storefront/versions", perm("storefront.manage", "company.manage"), storefront.versions);
+router.post("/storefront/versions/:version/restore", perm("storefront.manage", "company.manage"), storefront.restoreVersion);
+router.post("/storefront/images", perm("storefront.manage", "company.manage"), upload.single("image"), business.uploadStorefrontImage);
 router.get("/dashboard", perm("dashboard.view"), business.dashboard);
 router.get("/audit", perm("audit.view"), business.auditLog);
 
@@ -292,6 +310,8 @@ router.patch("/quotes/:id", perm("quotes.manage"), quotes.updateQuote);
 router.get("/quotes/:id/pdf", perm("quotes.view", "quotes.manage"), quotes.quotePdf);
 router.post("/quotes/:id/send", perm("quotes.manage"), quotes.sendQuote);
 router.post("/quotes/:id/cancel", perm("quotes.manage"), quotes.cancelQuote);
+router.post("/quotes/:id/messages", perm("quotes.manage"), quotes.postMessage);
+router.post("/quotes/:id/apply-counter", perm("quotes.manage"), quotes.applyCounter);
 
 // ---- invoices, payments, credit notes ----
 router.get("/invoices", perm("invoices.view"), billing.listInvoices);

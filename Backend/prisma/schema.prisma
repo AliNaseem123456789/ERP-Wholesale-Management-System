@@ -97,6 +97,11 @@ model products {
   product_visible_groups    product_visible_groups[]
   product_categories        product_categories[]
   product_attribute_values  product_attribute_values[]
+  collection_products       collection_products[]
+  allow_preorder            Boolean   @default(false)
+  recurring_order_items     recurring_order_items[]
+  stock_alerts              stock_alerts[]
+  rfq_items                 rfq_items[]
   cart_items  cart_items[]
   order_items order_items[]
   companies   companies?    @relation(fields: [company_id], references: [id], onUpdate: NoAction)
@@ -165,6 +170,10 @@ model users {
   credit_notes                               credit_notes[]
   quotes                                     quotes[]
   categories                                 categories[]
+  carts                                      carts[]
+  recurring_orders                           recurring_orders[]
+  stock_alerts                               stock_alerts[]
+  rfqs                                       rfqs[]
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -198,11 +207,14 @@ model cart_items {
   flavor       String     @default("") @db.VarChar(255)
   created_at DateTime @default(now()) @db.Timestamp(6)
   updated_at DateTime @default(now()) @db.Timestamp(6)
+  cart_id    BigInt?
   users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_cart_user")
   products   products @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_product")
+  carts      carts?   @relation(fields: [cart_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@unique([user_id, product_id, flavor], map: "cart_items_user_product_flavor_unique")
+  @@unique([cart_id, product_id, flavor], map: "cart_items_cart_product_flavor_unique")
   @@index([user_id], map: "idx_cart_user_id")
+  @@index([cart_id], map: "idx_cart_items_cart")
 }
 
 model credit_history {
@@ -231,6 +243,7 @@ model order_items {
   flavor        String?   @db.VarChar(255)
   created_at    DateTime? @default(now()) @db.Timestamp(6)
   reserved_quantity Int   @default(0)
+  preorder_quantity Int   @default(0)
   list_price    Decimal?  @db.Decimal(38, 4)
   return_items  return_items[]
   orders        orders?   @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -264,6 +277,8 @@ model orders {
   payment_terms_days                              Int?
   promo_code                                      String?           @db.VarChar(64)
   quote_id                                        BigInt?
+  recurring_order_id                              BigInt?
+  recurring_orders                                recurring_orders? @relation(fields: [recurring_order_id], references: [id], onUpdate: NoAction)
   invoices                                        invoices[]
   return_requests                                 return_requests[]
   promotion_redemptions                           promotion_redemptions[]
@@ -303,6 +318,7 @@ model saved_carts {
   items        Json
   created_at   DateTime? @default(now()) @db.Timestamptz(6)
   total_amount Decimal?  @default(0.00) @db.Decimal(38, 2)
+  shared_with_team Boolean @default(false)
   users        users?    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
@@ -420,6 +436,19 @@ model companies {
   company_brands        company_brands[]
   categories            categories[]
   attribute_definitions attribute_definitions[]
+  tagline               String?               @db.VarChar(255)
+  banner_url            String?               @db.VarChar(1000)
+  public_email          String?               @db.VarChar(255)
+  public_phone          String?               @db.VarChar(64)
+  delivery_info         String?
+  payment_info          String?
+  min_order_value       Decimal?              @db.Decimal(38, 2)
+  lead_time_days        Int?
+  is_featured           Boolean               @default(false)
+  storefront_published  Boolean               @default(true)
+  collections           collections[]
+  storefronts           storefronts?
+  storefront_versions   storefront_versions[]
 
   @@index([status], map: "idx_companies_status")
 }
@@ -1095,10 +1124,20 @@ model quotes {
   users           users         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   orders          orders?       @relation(fields: [order_id], references: [id], onUpdate: NoAction)
   quote_items     quote_items[]
+  rfq_id                  BigInt?
+  version                 Int              @default(0)
+  lead_time_days          Int?
+  follow_up_sent_at       DateTime?        @db.Timestamptz(6)
+  expiry_reminder_sent_at DateTime?        @db.Timestamptz(6)
+  countered_at            DateTime?        @db.Timestamptz(6)
+  rfqs                    rfqs?            @relation(fields: [rfq_id], references: [id], onUpdate: NoAction)
+  quote_versions          quote_versions[]
+  quote_messages          quote_messages[]
 
   @@unique([company_id, quote_number], map: "quotes_company_number_unique")
   @@index([company_id, status], map: "idx_quotes_company_status")
   @@index([user_id], map: "idx_quotes_user")
+  @@index([rfq_id], map: "idx_quotes_rfq")
 }
 
 model quote_items {
@@ -1848,4 +1887,205 @@ model product_attribute_values {
   @@index([attribute_id, option_id], map: "idx_pav_option")
   @@index([attribute_id, value_number], map: "idx_pav_number")
   @@index([variant_id], map: "idx_pav_variant")
+}
+
+// ---------------------------------------------------------------------------------------------
+// 009_marketplace.sql  (created_by / published_by / updated_by reference users; relations not modelled)
+// Expression index: collections(COALESCE(company_id,0), slug) unique
+// ---------------------------------------------------------------------------------------------
+
+/// company_id NULL = platform (global) collection. status: draft | published. mode: manual | rules
+model collections {
+  id                  BigInt                @id @default(autoincrement())
+  company_id          BigInt?
+  name                String                @db.VarChar(255)
+  slug                String                @db.VarChar(255)
+  description         String?
+  cover_image_url     String?               @db.VarChar(1000)
+  mode                String                @default("manual") @db.VarChar(16)
+  rules               Json                  @default("{}")
+  status              String                @default("draft") @db.VarChar(16)
+  is_enabled          Boolean               @default(true)
+  starts_at           DateTime?             @db.Timestamptz(6)
+  ends_at             DateTime?             @db.Timestamptz(6)
+  sort_order          Int                   @default(0)
+  created_by          BigInt?
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime              @default(now()) @db.Timestamptz(6)
+  companies           companies?            @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  collection_products collection_products[]
+
+  @@index([company_id, status], map: "idx_collections_company")
+}
+
+model collection_products {
+  collection_id BigInt
+  product_id    BigInt
+  sort_order    Int         @default(0)
+  collections   collections @relation(fields: [collection_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products      products    @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([collection_id, product_id])
+  @@index([product_id], map: "idx_collection_products_product")
+}
+
+/// draft / published: { theme, colors, sections: [...] } validated by src/services/storefront.js
+model storefronts {
+  company_id        BigInt    @id
+  draft             Json      @default("{}")
+  published         Json?
+  published_version Int       @default(0)
+  published_at      DateTime? @db.Timestamptz(6)
+  published_by      BigInt?
+  updated_at        DateTime  @default(now()) @db.Timestamptz(6)
+  updated_by        BigInt?
+  companies         companies @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model storefront_versions {
+  id           BigInt    @id @default(autoincrement())
+  company_id   BigInt
+  version      Int
+  config       Json
+  published_by BigInt?
+  published_at DateTime  @default(now()) @db.Timestamptz(6)
+  companies    companies @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([company_id, version], map: "storefront_versions_unique")
+}
+
+// ---------------------------------------------------------------------------------------------
+// 010_buying.sql  (address columns reference addresses; relations not modelled)
+// Partial indexes: carts(user_id) unique WHERE is_default; recurring_orders(next_run_on) WHERE status='active';
+//                  stock_alerts(product_id) WHERE notified_at IS NULL
+// ---------------------------------------------------------------------------------------------
+
+model carts {
+  id         BigInt       @id @default(autoincrement())
+  user_id    BigInt
+  name       String       @default("Main cart") @db.VarChar(120)
+  notes      String?      @db.VarChar(500)
+  address_id BigInt?
+  is_default Boolean      @default(false)
+  created_at DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at DateTime     @default(now()) @db.Timestamptz(6)
+  users      users        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  cart_items cart_items[]
+
+  @@index([user_id], map: "idx_carts_user")
+}
+
+/// frequency: weekly | biweekly | monthly. mode: auto | review. status: active | paused | cancelled
+model recurring_orders {
+  id                    BigInt                  @id @default(autoincrement())
+  user_id               BigInt
+  name                  String                  @db.VarChar(120)
+  frequency             String                  @db.VarChar(16)
+  day_of_week           Int?
+  day_of_month          Int?
+  next_run_on           DateTime                @db.Date
+  mode                  String                  @default("review") @db.VarChar(16)
+  status                String                  @default("active") @db.VarChar(16)
+  shipping_address_id   BigInt?
+  billing_address_id    BigInt?
+  payment_methods       Json                    @default("{}")
+  skip_next             Boolean                 @default(false)
+  last_run_at           DateTime?               @db.Timestamptz(6)
+  last_result           Json?
+  created_at            DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime                @default(now()) @db.Timestamptz(6)
+  users                 users                   @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  recurring_order_items recurring_order_items[]
+  orders                orders[]
+
+  @@index([user_id], map: "idx_recurring_orders_user")
+}
+
+model recurring_order_items {
+  id                 BigInt           @id @default(autoincrement())
+  recurring_order_id BigInt
+  product_id         BigInt
+  flavor             String           @default("") @db.VarChar(255)
+  quantity           Int
+  recurring_orders   recurring_orders @relation(fields: [recurring_order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products           products         @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([recurring_order_id], map: "idx_recurring_order_items_order")
+}
+
+model stock_alerts {
+  id          BigInt    @id @default(autoincrement())
+  user_id     BigInt
+  product_id  BigInt
+  flavor      String    @default("") @db.VarChar(255)
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  notified_at DateTime? @db.Timestamptz(6)
+  users       users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products    products  @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, product_id, flavor], map: "stock_alerts_unique")
+}
+
+// ---------------------------------------------------------------------------------------------
+// 011_quotes.sql  (quote_versions.created_by / quote_messages.author_id reference users; relations not modelled)
+// ---------------------------------------------------------------------------------------------
+
+/// status: open | awarded | closed | cancelled
+model rfqs {
+  id               BigInt      @id @default(autoincrement())
+  user_id          BigInt
+  rfq_number       String      @unique(map: "rfqs_number_unique") @db.VarChar(32)
+  title            String      @db.VarChar(255)
+  notes            String?
+  needed_by        DateTime?   @db.Date
+  status           String      @default("open") @db.VarChar(16)
+  awarded_quote_id BigInt?
+  created_at       DateTime    @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime    @default(now()) @db.Timestamptz(6)
+  users            users       @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  rfq_items        rfq_items[]
+  quotes           quotes[]
+
+  @@index([user_id, created_at(sort: Desc)], map: "idx_rfqs_user")
+}
+
+model rfq_items {
+  id          BigInt    @id @default(autoincrement())
+  rfq_id      BigInt
+  description String    @db.VarChar(500)
+  quantity    Int
+  product_id  BigInt?
+  flavor      String    @default("") @db.VarChar(255)
+  sort_order  Int       @default(0)
+  rfqs        rfqs      @relation(fields: [rfq_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products    products? @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+
+  @@index([rfq_id], map: "idx_rfq_items_rfq")
+}
+
+model quote_versions {
+  id         BigInt   @id @default(autoincrement())
+  quote_id   BigInt
+  version    Int
+  snapshot   Json
+  created_by BigInt?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  quotes     quotes   @relation(fields: [quote_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([quote_id, version], map: "quote_versions_unique")
+}
+
+/// author_side: customer | seller. proposal: { lines: [{ item_id, quantity?, unit_price? }], total? }
+model quote_messages {
+  id          BigInt   @id @default(autoincrement())
+  quote_id    BigInt
+  author_side String   @db.VarChar(16)
+  author_id   BigInt?
+  body        String?
+  proposal    Json?
+  version     Int?
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  quotes      quotes   @relation(fields: [quote_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([quote_id, created_at], map: "idx_quote_messages_quote")
 }
