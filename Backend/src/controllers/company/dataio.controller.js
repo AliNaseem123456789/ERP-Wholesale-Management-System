@@ -14,6 +14,9 @@ const { applyCount } = require("../../services/stockcount");
 const compliance = require("../../services/compliance");
 const hr = require("../../services/hr");
 const { ensureCompanyBrand } = require("./products.controller");
+const cat = require("../../services/productCatalog");
+const attrs = require("../../services/attributes");
+const variantsSvc = require("../../services/variants");
 
 const MAX_ROWS = 5000;
 const today = () => new Date().toISOString().slice(0, 10);
@@ -34,12 +37,50 @@ const EXPORTS = {
   products: {
     perm: "products.view",
     run: async (req) => {
-      const rows = await prisma.products.findMany({ where: { company_id: req.company.id }, orderBy: { id: "asc" } });
+      const rows = await prisma.products.findMany({
+        where: { company_id: req.company.id }, orderBy: { id: "asc" },
+        include: { product_attribute_values: { where: { variant_id: null }, include: { attribute_definitions: true, attribute_options: { select: { value: true } } } } },
+      });
+      // product-level specifications as attr:<key> columns
+      const specKeys = new Map();
+      for (const r of rows) {
+        const byAttr = new Map();
+        for (const v of r.product_attribute_values) {
+          specKeys.set(v.attribute_definitions.key, v.attribute_definitions);
+          if (!byAttr.has(v.attribute_definitions.key)) byAttr.set(v.attribute_definitions.key, []);
+          byAttr.get(v.attribute_definitions.key).push(v);
+        }
+        r._specs = Object.fromEntries([...byAttr].map(([k, list]) => {
+          const raw = attrs.formValue(list[0].attribute_definitions, list);
+          return [k, Array.isArray(raw) ? raw.join("|") : raw];
+        }));
+      }
       return {
         rows,
         columns: ["sku", "barcode", "title", "brand", "price", "cost_price", "unit", { key: "flavors", label: "flavors" }, "categories", "reorder_point", "reorder_quantity",
+          "status", "slug", "min_order_qty", "order_multiple", "pack_size", { key: "is_featured", label: "is_featured", value: (r) => (r.is_featured ? "yes" : "no") },
           { key: "is_active", label: "is_active", value: (r) => (r.is_active ? "yes" : "no") }, "compliance_category", "nicotine_ml",
-          { key: "is_flavored", label: "is_flavored", value: (r) => (r.is_flavored ? "yes" : "no") }, "description"],
+          { key: "is_flavored", label: "is_flavored", value: (r) => (r.is_flavored ? "yes" : "no") }, "short_description", "description",
+          ...[...specKeys.keys()].sort().map((k) => ({ label: `attr:${k}`, value: (r) => r._specs[k] ?? "" }))],
+      };
+    },
+  },
+  variants: {
+    perm: "products.view",
+    run: async (req) => {
+      const rows = await prisma.product_variants.findMany({
+        where: { products: { is: { company_id: req.company.id } } },
+        orderBy: [{ product_id: "asc" }, { sort_order: "asc" }],
+        include: {
+          products: { select: { sku: true, title: true, flavors: true } },
+          product_attribute_values: { include: { attribute_definitions: true, attribute_options: { select: { value: true } } } },
+        },
+      });
+      return {
+        rows: rows.filter((v) => (v.products.flavors || []).includes(v.flavor)),
+        columns: [{ label: "product_sku", value: (r) => r.products.sku }, { label: "product", value: (r) => r.products.title }, { label: "variant", value: (r) => r.flavor },
+          "name", "sku", "barcode", "price", "cost_price", "status", "min_order_qty",
+          { label: "options", value: (r) => r.product_attribute_values.filter((v) => v.attribute_definitions.is_variant_option).map((v) => `${v.attribute_definitions.key}=${v.attribute_options?.value ?? (v.value_number !== null ? Number(v.value_number) : v.value_text)}`).join("|") }],
       };
     },
   },
@@ -194,35 +235,54 @@ const list = (v) => (v ? String(v).split(/[|;]/).map((s) => s.trim()).filter(Boo
 const IMPORTS = {
   products: {
     perm: "products.manage",
-    columns: ["sku", "title", "brand", "price", "cost_price", "barcode", "unit", "flavors", "categories", "reorder_point", "reorder_quantity", "is_active", "compliance_category", "nicotine_ml", "is_flavored", "description"],
+    columns: ["sku", "title", "brand", "price", "cost_price", "barcode", "unit", "flavors", "categories", "reorder_point", "reorder_quantity", "status", "slug", "min_order_qty", "order_multiple", "pack_size", "is_featured", "is_active", "compliance_category", "nicotine_ml", "is_flavored", "short_description", "description"],
+    extraColumns: (h) => h.startsWith("attr:"),
     required: ["sku"],
+    note: "Rows are matched by SKU. Categories and flavours are separated with |. Columns named attr:<key> (e.g. attr:fragrance_family) fill product details; see Export > products for the keys in use.",
     prepare: async (req, records) => ({
       existing: new Map((await prisma.products.findMany({ where: { company_id: req.company.id, sku: { in: records.map((r) => r.sku).filter(Boolean), mode: "insensitive" } } })).map((p) => [p.sku.toLowerCase(), p])),
       brands: new Map(),
+      attrs: new Map((await prisma.attribute_definitions.findMany({ where: attrs.visibleTo(req.company.id), include: { attribute_options: true } })).map((a) => [a.key, a])),
+      slugs: new Set(),
     }),
     check: async (r, ctx, req) => {
       if (!r.sku) fail("sku is required (it's how rows are matched to products)");
       const existing = ctx.existing.get(r.sku.toLowerCase());
       const body = {};
-      for (const f of ["title", "brand", "price", "cost_price", "barcode", "unit", "reorder_point", "reorder_quantity", "compliance_category", "nicotine_ml", "description"]) {
+      for (const f of ["title", "brand", "price", "cost_price", "barcode", "unit", "reorder_point", "reorder_quantity", "compliance_category", "nicotine_ml", "description",
+        "status", "slug", "min_order_qty", "order_multiple", "pack_size", "short_description"]) {
         if (r[f] !== undefined && r[f] !== "") body[f] = ["price", "cost_price", "nicotine_ml"].includes(f) ? String(r[f]).replace(/[$,\s]/g, "") : r[f];
       }
       if (r.flavors !== undefined && r.flavors !== "") body.flavors = list(r.flavors);
       if (r.categories !== undefined && r.categories !== "") body.categories = list(r.categories);
-      if (r.is_active !== undefined && r.is_active !== "") body.is_active = yes(r.is_active);
+      if (r.is_active !== undefined && r.is_active !== "" && (r.status === undefined || r.status === "")) body.is_active = yes(r.is_active);
+      if (r.is_featured !== undefined && r.is_featured !== "") body.is_featured = yes(r.is_featured);
       if (r.is_flavored !== undefined && r.is_flavored !== "") body.is_flavored = r.is_flavored;
       body.sku = r.sku;
       let data;
       try { data = productData(body); } catch (e) { fail(e.message); }
       if (!existing && (!data.title || !data.brand)) fail("title and brand are required for a new product");
-      if (data.brand && (!existing || data.brand !== existing.brand)) {
-        const key = data.brand.toLowerCase();
-        if (!ctx.brands.has(key)) {
-          const b = await prisma.brands.findFirst({ where: { name: { equals: data.brand, mode: "insensitive" } } });
-          ctx.brands.set(key, b && b.company_id && b.company_id !== req.company.id ? "taken" : "ok");
-        }
-        if (ctx.brands.get(key) === "taken") fail(`The brand "${data.brand}" belongs to another company`);
+      if (data.slug) {
+        if (ctx.slugs.has(data.slug)) fail(`Web address "${data.slug}" is used twice in this file`);
+        ctx.slugs.add(data.slug);
+        const taken = await prisma.products.findFirst({ where: { slug: data.slug, ...(existing ? { NOT: { id: existing.id } } : {}) }, select: { id: true } });
+        if (taken) fail(`Web address "${data.slug}" is already used by another product`);
       }
+      // details: attr:<key> columns, checked now so the whole file is valid before anything is saved
+      const specs = [];
+      for (const [h, v] of Object.entries(r)) {
+        if (!h.startsWith("attr:")) continue;
+        const a = ctx.attrs.get(h.slice(5));
+        if (!a) fail(`Unknown detail "${h.slice(5)}" (column ${h})`);
+        if (a.scope === "variant") fail(`${a.name} is set per variant, not per product`);
+        const open = a.validation?.open === true || a.company_id === req.company.id;
+        const value = a.data_type === "multiselect" ? list(v) : v;
+        try {
+          if (!open || !["select", "multiselect"].includes(a.data_type)) attrs.valueRows(a, value);
+        } catch (e) { fail(e.message); }
+        specs.push({ attribute_id: a.id, value: value ?? "" });
+      }
+      data._specs = specs;
       if (existing && data.flavors) {
         const removed = inv.flavorsOf(existing).filter((f) => !data.flavors.some((n) => n.toLowerCase() === f.toLowerCase()));
         if (removed.length) {
@@ -233,14 +293,63 @@ const IMPORTS = {
       return { action: existing ? "update" : "create", data, existing, label: data.title || existing?.title };
     },
     apply: async (tx, item, ctx, req) => {
-      if (item.data.brand) await ensureCompanyBrand(req.company.id, item.data.brand);
+      const { _specs: specs, ...data } = item.data;
+      if (data.brand) await ensureCompanyBrand(req.company.id, data.brand, tx);
+      let productId;
       if (item.existing) {
-        if (item.data.flavors) await inv.syncVariants(tx, item.existing, item.data.flavors);
-        await tx.products.update({ where: { id: item.existing.id }, data: { ...item.data, updated_at: new Date() } });
+        if (data.flavors) await inv.syncVariants(tx, item.existing, data.flavors);
+        await tx.products.update({ where: { id: item.existing.id }, data: { ...data, updated_at: new Date() } });
+        productId = item.existing.id;
       } else {
-        const p = await tx.products.create({ data: { categories: [], flavors: [], ...item.data, company_id: req.company.id, updated_at: new Date() } });
-        if (item.data.flavors) await inv.syncVariants(tx, { id: p.id, flavors: [] }, item.data.flavors);
+        const p = await tx.products.create({ data: { categories: [], flavors: [], status: "published", ...data, company_id: req.company.id, updated_at: new Date() } });
+        if (data.flavors) await inv.syncVariants(tx, { id: p.id, flavors: [] }, data.flavors);
+        productId = p.id;
       }
+      if (data.categories !== undefined) await cat.syncCategoriesFromNames(tx, productId, data.categories, { companyId: req.company.id, userId: req.user.id });
+      if (data.flavors) await variantsSvc.linkFlavourOptions(tx, productId, data.flavors);
+      if (specs?.length) await attrs.setProductValues(tx, { companyId: req.company.id, productId, values: specs });
+    },
+  },
+
+  variants: {
+    perm: "products.manage",
+    columns: ["product_sku", "variant", "name", "sku", "barcode", "price", "status", "min_order_qty"],
+    required: ["product_sku", "variant"],
+    note: "Updates existing variants (matched by product SKU + variant). Add new variants on the product page or with the product's flavors column.",
+    prepare: async (req) => ({ seen: new Set() }),
+    check: async (r, ctx, req) => {
+      const product = await prisma.products.findFirst({ where: { company_id: req.company.id, sku: { equals: r.product_sku, mode: "insensitive" } } });
+      if (!product) fail(`No product with SKU "${r.product_sku}"`);
+      const v = await prisma.product_variants.findFirst({ where: { product_id: product.id, flavor: { equals: r.variant, mode: "insensitive" } } });
+      if (!v || !(product.flavors || []).includes(v.flavor)) fail(`"${product.title}" has no variant "${r.variant}"`);
+      const k = `${product.id}|${v.flavor}`;
+      if (ctx.seen.has(k)) fail("This variant is listed twice");
+      ctx.seen.add(k);
+      const data = {};
+      if (r.name !== undefined && r.name !== "") data.name = String(r.name).slice(0, 255);
+      for (const f of ["sku", "barcode"]) if (r[f] !== undefined) data[f] = r[f] ? String(r[f]).slice(0, f === "sku" ? 255 : 64) : null;
+      if (r.price !== undefined && r.price !== "") {
+        const n = Number(String(r.price).replace(/[$,\s]/g, ""));
+        if (!Number.isFinite(n) || n < 0) fail("price must be 0 or more");
+        data.price = n;
+      }
+      if (r.status !== undefined && r.status !== "") {
+        if (!variantsSvc.STATUSES.includes(r.status)) fail(`status must be one of: ${variantsSvc.STATUSES.join(", ")}`);
+        data.status = r.status;
+      }
+      if (r.min_order_qty !== undefined && r.min_order_qty !== "") {
+        const n = Number(r.min_order_qty);
+        if (!Number.isInteger(n) || n < 1) fail("min_order_qty must be a whole number, 1 or more");
+        data.min_order_qty = n;
+      }
+      for (const code of [data.sku, data.barcode].filter(Boolean)) {
+        const clash = await prisma.product_variants.findFirst({ where: { NOT: { id: v.id }, OR: [{ sku: { equals: code, mode: "insensitive" } }, { barcode: code }], products: { is: { company_id: req.company.id } } } });
+        if (clash) fail(`Code ${code} is already used by another variant`);
+      }
+      return { action: Object.keys(data).length ? "update" : "skip", data, existing: v, label: `${product.title} (${v.name || v.flavor})` };
+    },
+    apply: async (tx, item) => {
+      await tx.product_variants.update({ where: { id: item.existing.id }, data: { ...item.data, updated_at: new Date() } });
     },
   },
 
@@ -456,7 +565,7 @@ const importCsv = async (req, res) => {
   if (records.length > MAX_ROWS) throw new HttpError(400, `Up to ${MAX_ROWS} rows per import`);
   const missing = def.required.filter((c) => !headers.includes(c));
   if (missing.length) throw new HttpError(400, `Missing column(s): ${missing.join(", ")}. Download the template for the right headers.`);
-  const unknown = headers.filter((h) => !def.columns.includes(h));
+  const unknown = headers.filter((h) => !def.columns.includes(h) && !(def.extraColumns && def.extraColumns(h)));
 
   const ctx = await def.prepare(req, records);
   const items = [];

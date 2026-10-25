@@ -4,7 +4,7 @@ import {
   LayoutDashboard, ShoppingBag, Package, Users, Settings, History, Warehouse, Truck,
   Calculator, BadgeDollarSign, Building2, Clock, Boxes, ClipboardList, RefreshCcw, BarChart3,
   UserRound, Tags, FileSignature, FileText, Undo2, LineChart, SlidersHorizontal,
-  BookOpen, ListTree, Receipt, Wallet, Landmark, Scale, ScanLine, ShieldCheck, FileSpreadsheet, FileBarChart, UsersRound, CalendarCheck, Plane, SlidersHorizontal as Sliders2, IdCard,
+  BookOpen, ListTree, Receipt, Wallet, Landmark, Scale, ScanLine, ShieldCheck, FileSpreadsheet, FileBarChart, UsersRound, CalendarCheck, Plane, SlidersHorizontal as Sliders2, IdCard, FolderTree,
 } from "lucide-react";
 import { BusinessProvider, useBusiness } from "../context/BusinessContext";
 import { Spinner } from "../components/ui";
@@ -17,6 +17,7 @@ const NAV: { section?: string; items: NavItem[] }[] = [
       { to: "/business", label: "Dashboard", icon: LayoutDashboard, perm: "dashboard.view", end: true },
       { to: "/business/orders", label: "Orders", icon: ShoppingBag, perm: "orders.view" },
       { to: "/business/products", label: "Products", icon: Package, perm: "products.view" },
+      { to: "/business/catalogue", label: "Categories & brands", icon: FolderTree, perm: "products.view" },
     ],
   },
   {

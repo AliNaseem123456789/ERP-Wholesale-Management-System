@@ -28,10 +28,19 @@ datasource db {
 }
 
 model brands {
-  id         BigInt     @id @default(autoincrement())
-  name       String     @unique @db.VarChar(255)
-  company_id BigInt?
-  companies  companies? @relation(fields: [company_id], references: [id], onUpdate: NoAction)
+  id             BigInt           @id @default(autoincrement())
+  name           String           @unique @db.VarChar(255)
+  company_id     BigInt?
+  slug           String?          @unique(map: "brands_slug_unique") @db.VarChar(255)
+  logo_url       String?          @db.VarChar(1000)
+  description    String?
+  website        String?          @db.VarChar(255)
+  is_featured    Boolean          @default(false)
+  created_at     DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime         @default(now()) @db.Timestamptz(6)
+  companies      companies?       @relation(fields: [company_id], references: [id], onUpdate: NoAction)
+  company_brands company_brands[]
+  products       products[]
 
   @@index([company_id], map: "idx_brands_company")
 }
@@ -71,6 +80,23 @@ model products {
   unit                  String    @default("each") @db.VarChar(32)
   preferred_supplier_id BigInt?
   low_stock_alerted_at  DateTime? @db.Timestamptz(6)
+  /// draft | published | hidden | discontinued | archived (is_active is kept equal to status = 'published' by a trigger)
+  status                String    @default("published") @db.VarChar(16)
+  slug                  String?   @unique(map: "products_slug_unique") @db.VarChar(255)
+  brand_id              BigInt?
+  min_order_qty         Int       @default(1)
+  order_multiple        Int       @default(1)
+  pack_size             Int?
+  is_featured           Boolean   @default(false)
+  /// public | groups (only the customer groups in product_visible_groups)
+  visibility            String    @default("public") @db.VarChar(16)
+  published_at          DateTime? @db.Timestamptz(6)
+  short_description     String?   @db.VarChar(500)
+  brands                brands?   @relation(fields: [brand_id], references: [id], onUpdate: NoAction)
+  product_images            product_images[]
+  product_visible_groups    product_visible_groups[]
+  product_categories        product_categories[]
+  product_attribute_values  product_attribute_values[]
   cart_items  cart_items[]
   order_items order_items[]
   companies   companies?    @relation(fields: [company_id], references: [id], onUpdate: NoAction)
@@ -93,6 +119,9 @@ model products {
 
   @@index([company_id], map: "idx_products_company")
   @@index([barcode], map: "idx_products_barcode")
+  @@index([company_id, status], map: "idx_products_status")
+  @@index([brand_id], map: "idx_products_brand_id")
+  @@index([company_id, sku], map: "idx_products_sku")
 }
 
 model users {
@@ -135,6 +164,7 @@ model users {
   return_requests                            return_requests[]
   credit_notes                               credit_notes[]
   quotes                                     quotes[]
+  categories                                 categories[]
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -387,6 +417,9 @@ model companies {
   return_requests     return_requests[]
   credit_notes        credit_notes[]
   quotes              quotes[]
+  company_brands        company_brands[]
+  categories            categories[]
+  attribute_definitions attribute_definitions[]
 
   @@index([status], map: "idx_companies_status")
 }
@@ -802,10 +835,12 @@ model price_list_items {
   product_id    BigInt
   min_quantity  Int         @default(1)
   price         Decimal     @db.Decimal(38, 4)
+  /// '' = every variant of the product, otherwise one variant key
+  flavor        String      @default("") @db.VarChar(255)
   price_lists   price_lists @relation(fields: [price_list_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   products      products    @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@unique([price_list_id, product_id, min_quantity], map: "price_list_items_unique")
+  @@unique([price_list_id, product_id, flavor, min_quantity], map: "price_list_items_variant_unique")
   @@index([product_id], map: "idx_price_list_items_product")
 }
 
@@ -821,6 +856,7 @@ model customer_groups {
   companies         companies           @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   price_lists       price_lists?        @relation(fields: [price_list_id], references: [id], onUpdate: NoAction)
   company_customers company_customers[]
+  product_visible_groups product_visible_groups[]
 
   @@unique([company_id, name], map: "customer_groups_company_name_unique")
 }
@@ -1079,18 +1115,30 @@ model quote_items {
 }
 
 
+/// One row per purchasable variant. `flavor` is the variant key used by stock, carts, orders and every
+/// other stock table; it never changes once the variant has stock or history (`name` is the display label).
 model product_variants {
-  id         BigInt   @id @default(autoincrement())
-  product_id BigInt
-  flavor     String   @db.VarChar(255)
-  sku        String?  @db.VarChar(255)
-  barcode    String?  @db.VarChar(64)
-  created_at DateTime @default(now()) @db.Timestamptz(6)
-  updated_at DateTime @default(now()) @db.Timestamptz(6)
-  products   products @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id            BigInt   @id @default(autoincrement())
+  product_id    BigInt
+  flavor        String   @db.VarChar(255)
+  sku           String?  @db.VarChar(255)
+  barcode       String?  @db.VarChar(64)
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @db.Timestamptz(6)
+  name          String?  @db.VarChar(255)
+  price         Decimal? @db.Decimal(38, 2)
+  cost_price    Decimal? @db.Decimal(38, 4)
+  /// active | discontinued | archived
+  status        String   @default("active") @db.VarChar(16)
+  min_order_qty Int?
+  image_url     String?  @db.VarChar(1000)
+  sort_order    Int      @default(0)
+  products      products @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  product_attribute_values product_attribute_values[]
 
   @@unique([product_id, flavor], map: "product_variants_product_flavor_unique")
   @@index([barcode], map: "idx_product_variants_barcode")
+  @@index([sku], map: "idx_product_variants_sku")
 }
 
 model supplier_returns {
@@ -1653,4 +1701,151 @@ model report_runs {
   created_at  DateTime  @default(now()) @db.Timestamptz(6)
 
   @@index([company_id, created_at(sort: Desc)], map: "idx_report_runs_company")
+}
+
+// ---------------------------------------------------------------------------------------------
+// 008_catalogue.sql
+// Expression indexes that Prisma can't describe (they exist in the database):
+//   categories(COALESCE(parent_id,0), lower(name)) unique, brands(lower(btrim(name))) unique,
+//   attribute_definitions(COALESCE(company_id,0), key) unique, attribute_options(attribute_id, lower(value)) unique,
+//   product_attribute_values(product_id, COALESCE(variant_id,0), attribute_id, COALESCE(option_id,0)) unique
+// ---------------------------------------------------------------------------------------------
+
+model product_images {
+  id           BigInt   @id @default(autoincrement())
+  product_id   BigInt
+  variant_key  String?  @db.VarChar(255)
+  url          String   @db.VarChar(1000)
+  storage_path String?  @db.VarChar(500)
+  alt_text     String?  @db.VarChar(255)
+  sort_order   Int      @default(0)
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  products     products @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([product_id, sort_order], map: "idx_product_images_product")
+}
+
+model product_visible_groups {
+  product_id        BigInt
+  customer_group_id BigInt
+  products          products        @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  customer_groups   customer_groups @relation(fields: [customer_group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([product_id, customer_group_id])
+}
+
+model categories {
+  id                    BigInt                @id @default(autoincrement())
+  name                  String                @db.VarChar(255)
+  slug                  String                @unique(map: "categories_slug_unique") @db.VarChar(255)
+  parent_id             BigInt?
+  description           String?
+  image_url             String?               @db.VarChar(1000)
+  is_featured           Boolean               @default(false)
+  sort_order            Int                   @default(0)
+  /// active | hidden
+  status                String                @default("active") @db.VarChar(16)
+  created_by_company_id BigInt?
+  created_by            BigInt?
+  created_at            DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime              @default(now()) @db.Timestamptz(6)
+  parent                categories?           @relation("category_tree", fields: [parent_id], references: [id], onUpdate: NoAction)
+  children              categories[]          @relation("category_tree")
+  companies             companies?            @relation(fields: [created_by_company_id], references: [id], onUpdate: NoAction)
+  users                 users?                @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  product_categories    product_categories[]
+  category_attributes   category_attributes[]
+
+  @@index([parent_id], map: "idx_categories_parent")
+}
+
+model product_categories {
+  product_id  BigInt
+  category_id BigInt
+  sort_order  Int        @default(0)
+  products    products   @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  categories  categories @relation(fields: [category_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([product_id, category_id])
+  @@index([category_id], map: "idx_product_categories_category")
+}
+
+/// relationship: manufacturer | authorized_distributor | distributor | reseller
+model company_brands {
+  company_id   BigInt
+  brand_id     BigInt
+  relationship String    @default("reseller") @db.VarChar(32)
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  companies    companies @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  brands       brands    @relation(fields: [brand_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([company_id, brand_id])
+  @@index([brand_id], map: "idx_company_brands_brand")
+}
+
+model attribute_definitions {
+  id                       BigInt                     @id @default(autoincrement())
+  company_id               BigInt?
+  key                      String                     @db.VarChar(64)
+  name                     String                     @db.VarChar(255)
+  description              String?                    @db.VarChar(500)
+  /// text | number | boolean | date | select | multiselect
+  data_type                String                     @db.VarChar(16)
+  unit                     String?                    @db.VarChar(32)
+  validation               Json                       @default("{}")
+  /// product | variant | both
+  scope                    String                     @default("product") @db.VarChar(16)
+  is_variant_option        Boolean                    @default(false)
+  is_filterable            Boolean                    @default(false)
+  is_searchable            Boolean                    @default(false)
+  is_public                Boolean                    @default(true)
+  sort_order               Int                        @default(0)
+  created_at               DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime                   @default(now()) @db.Timestamptz(6)
+  companies                companies?                 @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  attribute_options        attribute_options[]
+  category_attributes      category_attributes[]
+  product_attribute_values product_attribute_values[]
+}
+
+model attribute_options {
+  id                       BigInt                     @id @default(autoincrement())
+  attribute_id             BigInt
+  value                    String                     @db.VarChar(255)
+  sort_order               Int                        @default(0)
+  created_at               DateTime                   @default(now()) @db.Timestamptz(6)
+  attribute_definitions    attribute_definitions      @relation(fields: [attribute_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  product_attribute_values product_attribute_values[]
+}
+
+model category_attributes {
+  category_id           BigInt
+  attribute_id          BigInt
+  is_required           Boolean               @default(false)
+  sort_order            Int                   @default(0)
+  categories            categories            @relation(fields: [category_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  attribute_definitions attribute_definitions @relation(fields: [attribute_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([category_id, attribute_id])
+}
+
+model product_attribute_values {
+  id                    BigInt                @id @default(autoincrement())
+  product_id            BigInt
+  variant_id            BigInt?
+  attribute_id          BigInt
+  option_id             BigInt?
+  value_text            String?
+  value_number          Decimal?              @db.Decimal(38, 6)
+  value_boolean         Boolean?
+  value_date            DateTime?             @db.Date
+  created_at            DateTime              @default(now()) @db.Timestamptz(6)
+  products              products              @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  product_variants      product_variants?     @relation(fields: [variant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  attribute_definitions attribute_definitions @relation(fields: [attribute_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  attribute_options     attribute_options?    @relation(fields: [option_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([attribute_id, option_id], map: "idx_pav_option")
+  @@index([attribute_id, value_number], map: "idx_pav_number")
+  @@index([variant_id], map: "idx_pav_variant")
 }

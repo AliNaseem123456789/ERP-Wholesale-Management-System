@@ -61,7 +61,7 @@ const buildCheckout = async (userId, items, { promoCodes = [], paymentMethods = 
   // Volume tiers count the product's whole quantity across flavours ("mix and match").
   const qtyByProduct = new Map();
   for (const i of items) qtyByProduct.set(String(i.product_id), (qtyByProduct.get(String(i.product_id)) || 0) + Number(i.quantity || 0));
-  const priced = await priceEntries(userId, items.map((i) => ({ product: i.products, quantity: qtyByProduct.get(String(i.product_id)) || i.quantity })), db);
+  const priced = await priceEntries(userId, items.map((i) => ({ product: i.products, flavor: i.flavor || "", quantity: qtyByProduct.get(String(i.product_id)) || i.quantity })), db);
   priced.forEach((p, idx) => {
     items[idx].unit_price = p.unit;
     items[idx].list_price = p.list;

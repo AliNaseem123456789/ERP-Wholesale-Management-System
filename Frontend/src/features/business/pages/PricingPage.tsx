@@ -105,7 +105,7 @@ const PriceListDetail: React.FC<{ id: number; onClose: () => void; onChanged: ()
   const canManage = can("pricing.manage");
   const [list, setList] = useState<any>(null);
   const [product, setProduct] = useState<PickedProduct | null>(null);
-  const [tiers, setTiers] = useState<{ min_quantity: string; price: string }[]>([{ min_quantity: "1", price: "" }]);
+  const [tiers, setTiers] = useState<{ min_quantity: string; price: string; flavor?: string }[]>([{ min_quantity: "1", price: "", flavor: "" }]);
   const [meta, setMeta] = useState({ name: "", description: "", is_default: false, is_active: true });
 
   const load = useCallback(() => {
@@ -124,17 +124,17 @@ const PriceListDetail: React.FC<{ id: number; onClose: () => void; onChanged: ()
   }
 
   const edit = (p: any, t: any[]) => {
-    setProduct({ id: p.id, title: p.title, sku: p.sku });
-    setTiers(t.map((x) => ({ min_quantity: String(x.min_quantity), price: String(x.price) })));
+    setProduct({ id: p.id, title: p.title, sku: p.sku, flavors: p.flavors } as any);
+    setTiers(t.map((x) => ({ min_quantity: String(x.min_quantity), price: String(x.price), flavor: x.flavor || "" })));
   };
   const savePrices = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!product) return toast.error("Choose a product");
     try {
-      const clean = tiers.filter((t) => t.price !== "").map((t) => ({ min_quantity: Number(t.min_quantity || 1), price: Number(t.price) }));
+      const clean = tiers.filter((t) => t.price !== "").map((t) => ({ min_quantity: Number(t.min_quantity || 1), price: Number(t.price), flavor: (t as any).flavor || "" }));
       toast.success((await salesApi.setPrices(companyId!, id, product.id, clean)).message);
       setProduct(null);
-      setTiers([{ min_quantity: "1", price: "" }]);
+      setTiers([{ min_quantity: "1", price: "", flavor: "" } as any]);
       load();
       onChanged();
     } catch (err) {
@@ -183,7 +183,7 @@ const PriceListDetail: React.FC<{ id: number; onClose: () => void; onChanged: ()
                   <tr key={p.id}>
                     <td className="py-2 font-semibold">{p.title}<span className="text-xs text-gray-400 ml-1">{p.sku}</span></td>
                     <td className="text-right text-gray-500">{money(p.price)}</td>
-                    <td className="pl-4">{t.map((x) => <span key={x.id} className="inline-block mr-2 bg-blue-50 text-blue-800 rounded px-2 py-0.5 text-xs font-semibold">{x.min_quantity}+ @ {money(x.price)}</span>)}</td>
+                    <td className="pl-4">{t.map((x) => <span key={x.id} className="inline-block mr-2 bg-blue-50 text-blue-800 rounded px-2 py-0.5 text-xs font-semibold">{x.flavor ? `${x.flavor}: ` : ""}{x.min_quantity}+ @ {money(x.price)}</span>)}</td>
                     <td className="text-right whitespace-nowrap">{canManage && <>
                       <button onClick={() => edit(p, t)} className="text-blue-600 font-semibold mr-2">Edit</button>
                       <button onClick={() => salesApi.setPrices(companyId!, id, p.id, []).then(() => { load(); onChanged(); })} className="text-gray-400 hover:text-red-600" aria-label="Remove"><Trash2 size={14} /></button>
@@ -200,12 +200,20 @@ const PriceListDetail: React.FC<{ id: number; onClose: () => void; onChanged: ()
               <div className="space-y-2">
                 {tiers.map((t, idx) => (
                   <div key={idx} className="flex items-end gap-2">
+                    {((product as any)?.flavors || []).length > 0 && (
+                      <Field label={idx === 0 ? "Variant" : " "}>
+                        <select className={`${inputCls} w-40`} value={(t as any).flavor || ""} onChange={(e) => setTiers((prev) => prev.map((x, i) => (i === idx ? { ...x, flavor: e.target.value } : x)))}>
+                          <option value="">All variants</option>
+                          {((product as any).flavors as string[]).map((f) => <option key={f} value={f}>{f}</option>)}
+                        </select>
+                      </Field>
+                    )}
                     <Field label={idx === 0 ? "From quantity" : " "}><input type="number" min={1} className={`${inputCls} w-28`} value={t.min_quantity} onChange={(e) => setTiers((prev) => prev.map((x, i) => (i === idx ? { ...x, min_quantity: e.target.value } : x)))} /></Field>
                     <Field label={idx === 0 ? "Unit price" : " "}><input type="number" min={0} step="0.0001" required className={`${inputCls} w-32`} value={t.price} onChange={(e) => setTiers((prev) => prev.map((x, i) => (i === idx ? { ...x, price: e.target.value } : x)))} /></Field>
                     {tiers.length > 1 && <button type="button" onClick={() => setTiers((prev) => prev.filter((_, i) => i !== idx))} className="text-gray-400 hover:text-red-600 mb-2" aria-label="Remove tier"><Trash2 size={14} /></button>}
                   </div>
                 ))}
-                <button type="button" onClick={() => setTiers((prev) => [...prev, { min_quantity: String(Number(prev[prev.length - 1]?.min_quantity || 1) * 10), price: "" }])} className="text-xs font-bold text-blue-600">+ Add volume tier</button>
+                <button type="button" onClick={() => setTiers((prev) => [...prev, { min_quantity: String(Number(prev[prev.length - 1]?.min_quantity || 1) * 10), price: "", flavor: (prev[prev.length - 1] as any)?.flavor || "" } as any])} className="text-xs font-bold text-blue-600">+ Add volume tier</button>
               </div>
               <div className="flex justify-end"><button className={btnPrimary}>Save prices</button></div>
             </form>

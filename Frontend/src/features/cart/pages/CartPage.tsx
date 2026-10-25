@@ -6,7 +6,7 @@ import { useAuth } from "../../auth/context/AuthContext";
 import { useSaveCart } from "../hooks/useSaveCart";
 import { useCartActions } from "../hooks/useCartActions";
 import { fetchCart } from "../redux/cartSlice";
-import { getProductImage } from "../../products/utils/getProductImage";
+import { productImage } from "../../products/utils/getProductImage";
 import { toast } from "sonner";
 import { documentsApi, errorText } from "../../account/api/documents.api";
 import {
@@ -138,7 +138,7 @@ export const CartPage: React.FC = () => {
               >
                 <div className="w-24 h-24 bg-gray-50 rounded-xl overflow-hidden border border-gray-100 shrink-0">
                   <img
-                    src={getProductImage(item.product_id, 1)}
+                    src={productImage({ id: item.product_id, image: (item.products as any)?.image })}
                     alt={item.products?.title}
                     onError={(e) => {
                       (e.currentTarget as HTMLImageElement).src =
@@ -164,11 +164,12 @@ export const CartPage: React.FC = () => {
                         if (needsFlavor) return <span className="text-xs font-bold text-red-600 block mt-1">Choose a flavour: remove this line and add it again from the product page.</span>;
                         if (p?.stock_status === "out_of_stock" || (avail != null && avail <= 0)) return <span className="text-xs font-bold text-red-600 block mt-1">Out of stock. Remove to check out.</span>;
                         if (avail != null && item.quantity > avail) return <span className="text-xs font-bold text-amber-700 block mt-1">Only {avail} available</span>;
+                        if ((item as any).problem) return <span className="text-xs font-bold text-red-600 block mt-1">{(item as any).problem}</span>;
                         return null;
                       })()}
                       {item.flavor && (
                         <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-md mt-1 inline-block">
-                          Flavor: {item.flavor}
+                          {item.flavor}
                         </span>
                       )}
                     </div>
@@ -186,7 +187,7 @@ export const CartPage: React.FC = () => {
                         onClick={() =>
                           handleUpdateQuantity(
                             item.product_id,
-                            item.quantity - 1,
+                            item.quantity - ((item.products as any)?.order_multiple || 1),
                             item.flavor,
                           )
                         }
@@ -201,7 +202,7 @@ export const CartPage: React.FC = () => {
                         onClick={() =>
                           handleUpdateQuantity(
                             item.product_id,
-                            item.quantity + 1,
+                            item.quantity + ((item.products as any)?.order_multiple || 1),
                             item.flavor,
                           )
                         }

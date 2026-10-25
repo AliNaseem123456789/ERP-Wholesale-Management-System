@@ -270,8 +270,8 @@ const getPriceList = async (req, res) => {
   const l = await findOwnList(req);
   const items = await prisma.price_list_items.findMany({
     where: { price_list_id: l.id },
-    orderBy: [{ product_id: "asc" }, { min_quantity: "asc" }],
-    include: { products: { select: { id: true, title: true, sku: true, price: true } } },
+    orderBy: [{ product_id: "asc" }, { flavor: "asc" }, { min_quantity: "asc" }],
+    include: { products: { select: { id: true, title: true, sku: true, price: true, flavors: true } } },
   });
   res.json({ data: { ...l, items: items.map(({ products, ...i }) => ({ ...i, product: products })) } });
 };
@@ -314,7 +314,8 @@ const deletePriceList = async (req, res) => {
   res.json({ message: "Price list deleted" });
 };
 
-// PUT /company/price-lists/:id/products/:productId  { tiers: [{ min_quantity, price }] }  (empty tiers = remove)
+// PUT /company/price-lists/:id/products/:productId  { tiers: [{ min_quantity, price, flavor? }] }  (empty tiers = remove)
+// A tier with a variant (flavor) applies to that variant only and wins over the product's own tiers.
 const setProductPrices = async (req, res) => {
   const l = await findOwnList(req);
   const product = await inv.assertProduct(prisma, req.company.id, toId(req.params.productId, "product_id"));
@@ -322,12 +323,13 @@ const setProductPrices = async (req, res) => {
   const clean = tiers.map((t) => ({
     min_quantity: int(t.min_quantity ?? 1, "Minimum quantity", { min: 1, max: 1000000 }),
     price: dec(t.price, "Price"),
+    flavor: t.flavor ? inv.resolveFlavor(product, t.flavor) : "",
   }));
-  if (new Set(clean.map((t) => t.min_quantity)).size !== clean.length) throw new HttpError(400, "Each tier needs a different minimum quantity");
+  if (new Set(clean.map((t) => `${t.flavor}|${t.min_quantity}`)).size !== clean.length) throw new HttpError(400, "Each tier needs a different minimum quantity");
   await prisma.$transaction([
     prisma.price_list_items.deleteMany({ where: { price_list_id: l.id, product_id: product.id } }),
     prisma.price_list_items.createMany({
-      data: clean.map((t) => ({ price_list_id: l.id, product_id: product.id, min_quantity: t.min_quantity, price: new Prisma.Decimal(t.price.toFixed(4)) })),
+      data: clean.map((t) => ({ price_list_id: l.id, product_id: product.id, flavor: t.flavor, min_quantity: t.min_quantity, price: new Prisma.Decimal(t.price.toFixed(4)) })),
     }),
   ]);
   await audit(req, "price_list.prices", { entity: "price_list", entityId: l.id, changes: { product: product.id, tiers: clean } });

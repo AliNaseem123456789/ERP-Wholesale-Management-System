@@ -1,6 +1,8 @@
 // Validates/whitelists product fields coming from admin or company forms.
 const { HttpError } = require("../utils/http");
 
+const STATUSES = ["draft", "published", "hidden", "discontinued", "archived"];
+
 const toList = (v) => {
   if (v === undefined) return undefined;
   if (Array.isArray(v)) return v.map((s) => String(s).trim()).filter(Boolean);
@@ -59,8 +61,42 @@ const productData = (body) => {
     }
   }
   if (body.is_flavored !== undefined) data.is_flavored = body.is_flavored === true || body.is_flavored === "true" || body.is_flavored === "yes" || body.is_flavored === "1" || body.is_flavored === 1;
+  // lifecycle & merchandising
+  if (body.status !== undefined) {
+    const st = String(body.status);
+    if (!STATUSES.includes(st)) throw new HttpError(400, `Status must be one of: ${STATUSES.join(", ")}`);
+    data.status = st;
+    delete data.is_active; // status wins; the database keeps is_active in step
+  }
+  if (body.slug !== undefined) {
+    const slug = String(body.slug || "").trim().toLowerCase();
+    if (slug && !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)) throw new HttpError(400, "Web address can only use lowercase letters, numbers and dashes");
+    if (slug.length > 200) throw new HttpError(400, "Web address is too long");
+    if (slug) data.slug = slug;
+  }
+  for (const [f, label] of [["min_order_qty", "Minimum order quantity"], ["order_multiple", "Order multiple"]]) {
+    if (body[f] !== undefined && body[f] !== "" && body[f] !== null) {
+      const n = Number(body[f]);
+      if (!Number.isInteger(n) || n < 1 || n > 1000000) throw new HttpError(400, `${label} must be a whole number, 1 or more`);
+      data[f] = n;
+    }
+  }
+  if (body.pack_size !== undefined) {
+    if (body.pack_size === "" || body.pack_size === null) data.pack_size = null;
+    else {
+      const n = Number(body.pack_size);
+      if (!Number.isInteger(n) || n < 1) throw new HttpError(400, "Pack size must be a whole number, 1 or more");
+      data.pack_size = n;
+    }
+  }
+  if (body.is_featured !== undefined) data.is_featured = body.is_featured === true || body.is_featured === "true" || body.is_featured === "yes" || body.is_featured === 1 || body.is_featured === "1";
+  if (body.visibility !== undefined) {
+    if (!["public", "groups"].includes(body.visibility)) throw new HttpError(400, "Visibility must be public or groups");
+    data.visibility = body.visibility;
+  }
+  if (body.short_description !== undefined) data.short_description = body.short_description ? String(body.short_description).slice(0, 500) : null;
   if (data.title === "" || data.brand === "") throw new HttpError(400, "Title and brand can't be empty");
   return data;
 };
 
-module.exports = { productData, toList };
+module.exports = { productData, toList, STATUSES };

@@ -1,5 +1,5 @@
 import { Edit, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
-import { getProductImage } from "../../../products/utils/getProductImage";
+import { productImage } from "../../../products/utils/getProductImage";
 
 interface ProductTableProps {
   products: any[];
@@ -36,7 +36,7 @@ export const ProductTable = ({
               <td className="p-4 flex items-center gap-3">
                 <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden border border-gray-100 shrink-0">
                   <img
-                    src={getProductImage(p.id)}
+                    src={productImage(p as any)}
                     alt={p.title}
                     className="w-full h-full object-cover"
                     onError={(e) => {

@@ -35,7 +35,8 @@ const buildLines = async (db, companyId, userId, lines) => {
   // volume tiers count the product's whole quantity on the quote, across flavours
   const qtyBy = new Map();
   ids.forEach((id, i) => qtyBy.set(String(id), (qtyBy.get(String(id)) || 0) + Number(lines[i].quantity)));
-  const priced = await priceEntries(userId, ids.map((id) => ({ product: byId.get(String(id)), quantity: qtyBy.get(String(id)) })), db);
+  const flavors = lines.map((l, i) => inv.resolveFlavor(byId.get(String(ids[i])), l.flavor));
+  const priced = await priceEntries(userId, ids.map((id, i) => ({ product: byId.get(String(id)), flavor: flavors[i], quantity: qtyBy.get(String(id)) })), db);
   return lines.map((l, i) => {
     const p = byId.get(String(ids[i]));
     let unit;
@@ -49,13 +50,13 @@ const buildLines = async (db, companyId, userId, lines) => {
     const quantity = Number(l.quantity);
     return {
       product_id: p.id,
-      flavor: inv.resolveFlavor(p, l.flavor),
+      flavor: flavors[i],
       description: l.description ? String(l.description).slice(0, 500) : null,
       quantity,
       unit_price: round2(unit * 10000) / 10000,
       line_total: round2(unit * quantity),
       list_price: priced[i].list,
-      title: inv.label(p.title, inv.resolveFlavor(p, l.flavor)),
+      title: inv.label(p.title, flavors[i]),
     };
   });
 };
@@ -114,6 +115,8 @@ const acceptQuote = async (tx, { quoteId, userId, body }) => {
       const k = inv.flavorKey(i.product_id, i.flavor);
       need.set(k, (need.get(k) || 0) + i.quantity);
     }
+    // same protection as checkout: unconfirmed orders count as taken; parallel buyers wait for each other
+    await inv.lockProductsForSale(tx, quote.quote_items.map((i) => i.product_id));
     const byFlavor = await inv.availabilityByFlavor([...new Set(quote.quote_items.map((i) => String(i.product_id)))]);
     for (const i of quote.quote_items) {
       const a = Math.max(0, byFlavor.get(inv.flavorKey(i.product_id, i.flavor)) ?? 0);

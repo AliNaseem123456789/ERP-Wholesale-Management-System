@@ -10,7 +10,8 @@
     "prisma:validate": "prisma validate",
     "db:pull:preview": "prisma db pull --print",
     "db:migrate": "node scripts/db-migrate.js",
-    "db:export": "node scripts/db-export.js"
+    "db:export": "node scripts/db-export.js",
+    "db:verify": "node scripts/db-verify.js"
   },
   "dependencies": {
     "@prisma/client": "^6.19.1",

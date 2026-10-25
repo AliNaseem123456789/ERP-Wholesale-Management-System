@@ -135,8 +135,10 @@ const dashboard = async (req, res) => {
   let inventory = null;
   if (req.can("inventory.view") || req.can("purchasing.view")) {
     const [stock] = await prisma.$queryRaw`
-      SELECT (SELECT COALESCE(SUM(l.on_hand * p2.cost_price), 0) FROM inventory_levels l
-              JOIN products p2 ON p2.id = l.product_id WHERE l.company_id = ${companyId})::float AS value,
+      SELECT (SELECT COALESCE(SUM(l.on_hand * COALESCE(pv.cost_price, p2.cost_price)), 0) FROM inventory_levels l
+              JOIN products p2 ON p2.id = l.product_id
+              LEFT JOIN product_variants pv ON pv.product_id = l.product_id AND pv.flavor = l.flavor AND l.flavor <> ''
+              WHERE l.company_id = ${companyId})::float AS value,
              COUNT(*) FILTER (WHERE x.avail <= 0)::int AS out_of_stock,
              COUNT(*) FILTER (WHERE x.avail > 0 AND p.reorder_point > 0 AND x.avail <= p.reorder_point)::int AS low_stock
       FROM products p

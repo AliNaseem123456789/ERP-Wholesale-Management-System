@@ -2,6 +2,7 @@ const express = require("express");
 const multer = require("multer");
 const { verifyTokenFromCookie } = require("../jwt");
 const requireAdmin = require("../middlware/requiredAdmin.js");
+const ac = require("../controllers/adminCatalog.controller");
 const a = require("../controllers/admin.controller");
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -37,6 +38,26 @@ router.post("/companies", a.createCompany);
 router.patch("/companies/:id", a.updateCompany);
 router.get("/brands", a.listAllBrands);
 router.post("/brands/:id/assign", a.assignBrand);
+router.patch("/brands/:id", ac.updateBrand);
+router.post("/brands/:id/merge", ac.mergeBrand);
+
+router.get("/categories", ac.listCategories);
+router.post("/categories", ac.createCategory);
+router.patch("/categories/:id", ac.updateCategory);
+router.delete("/categories/:id", ac.deleteCategory);
+router.post("/categories/:id/merge", ac.mergeCategory);
+router.get("/categories/:id/attributes", ac.getCategoryAttributes);
+router.put("/categories/:id/attributes", ac.setCategoryAttributes);
+router.post("/categories/:id/apply-template", ac.applyTemplate);
+router.get("/attribute-templates", ac.listTemplates);
+router.get("/attributes", ac.listAttributes);
+router.post("/attributes", ac.createAttribute);
+router.patch("/attributes/:id", ac.updateAttribute);
+router.delete("/attributes/:id", ac.deleteAttribute);
+router.post("/attributes/:id/options", ac.addOption);
+router.patch("/attribute-options/:optionId", ac.updateOption);
+router.delete("/attribute-options/:optionId", ac.deleteOption);
+router.get("/catalogue/health", ac.catalogueHealth);
 
 router.get("/emails", a.listEmails);
 router.post("/emails/test", a.sendTestEmail);

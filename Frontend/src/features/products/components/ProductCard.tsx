@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Product } from "../types/product.types"; // Use standard Product
 import { useAuth } from "../../auth/context/AuthContext";
 import { Lock } from "lucide-react";
-import { getProductImage } from "../utils/getProductImage";
+import { productImage } from "../utils/getProductImage";
 import QuickOrderModal from "../../../app/components/home/QuickOrderModal";
 
 interface ProductCardProps {
@@ -26,7 +26,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickOrder }) => {
           product={{
             title: product.title,
             brand: product.brand,
-            imageUrl: getProductImage(product.id),
+            imageUrl: productImage(product),
             variants: product.flavors?.length ? product.flavors : ["Standard"],
             id: Number(product.id),
             hasFlavors: !!product.flavors?.length,
@@ -36,7 +36,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickOrder }) => {
       )}
       <div
         className="relative aspect-[4/3] cursor-pointer overflow-hidden rounded bg-gray-50"
-        onClick={() => navigate(`/product/${product.id}`)}
+        onClick={() => navigate(`/product/${product.slug || product.id}`)}
       >
         {product.stock_status === "out_of_stock" && (
           <span className="absolute top-2 left-2 z-10 bg-gray-900/80 text-white text-[10px] font-bold uppercase px-2 py-0.5 rounded">
@@ -44,7 +44,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickOrder }) => {
           </span>
         )}
         <img
-          src={getProductImage(product.id)}
+          src={productImage(product)}
           alt={product.title}
           onError={(e) => {
             (e.target as HTMLImageElement).src = "/placeholder-image.png";
@@ -69,7 +69,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickOrder }) => {
 
       <div className="grid grid-cols-2 gap-2 mt-2">
         <button
-          onClick={() => navigate(`/product/${product.id}`)}
+          onClick={() => navigate(`/product/${product.slug || product.id}`)}
           className="bg-cyan-500 text-white text-xs py-1 rounded hover:bg-cyan-600 transition-colors"
         >
           View

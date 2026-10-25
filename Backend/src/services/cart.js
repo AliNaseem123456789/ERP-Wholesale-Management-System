@@ -74,7 +74,7 @@ const priceCartItems = async (userId, items, qtyByProduct = null) => {
   const { priceEntries } = require("./pricing");
   const rows = items.filter((i) => i?.products);
   const totals = qtyByProduct || productQuantities(rows);
-  const priced = await priceEntries(userId, rows.map((i) => ({ product: i.products, quantity: totals.get(String(i.product_id)) || i.quantity })));
+  const priced = await priceEntries(userId, rows.map((i) => ({ product: i.products, flavor: i.flavor || "", quantity: totals.get(String(i.product_id)) || i.quantity })));
   priced.forEach((r, idx) => {
     const p = rows[idx].products;
     p.price = r.unit;

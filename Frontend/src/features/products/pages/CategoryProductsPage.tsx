@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useProductsByCategory } from "../hooks/useProductsByCategory";
-import { getProductImage } from "../utils/getProductImage";
+import { productImage } from "../utils/getProductImage";
 
 // Import Shared Components
 import ProductCard from "../components/ProductCard";
@@ -89,7 +89,7 @@ export const CategoryProductsPage: React.FC<CategoryProductsPageProps> = ({
           product={{
             title: selected.title,
             brand: selected.brand,
-            imageUrl: getProductImage(selected.id), // Direct ID call
+            imageUrl: productImage(selected as any),
             variants: selected.flavors?.length ? selected.flavors : ["Standard"],
             id: Number(selected.id),
             hasFlavors: !!selected.flavors?.length,

@@ -39,8 +39,10 @@ const getSettings = async (req, res) => {
 // What the opening entry would contain (preview for the setup screen).
 const openingFigures = async (companyId, includeInventory) => {
   const [stock] = await prisma.$queryRaw`
-    SELECT COALESCE(SUM(l.on_hand * p.cost_price), 0)::float AS value
-    FROM inventory_levels l JOIN products p ON p.id = l.product_id WHERE l.company_id = ${companyId}`;
+    SELECT COALESCE(SUM(l.on_hand * COALESCE(pv.cost_price, p.cost_price)), 0)::float AS value
+    FROM inventory_levels l JOIN products p ON p.id = l.product_id
+    LEFT JOIN product_variants pv ON pv.product_id = l.product_id AND pv.flavor = l.flavor AND l.flavor <> ''
+    WHERE l.company_id = ${companyId}`;
   const transit = await prisma.stock_transfer_items.findMany({
     where: { stock_transfers: { is: { company_id: companyId, status: "in_transit" } } }, select: { lots: true },
   });

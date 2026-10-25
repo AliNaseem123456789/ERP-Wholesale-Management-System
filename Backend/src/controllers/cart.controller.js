@@ -8,24 +8,44 @@ const productTotal = async (userId, productId) => {
   return new Map([[String(productId), agg._sum.quantity || 0]]);
 };
 const { priceEntries } = require("../services/pricing");
-const { publicProductWhere, withStock } = require("../services/catalog");
+const { publicWhere, withStock, withMainImage } = require("../services/catalog");
 const inv = require("../services/inventory");
+const { loadRules, lineProblem, linesProblems } = require("../services/orderRules");
 
+// GET /cart -> cart lines. Each line also gets `problem` (e.g. below the minimum order) when it can't be checked out as is.
 const fetchCartProducts = async (req, res) => {
   const items = await getCart(req.user.id);
   await withStock(req, items.map((i) => i.products).filter(Boolean));
+  await withMainImage(items.map((i) => i.products).filter(Boolean));
   await priceCartItems(req.user.id, items);
+  const rules = await loadRules(items.map((i) => i.product_id));
+  const problems = linesProblems(rules, items.map((i) => ({ product_id: i.product_id, flavor: i.flavor, quantity: i.quantity })));
+  for (const i of items) {
+    const rule = rules.products.get(String(i.product_id));
+    if (i.products && rule) {
+      i.products.min_order_qty = rule.min_order_qty;
+      i.products.order_multiple = rule.order_multiple;
+    }
+    const pr = problems.find((x) => String(x.product_id) === String(i.product_id) && (!x.flavor || x.flavor === i.flavor));
+    if (pr) i.problem = pr.message;
+  }
   res.status(200).json(items);
 };
 
-// Only active products of active companies can be bought.
-const assertProductExists = async (productId) => {
+// Only published products of active companies, visible to this customer, can be bought.
+const assertProductExists = async (req, productId) => {
   const exists = await prisma.products.findFirst({
-    where: { ...publicProductWhere, id: productId },
+    where: { ...publicWhere(req), id: productId },
     select: { id: true, title: true, company_id: true, flavors: true },
   });
   if (!exists) throw new HttpError(404, "Product not found or no longer available");
   return exists;
+};
+
+// Variant still on sale, quantity a multiple of the pack size.
+const assertLineRules = async (productId, flavor, quantity) => {
+  const msg = lineProblem(await loadRules([productId]), productId, flavor, quantity);
+  if (msg) throw new HttpError(400, msg);
 };
 
 // For sellers that track inventory, the cart can't hold more than is available (per flavour).
@@ -46,9 +66,10 @@ const addToCart = async (req, res) => {
   const userId = BigInt(req.user.id);
   const productId = toId(req.body.productId, "productId");
   const quantity = toPositiveInt(req.body.quantity, "quantity", 1);
-  const product = await assertProductExists(productId);
+  const product = await assertProductExists(req, productId);
   const flavor = inv.resolveFlavor(product, req.body.flavor);
   const inCart = await prisma.cart_items.findUnique({ where: lineKey(userId, productId, flavor), select: { quantity: true } });
+  await assertLineRules(productId, flavor, (inCart?.quantity || 0) + quantity);
   await assertStock(req, product, flavor, (inCart?.quantity || 0) + quantity);
 
   const item = await prisma.cart_items.upsert({
@@ -68,7 +89,10 @@ const updateQuantity = async (req, res) => {
   const quantity = toPositiveInt(req.body.quantity);
   const flavor = inv.normFlavor(req.body.flavor ?? req.query.flavor);
   const product = await prisma.products.findUnique({ where: { id: productId }, select: { id: true, title: true, company_id: true, flavors: true } });
-  if (product) await assertStock(req, product, flavor, quantity);
+  if (product) {
+    await assertLineRules(productId, flavor, quantity);
+    await assertStock(req, product, flavor, quantity);
+  }
 
   const item = await prisma.cart_items.update({
     where: lineKey(userId, productId, flavor),
@@ -122,7 +146,7 @@ const saveCartTemplate = async (req, res) => {
     select: { id: true, price: true, company_id: true },
   });
   const byId = new Map(products.map((p) => [Number(p.id), p]));
-  const entries = items.filter((i) => byId.has(i.product_id)).map((i) => ({ product: byId.get(i.product_id), quantity: i.quantity }));
+  const entries = items.filter((i) => byId.has(i.product_id)).map((i) => ({ product: byId.get(i.product_id), flavor: i.flavor || "", quantity: i.quantity }));
   const priced = await priceEntries(req.user.id, entries);
   const totalAmount = priced.reduce((s, r) => s + Number(r.unit ?? 0) * r.quantity, 0);
 
@@ -156,9 +180,9 @@ const fetchSavedTemplateDetails = async (req, res) => {
   const byId = new Map(products.map((p) => [Number(p.id), p]));
   const priced = await priceEntries(
     req.user.id,
-    items.filter((i) => byId.has(Number(i.product_id))).map((i) => ({ product: byId.get(Number(i.product_id)), quantity: i.quantity })),
+    items.filter((i) => byId.has(Number(i.product_id))).map((i) => ({ product: byId.get(Number(i.product_id)), flavor: i.flavor || "", quantity: i.quantity })),
   );
-  const unitOf = new Map(priced.map((r) => [Number(r.product.id), r.unit]));
+  const unitOf = new Map(priced.map((r) => [`${Number(r.product.id)}|${r.flavor}`, r.unit]));
 
   const detailedItems = items.map((item) => {
     const p = byId.get(Number(item.product_id));
@@ -168,7 +192,7 @@ const fetchSavedTemplateDetails = async (req, res) => {
       quantity: item.quantity,
       title: p?.title ?? null,
       brand: p?.brand ?? null,
-      price: unitOf.get(Number(item.product_id)) ?? 0,
+      price: unitOf.get(`${Number(item.product_id)}|${item.flavor || ""}`) ?? 0,
       available: !!p,
     };
   });
@@ -191,7 +215,7 @@ const restoreSavedTemplate = async (req, res) => {
   const items = parseItems(template.items);
 
   const existing = await prisma.products.findMany({
-    where: { ...publicProductWhere, id: { in: items.map((i) => BigInt(i.product_id)) } },
+    where: { ...publicWhere(req), id: { in: items.map((i) => BigInt(i.product_id)) } },
     select: { id: true, title: true, flavors: true },
   });
   const byId = new Map(existing.map((p) => [Number(p.id), p]));

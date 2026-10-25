@@ -1,5 +1,6 @@
 const { Router } = require("express");
 const {
+  fetchCategories,
   fetchBrands,
   fetchHomeProducts,
   fetchProductsByBrand,
@@ -13,6 +14,7 @@ const router = Router();
 router.use(optionalAuth);
 
 router.get("/brands", fetchBrands);
+router.get("/categories", fetchCategories);
 router.get("/display", fetchBrands); // old name, kept for compatibility
 router.get("/brand/:brand", fetchProductsByBrand);
 router.get("/category/:category", fetchProductsByCategory);

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Users, Package, LayoutDashboard, Settings, Building2, Tags, Mail, Gauge } from "lucide-react";
+import { Users, Package, LayoutDashboard, Settings, Building2, Tags, Mail, Gauge, FolderTree, ListChecks } from "lucide-react";
 import { AdminOverview } from "./AdminOverview";
 import { UserManagement } from "./UserManagement";
 import { ProductManagement } from "./ProductManagement";
@@ -7,13 +7,17 @@ import { FeatureSettings } from "./FeaturesManagement";
 import { CompaniesManagement } from "./CompaniesManagement";
 import { BrandsManagement } from "./BrandsManagement";
 import { EmailsManagement } from "./EmailsManagement";
-type AdminTab = "overview" | "companies" | "brands" | "users" | "products" | "features" | "emails";
+import { CategoriesManagement } from "./CategoriesManagement";
+import { AttributesManagement } from "./AttributesManagement";
+type AdminTab = "overview" | "companies" | "brands" | "categories" | "attributes" | "users" | "products" | "features" | "emails";
 
 export const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
   const tabs = [
     { id: "overview", label: "Overview", icon: Gauge },
     { id: "companies", label: "Companies", icon: Building2 },
+    { id: "categories", label: "Categories", icon: FolderTree },
+    { id: "attributes", label: "Details", icon: ListChecks },
     { id: "brands", label: "Brands", icon: Tags },
     { id: "products", label: "All products", icon: Package },
     { id: "users", label: "Users", icon: Users },
@@ -59,6 +63,8 @@ export const AdminDashboard = () => {
           {activeTab === "overview" && <AdminOverview />}
           {activeTab === "companies" && <CompaniesManagement />}
           {activeTab === "brands" && <BrandsManagement />}
+          {activeTab === "categories" && <CategoriesManagement />}
+          {activeTab === "attributes" && <AttributesManagement />}
           {activeTab === "emails" && <EmailsManagement />}
           {activeTab === "products" && <ProductManagement />}
           {activeTab === "users" && <UserManagement />}

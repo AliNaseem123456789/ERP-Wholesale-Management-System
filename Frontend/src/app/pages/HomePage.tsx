@@ -6,7 +6,7 @@ import { HeroSection } from "../components/home/HeroSection";
 import FourFeatureSection from "../components/home/FourFeatures";
 import QuickOrderModal from "../components/home/QuickOrderModal";
 import ProductCard from "../../features/products/components/ProductCard";
-import { getProductImage } from "../../features/products/utils/getProductImage";
+import { productImage } from "../../features/products/utils/getProductImage";
 
 const WhyChooseUs = lazy(() => import("../components/home/WhyChoseUS"));
 const LogoMarquee = lazy(() => import("../components/home/LogoMarquee"));
@@ -74,7 +74,7 @@ export const HomePage: React.FC = () => {
             title: selected.title,
             brand: selected.brand,
             // Use the same utility for the modal image
-            imageUrl: getProductImage(selected.id),
+            imageUrl: productImage(selected as any),
             variants: selected.flavors?.length ? selected.flavors : ["Standard"],
             id: Number(selected.id),
             hasFlavors: !!selected.flavors?.length,

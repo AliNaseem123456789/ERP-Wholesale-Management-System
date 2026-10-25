@@ -7,12 +7,13 @@ import { opsApi, downloadCsv } from "../api/ops.api";
 import { Card, PageHeader, Spinner, Field, FilterTabs, StatusBadge, inputCls, inputBase, btnPrimary, btnSecondary } from "../components/ui";
 
 const LABELS: Record<string, string> = {
-  products: "Products", inventory: "Stock levels", customers: "Customers", orders: "Orders", order_lines: "Order lines", invoices: "Invoices",
+  products: "Products", variants: "Product variants", inventory: "Stock levels", customers: "Customers", orders: "Orders", order_lines: "Order lines", invoices: "Invoices",
   suppliers: "Suppliers", employees: "Employees", journal: "Journal (general ledger lines)",
 };
 const DATED = ["orders", "order_lines", "invoices", "journal"];
 const IMPORT_HELP: Record<string, string> = {
-  products: "Matched by SKU: existing SKUs are updated, new ones created. Separate flavours and categories with |.",
+  products: "Matched by SKU: existing SKUs are updated, new ones created. Separate flavours and categories with |. Add columns named attr:<key> (e.g. attr:fragrance_family) to fill product details; new categories are created.",
+  variants: "Updates existing variants (price, codes, minimum, status), matched by product SKU + variant. Add new variants on the product page.",
   inventory: "Sets on-hand stock to the counted quantity per warehouse (a stock count). Differences post to the books.",
   suppliers: "Matched by supplier name.",
   employees: "Existing employee numbers are updated; a blank number creates a new employee.",
@@ -96,7 +97,7 @@ const Imports: React.FC<{ types: { type: string; columns: string[]; required: st
         <button type="button" onClick={() => downloadCsv(companyId!, `/company/import/${type}/template`, `${type}-template.csv`).catch((e) => toast.error(errorMessage(e)))} className={btnSecondary}><Download size={16} /> Template</button>
       </div>
       <div className="bg-gray-50 rounded-xl px-4 py-3 text-gray-600">
-        <p>{IMPORT_HELP[type]}</p>
+        <p>{IMPORT_HELP[type] || (def as any)?.note}</p>
         <p className="mt-1 text-xs">Columns: {def?.columns.map((c) => <code key={c} className={`mr-1 ${def.required.includes(c) ? "font-bold text-gray-900" : ""}`}>{c}</code>)} <span className="text-gray-400">(bold = required)</span></p>
       </div>
       <div className="flex gap-2">

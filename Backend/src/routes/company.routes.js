@@ -49,13 +49,28 @@ router.delete("/invitations/:id", perm("members.manage"), team.revokeInvitation)
 
 router.get("/products", perm("products.view"), products.listProducts);
 router.post("/products", perm("products.manage"), products.createProduct);
+router.post("/products/bulk", perm("products.manage"), products.bulkUpdate);
+router.get("/products/:id", perm("products.view"), products.getProduct);
 router.patch("/products/:id", perm("products.manage"), products.updateProduct);
 router.delete("/products/:id", perm("products.manage"), products.deleteProduct);
 router.post("/products/:id/image", perm("products.manage"), upload.single("image"), products.uploadProductImage);
+router.post("/products/:id/images", perm("products.manage"), upload.array("images", 6), products.addImages);
+router.patch("/products/:id/images", perm("products.manage"), products.updateImages);
+router.delete("/products/:id/images/:imageId", perm("products.manage"), products.deleteImage);
 router.get("/products/:id/variants", perm("products.view", "inventory.view"), products.listVariants);
 router.put("/products/:id/variants", perm("products.manage", "inventory.manage"), products.saveVariants);
+router.get("/products/:id/attributes", perm("products.view"), products.getProductAttributes);
+router.put("/products/:id/attributes", perm("products.manage"), products.saveProductAttributes);
+router.get("/categories", perm("products.view"), products.listCategories);
+router.post("/categories", perm("products.manage"), products.createCategory);
+router.get("/attributes", perm("products.view"), products.listAttributes);
+router.post("/attributes", perm("products.manage"), products.createAttribute);
+router.post("/attributes/:id/options", perm("products.manage"), products.addAttributeOption);
 router.get("/brands", perm("products.view"), products.listBrands);
+router.get("/brands/search", perm("products.view"), products.searchBrands);
 router.post("/brands", perm("products.manage"), products.createBrand);
+router.patch("/brands/:brandId", perm("products.manage"), products.updateBrandLink);
+router.delete("/brands/:brandId", perm("products.manage"), products.removeBrandLink);
 
 router.get("/orders", perm("orders.view"), orders.listOrders);
 router.get("/orders/:id", perm("orders.view"), orders.getOrder);

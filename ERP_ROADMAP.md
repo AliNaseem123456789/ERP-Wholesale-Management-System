@@ -635,3 +635,36 @@ Stock per flavour, landed costs, transfers in transit and returns to suppliers w
 
 > The migration runner uses `DATABASE_URL`, so whichever database `.env` points at is the one that gets migrated.
 > Run it once against production from your PC. Render doesn't need to run it.
+
+---
+
+## Catalogue foundation (Phase 0 + 1 of the marketplace plan)
+
+Database change: `Backend/prisma/sql/008_catalogue.sql` (additive only; existing values are never changed).
+
+### What changed
+- **Safety fixes**
+  - Public product endpoints return an explicit list of public fields only. Cost price, reorder levels, the preferred supplier and other internal fields were being sent to every visitor before.
+  - Checkout no longer oversells. Orders the seller hasn't confirmed yet count as taken, and parallel checkouts (and quote acceptances) of the same products wait for each other. The seller still reserves the stock in a warehouse when confirming.
+- **Product lifecycle:** `status` = draft | published | hidden | discontinued | archived. A database trigger keeps the old `is_active` flag equal to `status = 'published'`, whichever one code writes. Publishing needs a price (product or every variant), an active variant if the product has variants, and the category's required details. Deleting a product with any history archives it.
+- **Ordering rules:** minimum order quantity (all variants together), order multiples (e.g. cases of 10), pack size, a minimum per variant. These are checked in the cart and at checkout.
+- **URL slugs** for products, categories and brands (`/product/:id` also accepts the slug).
+- **Categories** are records in a tree (`categories`, `product_categories`), created from the existing text categories. Companies can add categories, and admins can edit, merge, hide or delete them. `products.categories` (text) is kept in step.
+- **Brands:** slug, logo, description, featured flag, plus `company_brands`, so any number of companies can sell the same brand (manufacturer / authorized distributor / distributor / reseller). Admins can merge brands. "Move products" only moves one company's products.
+- **Variants:** `product_variants` gained option values, its own price, its own average cost, status, minimum and image. Stock, carts, orders, purchase orders and price lists still use the existing variant key (`flavor` column), so no stock or history row was rewritten. A key never changes once the variant has history, and variants with history are archived, not deleted. Price-list tiers can target one variant. Stock valuation uses each variant's average cost.
+- **Details (attributes):** typed definitions (text, number, yes/no, date, list, multi-list) with validation, attached to categories (optionally required), with values per product or per variant. Templates exist for General, Perfume, Smoking/vape, Electronics and Clothing. Existing flavours became values of a global "Flavour" option.
+- **Visibility:** products can be limited to selected customer groups.
+- **Images:** gallery per product (`product_images`). Uploads go to `product-images/companies/<companyId>/products/<productId>/…`. Products without gallery images keep showing their original image. `products.url` (the source page link on imported products) is never overwritten.
+- **Bulk edit** (status, price ±% or amount with preview, categories, brand, featured, minimum, visibility). CSV: products import/export with `status`, `slug`, `min_order_qty`, `order_multiple`, `pack_size`, `is_featured` and `attr:<key>` detail columns; new `variants` export/import.
+- **Screens:** Business → Products (list + full editor), Business → Categories & brands, Admin → Categories / Details / Brands (with a catalogue health report).
+
+### Deploying
+1. Back up: `cd Backend && npm run db:export`
+2. Fingerprint the data: `npm run db:verify -- snapshot before-008.json`
+3. Apply: `npm run db:migrate` (runs only 008; it is one transaction, so if anything fails nothing changes)
+4. Check: `npm run db:verify -- compare before-008.json` should report only `_app_migrations` (one more row).
+5. `npx prisma generate`, then deploy the backend and the frontend.
+
+### Known data issues (not changed automatically)
+- 75 SKUs are used by more than one product of the same company (see Admin → Categories → Catalogue health). SKUs therefore aren't made unique in the database. New duplicates are refused for variant SKUs.
+- Some categories are really brands or catch-alls ("Products", "Coastal Clouds"). Merge or rename them in Admin → Categories.

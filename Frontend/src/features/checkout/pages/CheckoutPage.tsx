@@ -25,6 +25,8 @@ export const CheckoutPage = () => {
   const [promoInput, setPromoInput] = useState("");
   const [promoCodes, setPromoCodes] = useState<string[]>([]);
   const [promoErrors, setPromoErrors] = useState<{ code: string; message: string }[]>([]);
+  // minimum order quantities, order multiples, variants no longer on sale
+  const [lineProblems, setLineProblems] = useState<{ message: string }[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<Record<string, string>>({});
   const [refreshing, setRefreshing] = useState(false);
   const [groups, setGroups] = useState<any[]>([]);
@@ -49,6 +51,7 @@ export const CheckoutPage = () => {
     setCartItems(res.data.items || []);
     setGroups(res.data.groups || []);
     setPromoErrors(res.data.promoErrors || []);
+    setLineProblems(res.data.problems || []);
     setTotals({
       subtotal: Number(res.data.subtotal || 0),
       discount: Number(res.data.discount || 0),
@@ -338,6 +341,11 @@ export const CheckoutPage = () => {
             {promoErrors.length > 0 && promoErrors.map((p) => (
               <p key={p.code} className="text-xs text-red-600 mb-2">{p.code}: {p.message}</p>
             ))}
+            {lineProblems.length > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-3 space-y-1">
+                {lineProblems.map((p, i) => <p key={i} className="text-xs font-semibold text-red-700">{p.message}. Update your cart to continue.</p>)}
+              </div>
+            )}
 
             <div className="border-t border-gray-200 pt-6 space-y-3">
               <div className="flex justify-between text-gray-600">
@@ -386,7 +394,8 @@ export const CheckoutPage = () => {
                 cartItems.length === 0 ||
                 cannotOrder ||
                 !!blockedGroup ||
-                promoErrors.length > 0
+                promoErrors.length > 0 ||
+                lineProblems.length > 0
               }
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white py-5 rounded-2xl font-black text-lg mt-10 transition-all flex items-center justify-center gap-2 shadow-xl"
             >

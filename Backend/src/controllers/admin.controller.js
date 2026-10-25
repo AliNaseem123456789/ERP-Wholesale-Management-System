@@ -2,6 +2,7 @@ const prisma = require("../prisma");
 const { supabaseAdmin } = require("../lib/supabaseAdmin");
 const { HttpError, toId } = require("../utils/http");
 const { productData } = require("../services/productInput");
+const catalogSvc = require("../services/productCatalog");
 const { uniqueCompanySlug } = require("../utils/slug");
 const { newToken, hashToken } = require("../services/tokens");
 const { queueEmail, processOutbox, verifySmtp } = require("../services/email/outbox");
@@ -80,21 +81,25 @@ const resolveCompanyForBrand = async (brandName, companyId) => {
   return fallback?.id ?? null;
 };
 
-const ensureBrand = async (name, companyId) => {
+// Records that the company sells the brand (any number of companies can sell the same brand).
+const ensureBrand = async (name, companyId, db = prisma) => {
   if (!name) return;
-  const brand = await prisma.brands.findFirst({ where: { name: { equals: name, mode: "insensitive" } } });
-  if (!brand) await prisma.brands.create({ data: { name, company_id: companyId } });
+  await catalogSvc.linkCompanyBrand(db, companyId, name);
 };
 
 const createProduct = async (req, res) => {
   const data = productData(req.body);
   if (!data.title || !data.brand) throw new HttpError(400, "Title and brand are required");
   const companyId = await resolveCompanyForBrand(data.brand, req.body.company_id);
-  const product = await prisma.products.create({
-    data: { categories: [], flavors: [], ...data, company_id: companyId, updated_at: new Date() },
+  const product = await prisma.$transaction(async (tx) => {
+    const p = await tx.products.create({
+      data: { categories: [], flavors: [], status: "published", ...data, company_id: companyId, updated_at: new Date() },
+    });
+    await ensureBrand(p.brand, companyId, tx);
+    if (data.flavors) await inv.syncVariants(tx, { id: p.id, flavors: [] }, data.flavors);
+    if (data.categories) await catalogSvc.syncCategoriesFromNames(tx, p.id, data.categories, { companyId, userId: req.user.id });
+    return tx.products.findUnique({ where: { id: p.id } });
   });
-  await ensureBrand(product.brand, companyId);
-  if (data.flavors) await inv.syncVariants(prisma, { id: product.id, flavors: [] }, data.flavors);
   await audit(req, "admin.product.create", { companyId, entity: "product", entityId: product.id });
   res.status(201).json(product);
 };
@@ -102,12 +107,15 @@ const createProduct = async (req, res) => {
 const updateProduct = async (req, res) => {
   const data = productData(req.body);
   if (data.title === "" || data.brand === "") throw new HttpError(400, "Title and brand can't be empty");
-  if (data.flavors) {
-    const existing = await prisma.products.findUnique({ where: { id: toId(req.params.id) } });
-    if (existing) await inv.syncVariants(prisma, existing, data.flavors);
-  }
-  const product = await prisma.products.update({ where: { id: toId(req.params.id) }, data: { ...data, updated_at: new Date() } });
-  if (data.brand) await ensureBrand(product.brand, product.company_id);
+  const product = await prisma.$transaction(async (tx) => {
+    const existing = await tx.products.findUnique({ where: { id: toId(req.params.id) } });
+    if (!existing) throw new HttpError(404, "Product not found");
+    if (data.flavors) await inv.syncVariants(tx, existing, data.flavors);
+    const p = await tx.products.update({ where: { id: existing.id }, data: { ...data, updated_at: new Date() } });
+    if (data.brand) await ensureBrand(p.brand, p.company_id, tx);
+    if (data.categories) await catalogSvc.syncCategoriesFromNames(tx, p.id, data.categories, { companyId: p.company_id, userId: req.user.id });
+    return p;
+  });
   res.status(200).json(product);
 };
 
@@ -143,13 +151,20 @@ const deleteProduct = async (req, res) => {
   const id = toId(req.params.id);
   const ordered = await prisma.order_items.count({ where: { product_id: id } });
   if (ordered) {
-    throw new HttpError(409, "This product appears in past orders and can't be deleted.");
+    throw new HttpError(409, "This product appears in past orders and can't be deleted. Archive it instead.");
   }
-  await prisma.$transaction([
-    prisma.cart_items.deleteMany({ where: { product_id: id } }),
-    prisma.wishlist_items.deleteMany({ where: { product_id: id } }),
-    prisma.products.delete({ where: { id } }),
-  ]);
+  try {
+    await prisma.$transaction([
+      prisma.cart_items.deleteMany({ where: { product_id: id } }),
+      prisma.wishlist_items.deleteMany({ where: { product_id: id } }),
+      prisma.products.delete({ where: { id } }),
+    ]);
+  } catch (err) {
+    if (err?.code === "P2003" || /foreign key/i.test(String(err?.message))) {
+      throw new HttpError(409, "This product has stock or document history and can't be deleted. Archive it instead.");
+    }
+    throw err;
+  }
   res.status(200).json({ message: "Product deleted successfully" });
 };
 
@@ -385,20 +400,31 @@ const updateCompany = async (req, res) => {
   res.json({ message: "Company updated", data: company });
 };
 
-// GET /admin/brands -> every brand with its company
+// GET /admin/brands?q -> every brand with the companies that sell it
 const listAllBrands = async (req, res) => {
+  const q = String(req.query.q || "").trim();
   const brands = await prisma.brands.findMany({
+    where: q ? { name: { contains: q, mode: "insensitive" } } : {},
     orderBy: { name: "asc" },
-    include: { companies: { select: { id: true, name: true } } },
+    include: { companies: { select: { id: true, name: true } }, company_brands: { include: { companies: { select: { id: true, name: true } } } } },
   });
-  const counts = await prisma.products.groupBy({ by: ["brand"], _count: { _all: true } });
-  const countByName = new Map(counts.map((c) => [c.brand.toLowerCase(), c._count._all]));
+  const counts = await prisma.products.groupBy({ by: ["brand_id"], _count: { _all: true } });
+  const countById = new Map(counts.map((c) => [String(c.brand_id), c._count._all]));
   res.json({
-    data: brands.map(({ companies, ...b }) => ({ ...b, company: companies, productCount: countByName.get(b.name.toLowerCase()) || 0 })),
+    data: brands.map(({ companies, company_brands, ...b }) => ({
+      ...b,
+      company: companies,
+      sellers: company_brands.map((l) => ({ ...l.companies, relationship: l.relationship })),
+      productCount: countById.get(String(b.id)) || 0,
+    })),
   });
 };
 
-// POST /admin/brands/:id/assign { company_id } -> moves the brand AND all its products to that company
+/**
+ * POST /admin/brands/:id/assign { company_id, from_company_id? }
+ * Moves the brand's products that belong to one company (by default the brand's current owner) to another
+ * company. Products of other companies that also sell the brand are not touched.
+ */
 const assignBrand = async (req, res) => {
   const brandId = toId(req.params.id);
   const companyId = toId(req.body.company_id, "company_id");
@@ -408,19 +434,23 @@ const assignBrand = async (req, res) => {
   ]);
   if (!brand) throw new HttpError(404, "Brand not found");
   if (!company) throw new HttpError(404, "Company not found");
+  const fromId = req.body.from_company_id ? toId(req.body.from_company_id, "from_company_id") : brand.company_id;
+  if (!fromId) throw new HttpError(400, "Choose which company's products to move (from_company_id)");
 
-  const [, moved] = await prisma.$transaction([
-    prisma.brands.update({ where: { id: brandId }, data: { company_id: companyId } }),
-    prisma.products.updateMany({
-      where: { brand: { equals: brand.name, mode: "insensitive" } },
+  const moved = await prisma.$transaction(async (tx) => {
+    await tx.brands.update({ where: { id: brandId }, data: { company_id: companyId, updated_at: new Date() } });
+    const r = await tx.products.updateMany({
+      where: { company_id: fromId, OR: [{ brand_id: brandId }, { brand: { equals: brand.name, mode: "insensitive" } }] },
       data: { company_id: companyId, updated_at: new Date() },
-    }),
-  ]);
+    });
+    await catalogSvc.linkCompanyBrand(tx, companyId, brand.name);
+    return r;
+  });
   await audit(req, "admin.brand.assign", {
     companyId, entity: "brand", entityId: brandId,
-    changes: { brand: brand.name, from: brand.company_id, to: companyId, products: moved.count },
+    changes: { brand: brand.name, from: fromId, to: companyId, products: moved.count },
   });
-  res.json({ message: `"${brand.name}" and ${moved.count} product(s) moved to ${company.name}`, productsMoved: moved.count });
+  res.json({ message: `"${brand.name}": ${moved.count} product(s) moved to ${company.name}`, productsMoved: moved.count });
 };
 
 // ---- email outbox ----------------------------------------------------------------

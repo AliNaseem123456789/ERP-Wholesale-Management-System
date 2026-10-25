@@ -67,7 +67,7 @@ export const salesApi = {
   createPriceList: async (c: string, body: Partial<PriceList>) => (await apiClient.post("/company/price-lists", body, co(c))).data,
   updatePriceList: async (c: string, id: number, body: Partial<PriceList>) => (await apiClient.patch(`/company/price-lists/${id}`, body, co(c))).data,
   deletePriceList: async (c: string, id: number) => (await apiClient.delete(`/company/price-lists/${id}`, co(c))).data,
-  setPrices: async (c: string, listId: number, productId: number, tiers: { min_quantity: number; price: number }[]) =>
+  setPrices: async (c: string, listId: number, productId: number, tiers: { min_quantity: number; price: number; flavor?: string }[]) =>
     (await apiClient.put(`/company/price-lists/${listId}/products/${productId}`, { tiers }, co(c))).data,
 
   // promotions

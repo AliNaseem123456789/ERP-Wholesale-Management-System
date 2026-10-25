@@ -1,300 +1,264 @@
-import { COMPLIANCE_CATEGORIES } from "../api/ops.api";
-import React, { useCallback, useEffect, useState } from "react";
-import { Package, Plus, Search, Pencil, Trash2, Eye, EyeOff } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Package, Plus, Search, Pencil, Trash2, Star, CheckSquare, Square } from "lucide-react";
 import { toast } from "sonner";
 import { useBusiness } from "../context/BusinessContext";
-import { businessApi, errorMessage } from "../api/business.api";
-import { getProductImage } from "../../products/utils/getProductImage";
-import { supplyApi, Supplier } from "../api/supply.api";
+import { errorMessage } from "../api/business.api";
+import { catalogApi, categoryTree, Category, CompanyBrand, PRODUCT_STATUSES } from "../api/catalog.api";
+import { productImage } from "../../products/utils/getProductImage";
 import {
-  Card, PageHeader, Spinner, EmptyState, StatusBadge, Pagination, Modal, Field,
-  money, inputCls, btnPrimary, btnSecondary, inputBase
+  Card, PageHeader, Spinner, EmptyState, StatusBadge, Pagination, Modal, Field, FilterTabs,
+  money, inputCls, btnPrimary, btnSecondary, inputBase,
 } from "../components/ui";
 
-type Product = {
-  id: number; title: string; brand: string; sku?: string | null; price?: number | null; description?: string | null;
-  categories?: string[]; flavors?: string[]; is_active: boolean;
-  barcode?: string | null; unit?: string; cost_price?: number; reorder_point?: number; reorder_quantity?: number;
-  preferred_supplier_id?: number | null;
+type Row = {
+  id: number; title: string; brand: string; sku?: string | null; price?: number | null; status: string; is_featured: boolean;
+  image?: string | null; flavors?: string[]; min_order_qty: number; category_ids: number[];
 };
 
-/** Per-flavour stock, SKU and barcode (each flavour can have its own barcode for scanning). */
-const FlavorCodes: React.FC<{ productId: number }> = ({ productId }) => {
-  const { companyId, can } = useBusiness();
-  const [rows, setRows] = useState<any[] | null>(null);
-  const [unassigned, setUnassigned] = useState(0);
-  useEffect(() => {
-    supplyApi.variants(companyId!, productId).then((d) => { setRows(d.data); setUnassigned(d.unassigned); }).catch(() => setRows([]));
-  }, [companyId, productId]);
-  if (!rows || !rows.length) return null;
-  const save = async () => {
-    try {
-      toast.success((await supplyApi.saveVariants(companyId!, productId, rows.map((r) => ({ flavor: r.flavor, sku: r.sku || "", barcode: r.barcode || "" })))).message);
-    } catch (err) {
-      toast.error(errorMessage(err));
-    }
-  };
-  const canEdit = can("products.manage") || can("inventory.manage");
-  return (
-    <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4 space-y-2">
-      <p className="text-xs font-bold uppercase text-gray-500 tracking-wide">Flavours: stock, SKU &amp; barcode</p>
-      <div className="grid grid-cols-[1fr_90px_1fr_1fr] gap-2 text-[10px] font-bold uppercase text-gray-400"><span>Flavour</span><span className="text-right">On hand</span><span>SKU</span><span>Barcode</span></div>
-      {rows.map((r, i) => (
-        <div key={r.flavor} className="grid grid-cols-[1fr_90px_1fr_1fr] gap-2 items-center text-sm">
-          <span className="font-semibold">{r.flavor}</span>
-          <span className="text-right">{r.on_hand}{r.reserved ? <span className="text-gray-400"> ({r.reserved} reserved)</span> : null}</span>
-          <input disabled={!canEdit} className={inputCls} value={r.sku || ""} onChange={(e) => setRows((prev) => prev!.map((x, j) => (j === i ? { ...x, sku: e.target.value } : x)))} aria-label={`${r.flavor} SKU`} />
-          <input disabled={!canEdit} className={inputCls} value={r.barcode || ""} onChange={(e) => setRows((prev) => prev!.map((x, j) => (j === i ? { ...x, barcode: e.target.value } : x)))} aria-label={`${r.flavor} barcode`} />
-        </div>
-      ))}
-      {unassigned > 0 && <p className="text-xs text-amber-800">{unassigned} unit(s) aren't assigned to a flavour yet. Assign them under Inventory → Stock.</p>}
-      {canEdit && <div className="flex justify-end"><button type="button" onClick={save} className={btnSecondary}>Save flavour codes</button></div>}
-    </div>
-  );
-};
+const BULK_ACTIONS: { value: string; label: string }[] = [
+  { value: "status", label: "Change status" },
+  { value: "price_percent", label: "Change price by %" },
+  { value: "price_amount", label: "Change price by amount" },
+  { value: "add_category", label: "Add to category" },
+  { value: "remove_category", label: "Remove from category" },
+  { value: "brand", label: "Set brand" },
+  { value: "featured", label: "Featured on/off" },
+  { value: "min_order_qty", label: "Set minimum order" },
+  { value: "visibility", label: "Visibility" },
+];
 
-const ProductForm: React.FC<{ product: Product | null; onClose: () => void; onSaved: () => void }> = ({ product, onClose, onSaved }) => {
+const BulkModal: React.FC<{ ids: number[]; categories: Category[]; onClose: () => void; onDone: () => void }> = ({ ids, categories, onClose, onDone }) => {
   const { companyId } = useBusiness();
-  const [brands, setBrands] = useState<{ id: number; name: string }[]>([]);
-  const [file, setFile] = useState<File | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    title: product?.title || "",
-    brand: product?.brand || "",
-    sku: product?.sku || "",
-    price: product?.price != null ? String(product.price) : "",
-    categories: (product?.categories || []).join(", "),
-    flavors: (product?.flavors || []).join(", "),
-    description: product?.description || "",
-    is_active: product?.is_active ?? true,
-    barcode: product?.barcode || "",
-    unit: product?.unit || "each",
-    cost_price: product?.cost_price != null ? String(product.cost_price) : "",
-    reorder_point: String(product?.reorder_point ?? ""),
-    reorder_quantity: String(product?.reorder_quantity ?? ""),
-    preferred_supplier_id: product?.preferred_supplier_id ? String(product.preferred_supplier_id) : "",
-    compliance_category: (product as any)?.compliance_category || "none",
-    nicotine_ml: (product as any)?.nicotine_ml != null ? String((product as any).nicotine_ml) : "",
-    is_flavored: !!(product as any)?.is_flavored,
-  });
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const { can } = useBusiness();
-  useEffect(() => {
-    if (can("purchasing.view")) supplyApi.suppliers(companyId!, { active: true }).then(setSuppliers).catch(() => {});
-  }, [companyId]);
+  const [action, setAction] = useState("status");
+  const [value, setValue] = useState<string>("published");
+  const [preview, setPreview] = useState<any>(null);
+  const [busy, setBusy] = useState(false);
+  const tree = useMemo(() => categoryTree(categories), [categories]);
 
   useEffect(() => {
-    businessApi.brands(companyId!).then(setBrands).catch(() => {});
-  }, [companyId]);
+    setPreview(null);
+    setValue(action === "status" ? "published" : action === "featured" ? "true" : action === "visibility" ? "public" : "");
+  }, [action]);
 
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-    setForm({ ...form, [k]: e.target.value } as typeof form);
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
+  const body = () => ({ ids, action, value: action === "featured" ? value === "true" : value });
+  const run = async (dry: boolean) => {
+    setBusy(true);
     try {
-      const body: Record<string, unknown> = { ...form, price: form.price === "" ? null : Number(form.price) };
-      if (form.cost_price === "") delete body.cost_price;
-      if (!can("purchasing.view")) delete body.preferred_supplier_id;
-      const saved = product
-        ? await businessApi.updateProduct(companyId!, product.id, body)
-        : await businessApi.createProduct(companyId!, body);
-      if (file) {
-        try {
-          await businessApi.uploadProductImage(companyId!, saved.id, file);
-        } catch (err) {
-          toast.error(`Product saved, but the image upload failed: ${errorMessage(err)}`);
-        }
+      const r = await catalogApi.bulk(companyId!, { ...body(), preview: dry });
+      if (dry) setPreview(r);
+      else {
+        toast.success(r.message);
+        if (r.skipped?.length) toast.warning(r.skipped.slice(0, 3).map((s: any) => `${s.title}: ${s.reason}`).join("\n"));
+        onDone();
+        onClose();
       }
-      toast.success(product ? "Product updated" : "Product created");
-      onSaved();
-      onClose();
-    } catch (err) {
-      toast.error(errorMessage(err));
+    } catch (e) {
+      toast.error(errorMessage(e));
     } finally {
-      setSaving(false);
+      setBusy(false);
     }
   };
 
   return (
-    <Modal title={product ? "Edit product" : "New product"} onClose={onClose} wide>
-      <form onSubmit={submit} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Field label="Title *"><input required className={inputCls} value={form.title} onChange={set("title")} /></Field>
-          <Field label="Brand *" hint="Pick one of your brands or type a new one">
-            <input required list="company-brands" className={inputCls} value={form.brand} onChange={set("brand")} />
-            <datalist id="company-brands">{brands.map((b) => <option key={b.id} value={b.name} />)}</datalist>
-          </Field>
-          <Field label="Wholesale price (USD)" hint="Leave empty to hide from checkout">
-            <input type="number" min="0" step="0.01" className={inputCls} value={form.price} onChange={set("price")} />
-          </Field>
-          <Field label="SKU"><input className={inputCls} value={form.sku} onChange={set("sku")} /></Field>
-          <Field label="Categories" hint="Comma separated, e.g. Disposable Vapes, Pods">
-            <input className={inputCls} value={form.categories} onChange={set("categories")} />
-          </Field>
-          <Field label="Flavours" hint="Comma separated. Stock and orders are kept per flavour.">
-            <input className={inputCls} value={form.flavors} onChange={set("flavors")} />
-          </Field>
-        </div>
-        <Field label="Description"><textarea rows={3} className={inputCls} value={form.description} onChange={set("description")} /></Field>
-        <div className="bg-gray-50 rounded-xl p-4 grid grid-cols-2 md:grid-cols-3 gap-3">
-          <p className="col-span-2 md:col-span-3 text-xs font-bold uppercase text-gray-500 tracking-wide">Inventory &amp; purchasing</p>
-          <Field label="Barcode"><input className={inputCls} value={form.barcode} onChange={set("barcode")} placeholder="Scan or type" /></Field>
-          <Field label="Unit"><input className={inputCls} value={form.unit} onChange={set("unit")} placeholder="each, box, carton" /></Field>
-          <Field label="Cost price" hint={product ? "Updated automatically when you receive stock" : "Starting cost"}>
-            <input type="number" min="0" step="0.0001" className={inputCls} value={form.cost_price} onChange={set("cost_price")} />
-          </Field>
-          <Field label="Reorder point" hint="Alert when available stock drops to this"><input type="number" min="0" className={inputCls} value={form.reorder_point} onChange={set("reorder_point")} /></Field>
-          <Field label="Reorder quantity" hint="Suggested amount to order"><input type="number" min="0" className={inputCls} value={form.reorder_quantity} onChange={set("reorder_quantity")} /></Field>
-          {suppliers.length > 0 && (
-            <Field label="Preferred supplier">
-              <select className={inputCls} value={form.preferred_supplier_id} onChange={(e) => setForm({ ...form, preferred_supplier_id: e.target.value })}>
-                <option value="">None</option>
-                {suppliers.map((sup) => <option key={sup.id} value={sup.id}>{sup.name}</option>)}
-              </select>
-            </Field>
-          )}
-        </div>
-        <div className="bg-gray-50 rounded-xl p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-          <p className="md:col-span-3 text-xs font-bold uppercase text-gray-500 tracking-wide">Tobacco / vapor compliance</p>
-          <Field label="Category" hint="State rules and excise taxes apply by category">
-            <select className={inputCls} value={form.compliance_category} onChange={(e) => setForm({ ...form, compliance_category: e.target.value })}>
-              {Object.entries(COMPLIANCE_CATEGORIES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+    <Modal title={`Edit ${ids.length} product(s)`} onClose={onClose}>
+      <div className="space-y-4">
+        <Field label="What to change">
+          <select className={inputCls} value={action} onChange={(e) => setAction(e.target.value)}>
+            {BULK_ACTIONS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
+          </select>
+        </Field>
+        {action === "status" && (
+          <Field label="New status" hint="Products that can't be published yet (no price, missing details) are skipped and listed.">
+            <select className={inputCls} value={value} onChange={(e) => setValue(e.target.value)}>
+              {PRODUCT_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
           </Field>
-          <Field label="Liquid per unit (ml)" hint="For per-ml excise taxes">
-            <input type="number" min="0" step="0.001" className={inputCls} value={form.nicotine_ml} onChange={set("nicotine_ml")} disabled={form.compliance_category === "none"} />
+        )}
+        {(action === "price_percent" || action === "price_amount") && (
+          <Field label={action === "price_percent" ? "Percent (e.g. 5 or -10)" : "Amount (e.g. 1.50 or -2)"}>
+            <input type="number" step="0.01" className={inputCls} value={value} onChange={(e) => setValue(e.target.value)} />
           </Field>
-          <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mt-5">
-            <input type="checkbox" checked={form.is_flavored} disabled={form.compliance_category === "none"} onChange={(e) => setForm({ ...form, is_flavored: e.target.checked })} /> Flavored (other than tobacco)
-          </label>
-        </div>
-        {product && (product.flavors || []).length > 0 && <FlavorCodes productId={product.id} />}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-          <Field label="Image">
-            <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} className="text-sm" />
+        )}
+        {(action === "add_category" || action === "remove_category") && (
+          <Field label="Category">
+            <select className={inputCls} value={value} onChange={(e) => setValue(e.target.value)}>
+              <option value="">Choose…</option>
+              {tree.map((c) => <option key={c.id} value={c.id}>{"  ".repeat(c.depth)}{c.name}</option>)}
+            </select>
           </Field>
-          <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-            <input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} className="w-4 h-4" />
-            Visible in the store
-          </label>
+        )}
+        {action === "brand" && <Field label="Brand"><input className={inputCls} value={value} onChange={(e) => setValue(e.target.value)} /></Field>}
+        {action === "featured" && (
+          <Field label="Featured">
+            <select className={inputCls} value={value} onChange={(e) => setValue(e.target.value)}><option value="true">Featured</option><option value="false">Not featured</option></select>
+          </Field>
+        )}
+        {action === "min_order_qty" && <Field label="Minimum order quantity"><input type="number" min={1} className={inputCls} value={value} onChange={(e) => setValue(e.target.value)} /></Field>}
+        {action === "visibility" && (
+          <Field label="Who can see them" hint="Customer groups are chosen per product.">
+            <select className={inputCls} value={value} onChange={(e) => setValue(e.target.value)}><option value="public">Everyone</option><option value="groups">Only selected customer groups</option></select>
+          </Field>
+        )}
+        {preview && (
+          <div className="bg-gray-50 rounded-xl p-3 text-sm max-h-60 overflow-y-auto">
+            <p className="font-bold mb-2">{preview.count} product(s) will change</p>
+            {preview.changes.filter((c: any) => c.before !== undefined).slice(0, 50).map((c: any) => (
+              <p key={c.id} className="flex justify-between gap-2"><span className="truncate">{c.title}</span><span className="shrink-0 text-gray-500">{String(c.before)} → <b className="text-gray-900">{String(c.after)}</b></span></p>
+            ))}
+          </div>
+        )}
+        <div className="flex justify-end gap-2">
+          <button className={btnSecondary} onClick={() => run(true)} disabled={busy || value === ""}>Preview</button>
+          <button className={btnPrimary} onClick={() => run(false)} disabled={busy || value === ""}>{busy ? "Working…" : "Apply"}</button>
         </div>
-        <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={onClose} className={btnSecondary}>Cancel</button>
-          <button disabled={saving} className={btnPrimary}>{saving ? "Saving..." : "Save product"}</button>
-        </div>
-      </form>
+      </div>
     </Modal>
   );
 };
 
 export const ProductsPage: React.FC = () => {
   const { companyId, can } = useBusiness();
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
   const canManage = can("products.manage");
   const [data, setData] = useState<any>(null);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
-  const [editing, setEditing] = useState<Product | null | undefined>(undefined);
+  const [categoryId, setCategoryId] = useState(params.get("category") || "");
+  const [brandId, setBrandId] = useState("");
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [brands, setBrands] = useState<CompanyBrand[]>([]);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
+
+  useEffect(() => {
+    if (!companyId) return;
+    catalogApi.categories(companyId).then(setCategories).catch(() => {});
+    catalogApi.brands(companyId).then(setBrands).catch(() => {});
+  }, [companyId]);
 
   const load = useCallback(() => {
     if (!companyId) return;
-    businessApi.products(companyId, { page, search, status }).then(setData).catch((e) => toast.error(errorMessage(e)));
-  }, [companyId, page, search, status]);
+    catalogApi.products(companyId, { page, search, status, category_id: categoryId, brand_id: brandId }).then(setData).catch((e) => toast.error(errorMessage(e)));
+  }, [companyId, page, search, status, categoryId, brandId]);
 
   useEffect(() => {
     const t = setTimeout(load, search ? 300 : 0);
     return () => clearTimeout(t);
   }, [load]);
+  useEffect(() => setSelected(new Set()), [page, search, status, categoryId, brandId]);
 
-  const toggleActive = async (p: Product) => {
+  const remove = async (p: Row) => {
+    if (!window.confirm(`Delete "${p.title}"? Products with orders or stock history are archived instead.`)) return;
     try {
-      await businessApi.updateProduct(companyId!, p.id, { is_active: !p.is_active });
-      toast.success(p.is_active ? "Product hidden from the store" : "Product is visible again");
+      toast.success((await catalogApi.remove(companyId!, p.id)).message);
       load();
     } catch (e) {
       toast.error(errorMessage(e));
     }
   };
 
-  const remove = async (p: Product) => {
-    if (!window.confirm(`Delete "${p.title}"?`)) return;
-    try {
-      const res = await businessApi.deleteProduct(companyId!, p.id);
-      toast.success(res.message);
-      load();
-    } catch (e) {
-      toast.error(errorMessage(e));
-    }
-  };
+  const toggle = (id: number) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const rows: Row[] = data?.products || [];
+  const allOnPage = rows.length > 0 && rows.every((r) => selected.has(r.id));
+  const counts = data?.statusCounts || {};
+  const tree = useMemo(() => categoryTree(categories.filter((c) => c.product_count)), [categories]);
+  const catName = (id: number) => categories.find((c) => c.id === id)?.name;
 
   return (
     <div>
       <PageHeader
         title="Products"
-        subtitle="Your catalogue as customers see it"
-        actions={canManage && <button onClick={() => setEditing(null)} className={btnPrimary}><Plus size={16} /> New product</button>}
+        subtitle="Your catalogue: products, variants, prices and what customers can see"
+        actions={canManage && <button onClick={() => navigate("/business/products/new")} className={btnPrimary}><Plus size={16} /> New product</button>}
       />
       <Card>
-        <div className="flex flex-wrap gap-3 p-4 border-b border-gray-100">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-            <input className={`${inputCls} pl-9`} placeholder="Search title, brand or SKU" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
+        <div className="p-4 border-b border-gray-100 space-y-3">
+          <FilterTabs
+            value={status}
+            onChange={(v) => { setStatus(v); setPage(1); }}
+            options={[{ value: "", label: "All" }, ...PRODUCT_STATUSES.map((s) => ({ value: s.value, label: s.label, count: counts[s.value] }))]}
+          />
+          <div className="flex flex-wrap gap-3">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+              <input className={`${inputCls} pl-9`} placeholder="Search title, brand, SKU or barcode (variants too)" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
+            </div>
+            <select className={`${inputBase} w-auto`} value={categoryId} onChange={(e) => { setCategoryId(e.target.value); setPage(1); }} aria-label="Category">
+              <option value="">All categories</option>
+              {tree.map((c) => <option key={c.id} value={c.id}>{"  ".repeat(c.depth)}{c.name} ({c.product_count})</option>)}
+            </select>
+            <select className={`${inputBase} w-auto`} value={brandId} onChange={(e) => { setBrandId(e.target.value); setPage(1); }} aria-label="Brand">
+              <option value="">All brands</option>
+              {brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
           </div>
-          <select className={`${inputBase} w-auto`} value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
-            <option value="">All products</option>
-            <option value="active">Visible</option>
-            <option value="inactive">Hidden</option>
-          </select>
+          {canManage && selected.size > 0 && (
+            <div className="flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2 text-sm">
+              <b>{selected.size} selected</b>
+              <button className={btnPrimary} onClick={() => setBulkOpen(true)}>Edit selected</button>
+              <button className="text-gray-500 hover:text-gray-800" onClick={() => setSelected(new Set())}>Clear</button>
+            </div>
+          )}
         </div>
         {!data ? (
           <Spinner />
-        ) : data.products.length === 0 ? (
+        ) : rows.length === 0 ? (
           <EmptyState
             icon={<Package size={40} />}
-            title="No products yet"
-            text={search || status ? "Try a different filter." : "Add your first product to start selling."}
-            action={canManage && !search && <button onClick={() => setEditing(null)} className={btnPrimary}><Plus size={16} /> New product</button>}
+            title="No products here"
+            text={search || status || categoryId || brandId ? "Try a different filter." : "Add your first product to start selling."}
+            action={canManage && !search && <button onClick={() => navigate("/business/products/new")} className={btnPrimary}><Plus size={16} /> New product</button>}
           />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-[10px] uppercase text-gray-400 bg-gray-50">
+                  {canManage && (
+                    <th className="pl-4 py-3 w-8">
+                      <button onClick={() => setSelected(allOnPage ? new Set() : new Set(rows.map((r) => r.id)))} aria-label="Select all on this page">
+                        {allOnPage ? <CheckSquare size={16} /> : <Square size={16} />}
+                      </button>
+                    </th>
+                  )}
                   <th className="px-4 py-3">Product</th>
                   <th className="px-4 py-3">SKU</th>
+                  <th className="px-4 py-3">Categories</th>
                   <th className="px-4 py-3 text-right">Price</th>
                   <th className="px-4 py-3">Status</th>
-                  {canManage && <th className="px-4 py-3 text-right">Actions</th>}
+                  <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {data.products.map((p: Product) => (
+                {rows.map((p) => (
                   <tr key={p.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <img src={getProductImage(p.id)} alt="" className="w-10 h-10 rounded-lg object-cover bg-gray-100" onError={(e) => ((e.target as HTMLImageElement).style.visibility = "hidden")} />
-                        <div>
-                          <p className="font-semibold text-gray-900">{p.title}</p>
-                          <p className="text-xs text-gray-500">{p.brand}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-500">{p.sku || "—"}</td>
-                    <td className="px-4 py-3 text-right font-bold">{p.price != null ? money(p.price) : <span className="text-amber-600 text-xs">No price</span>}</td>
-                    <td className="px-4 py-3"><StatusBadge status={p.is_active ? "active" : "inactive"} /></td>
                     {canManage && (
-                      <td className="px-4 py-3">
-                        <div className="flex justify-end gap-1">
-                          <button onClick={() => setEditing(p)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600" title="Edit"><Pencil size={16} /></button>
-                          <button onClick={() => toggleActive(p)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600" title={p.is_active ? "Hide" : "Show"}>
-                            {p.is_active ? <EyeOff size={16} /> : <Eye size={16} />}
-                          </button>
-                          <button onClick={() => remove(p)} className="p-2 rounded-lg hover:bg-red-50 text-red-500" title="Delete"><Trash2 size={16} /></button>
-                        </div>
+                      <td className="pl-4">
+                        <button onClick={() => toggle(p.id)} aria-label={`Select ${p.title}`}>{selected.has(p.id) ? <CheckSquare size={16} className="text-blue-600" /> : <Square size={16} className="text-gray-400" />}</button>
                       </td>
                     )}
+                    <td className="px-4 py-3">
+                      <button className="flex items-center gap-3 text-left" onClick={() => navigate(`/business/products/${p.id}`)}>
+                        <img src={productImage(p)} alt="" className="w-10 h-10 rounded-lg object-cover bg-gray-100" onError={(e) => ((e.target as HTMLImageElement).style.visibility = "hidden")} />
+                        <div>
+                          <p className="font-semibold text-gray-900 flex items-center gap-1">{p.title}{p.is_featured && <Star size={12} className="text-amber-500 fill-amber-400" />}</p>
+                          <p className="text-xs text-gray-500">{p.brand}{p.flavors?.length ? ` · ${p.flavors.length} variant(s)` : ""}{p.min_order_qty > 1 ? ` · min ${p.min_order_qty}` : ""}</p>
+                        </div>
+                      </button>
+                    </td>
+                    <td className="px-4 py-3 text-gray-500">{p.sku || "—"}</td>
+                    <td className="px-4 py-3 text-xs text-gray-500 max-w-[220px] truncate">{p.category_ids.map(catName).filter(Boolean).join(", ") || "—"}</td>
+                    <td className="px-4 py-3 text-right font-bold">{p.price != null ? money(p.price) : <span className="text-amber-600 text-xs">{p.flavors?.length ? "Per variant" : "No price"}</span>}</td>
+                    <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-1">
+                        <button onClick={() => navigate(`/business/products/${p.id}`)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600" title={canManage ? "Edit" : "View"}><Pencil size={16} /></button>
+                        {canManage && <button onClick={() => remove(p)} className="p-2 rounded-lg hover:bg-red-50 text-red-500" title="Delete"><Trash2 size={16} /></button>}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -303,7 +267,7 @@ export const ProductsPage: React.FC = () => {
           </div>
         )}
       </Card>
-      {editing !== undefined && <ProductForm product={editing} onClose={() => setEditing(undefined)} onSaved={load} />}
+      {bulkOpen && <BulkModal ids={[...selected]} categories={categories} onClose={() => setBulkOpen(false)} onDone={load} />}
     </div>
   );
 };

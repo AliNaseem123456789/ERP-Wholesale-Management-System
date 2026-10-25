@@ -45,6 +45,8 @@ import { BusinessLayout } from "../features/business/pages/BusinessLayout";
 import { DashboardPage as BusinessDashboard } from "../features/business/pages/DashboardPage";
 import { OrdersPage as BusinessOrders } from "../features/business/pages/OrdersPage";
 import { ProductsPage as BusinessProducts } from "../features/business/pages/ProductsPage";
+import { ProductEditorPage } from "../features/business/pages/ProductEditorPage";
+import { CataloguePage } from "../features/business/pages/CataloguePage";
 import { TeamPage as BusinessTeam } from "../features/business/pages/TeamPage";
 import { SettingsPage as BusinessSettings } from "../features/business/pages/SettingsPage";
 import { ActivityPage as BusinessActivity } from "../features/business/pages/ActivityPage";
@@ -173,6 +175,9 @@ function App() {
             <Route index element={<BusinessDashboard />} />
             <Route path="orders" element={<BusinessOrders />} />
             <Route path="products" element={<BusinessProducts />} />
+            <Route path="products/new" element={<ProductEditorPage />} />
+            <Route path="products/:id" element={<ProductEditorPage />} />
+            <Route path="catalogue" element={<CataloguePage />} />
             <Route path="team" element={<BusinessTeam />} />
             <Route path="settings" element={<BusinessSettings />} />
             <Route path="activity" element={<BusinessActivity />} />

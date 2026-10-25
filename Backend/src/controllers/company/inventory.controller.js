@@ -169,6 +169,13 @@ const stockList = async (req, res) => {
         WHERE l.company_id = ${req.company.id} ${whFilter}
         GROUP BY l.product_id, l.flavor`
     : [];
+  const variantRows = products.length
+    ? await prisma.product_variants.findMany({
+        where: { products: { is: { company_id: req.company.id } } },
+        select: { product_id: true, flavor: true, name: true, status: true, cost_price: true },
+      })
+    : [];
+  const variantOf = new Map(variantRows.map((v) => [`${v.product_id}|${v.flavor}`, v]));
   const byProduct = new Map();
   for (const l of levels) {
     const k = String(l.product_id);
@@ -189,7 +196,9 @@ const stockList = async (req, res) => {
     if (flavors.length) {
       variants = flavors.map((f) => {
         const x = rows.find((y) => y.flavor === f) || { on_hand: 0, reserved: 0 };
-        return { flavor: f, on_hand: x.on_hand, reserved: x.reserved, available: x.on_hand - x.reserved };
+        const v = variantOf.get(`${r.id}|${f}`);
+        return { flavor: f, name: v?.name || f, status: v?.status || "active", on_hand: x.on_hand, reserved: x.reserved, available: x.on_hand - x.reserved,
+          cost: v?.cost_price !== null && v?.cost_price !== undefined ? Number(v.cost_price) : cost };
       });
       unassigned = rows.filter((y) => y.flavor === "").reduce((s, y) => s + y.on_hand, 0);
       available = variants.reduce((s, v) => s + v.available, 0);
@@ -206,7 +215,8 @@ const stockList = async (req, res) => {
       available,
       variants,
       unassigned,
-      stock_value: Math.round(on_hand * cost * 100) / 100,
+      // each variant at its own average cost; stock not assigned to a variant at the product's cost
+      stock_value: Math.round((variants ? variants.reduce((s, v) => s + v.on_hand * v.cost, 0) + unassigned * cost : on_hand * cost) * 100) / 100,
       status: on_hand <= 0 ? "out" : low ? "low" : "ok",
     };
   });
@@ -658,10 +668,11 @@ const valuation = async (req, res) => {
     SELECT w.id AS warehouse_id, w.code, w.name,
            COUNT(DISTINCT l.product_id) FILTER (WHERE l.on_hand > 0)::int AS products,
            COALESCE(SUM(l.on_hand), 0)::int AS units,
-           COALESCE(SUM(l.on_hand * p.cost_price), 0)::float AS value
+           COALESCE(SUM(l.on_hand * COALESCE(pv.cost_price, p.cost_price)), 0)::float AS value
     FROM warehouses w
     LEFT JOIN inventory_levels l ON l.warehouse_id = w.id
     LEFT JOIN products p ON p.id = l.product_id
+    LEFT JOIN product_variants pv ON pv.product_id = l.product_id AND pv.flavor = l.flavor AND l.flavor <> ''
     WHERE w.company_id = ${req.company.id}
     GROUP BY w.id ORDER BY w.is_default DESC, w.name`;
   const totals = rows.reduce((t, r) => ({ units: t.units + r.units, value: t.value + r.value }), { units: 0, value: 0 });

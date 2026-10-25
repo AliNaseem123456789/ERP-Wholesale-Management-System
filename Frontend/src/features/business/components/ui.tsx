@@ -79,6 +79,11 @@ const STATUS_STYLES: Record<string, string> = {
   unpaid_leave: "bg-purple-100 text-purple-800",
   holiday: "bg-teal-100 text-teal-800",
   new: "bg-green-100 text-green-800",
+  // products
+  published: "bg-green-100 text-green-800",
+  hidden: "bg-gray-200 text-gray-700",
+  discontinued: "bg-orange-100 text-orange-800",
+  archived: "bg-gray-100 text-gray-500",
   updated: "bg-blue-100 text-blue-800",
   unchanged: "bg-gray-100 text-gray-600",
 };

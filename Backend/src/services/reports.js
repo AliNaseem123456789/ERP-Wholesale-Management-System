@@ -102,8 +102,9 @@ const REPORTS = {
     run: async (cid) => {
       const rows = await prisma.$queryRaw`
         SELECT w.code AS warehouse, w.name, COUNT(DISTINCT l.product_id) FILTER (WHERE l.on_hand > 0)::int AS products,
-               COALESCE(SUM(l.on_hand), 0)::int AS units, COALESCE(SUM(l.on_hand * p.cost_price), 0)::float AS value
+               COALESCE(SUM(l.on_hand), 0)::int AS units, COALESCE(SUM(l.on_hand * COALESCE(pv.cost_price, p.cost_price)), 0)::float AS value
         FROM warehouses w LEFT JOIN inventory_levels l ON l.warehouse_id = w.id LEFT JOIN products p ON p.id = l.product_id
+        LEFT JOIN product_variants pv ON pv.product_id = l.product_id AND pv.flavor = l.flavor AND l.flavor <> ''
         WHERE w.company_id = ${cid} GROUP BY w.id ORDER BY w.code`;
       const total = round2(rows.reduce((s, r) => s + r.value, 0));
       return { title: "Stock valuation", columns: [col("warehouse"), col("name"), col("products"), col("units"), col("value")], rows: rows.map((r) => ({ ...r, value: round2(r.value) })), summary: [["Units", rows.reduce((s, r) => s + r.units, 0)], ["Value (average cost)", money(total)]] };

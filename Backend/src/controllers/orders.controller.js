@@ -6,7 +6,8 @@ const { createOrderRecord } = require("../services/orders");
 const { getPermissions, displayName } = require("../services/users");
 const { queueEmail } = require("../services/email/outbox");
 const { notifyCompany } = require("../services/notify");
-const { withStock } = require("../services/catalog");
+const { withStock, publicWhere } = require("../services/catalog");
+const { loadRules, linesProblems } = require("../services/orderRules");
 const { buildCheckout, assertPaymentAllowed } = require("../services/checkout");
 const inv = require("../services/inventory");
 const compliance = require("../services/compliance");
@@ -73,6 +74,7 @@ const checkoutSummary = async (req, res) => {
     excise: co.excise,
     total: co.total,
     promoErrors: co.promoErrors,
+    problems: linesProblems(await loadRules(items.map((i) => i.product_id)), items.map((i) => ({ product_id: i.product_id, flavor: i.flavor, quantity: i.quantity }))),
   });
 };
 
@@ -99,13 +101,15 @@ const checkout = async (req, res) => {
     const cartItems = (await tx.cart_items.findMany({ where: { user_id: userId }, select: cartItemSelect })).map(shapeItem);
     if (!cartItems.length) throw new HttpError(400, "Cart is empty");
 
+    // Still published, and visible to this customer (group-only products).
+    const visible = new Set(
+      (await tx.products.findMany({ where: { ...publicWhere(req), id: { in: cartItems.map((i) => BigInt(i.product_id)) } }, select: { id: true } }))
+        .map((p) => String(p.id)),
+    );
     for (const item of cartItems) {
       const p = item.products;
-      if (!p || !p.is_active || !p.company) {
+      if (!p || !p.is_active || !p.company || !visible.has(String(item.product_id))) {
         throw new HttpError(400, `"${p?.title || "A product"}" is no longer available. Please remove it from your cart.`);
-      }
-      if (p.price == null) {
-        throw new HttpError(400, `"${p.title}" has no price yet. Please remove it or contact us.`);
       }
     }
     // Every seller must still be active.
@@ -122,8 +126,15 @@ const checkout = async (req, res) => {
         throw new HttpError(400, `Choose a flavour for "${p.title}": remove it from your cart and add it again with a flavour.`);
       }
     }
-    // Sellers that track inventory: don't accept more than is available right now (per flavour).
-    // (Stock is reserved when the seller confirms the order.)
+    // Minimum order quantities, order multiples, variants no longer on sale.
+    const problems = linesProblems(await loadRules(cartItems.map((i) => i.product_id), tx), cartItems.map((i) => ({ product_id: i.product_id, flavor: i.flavor, quantity: i.quantity })));
+    if (problems.length) throw new HttpError(400, `${problems[0].message}. Please update your cart.`);
+
+    // Sellers that track inventory: don't accept more than is available right now (per variant).
+    // Orders not yet confirmed by the seller count as taken, and parallel checkouts of the same
+    // products wait for each other here, so the same units can't be sold twice.
+    // (The seller reserves the stock in a warehouse when confirming the order.)
+    await inv.lockProductsForSale(tx, cartItems.map((i) => i.product_id));
     const stocked = await withStock({ user: req.user }, cartItems.map((i) => ({ ...i.products })));
     for (const [idx, p] of stocked.entries()) {
       if (p.stock_status === null) continue;
@@ -140,6 +151,12 @@ const checkout = async (req, res) => {
 
     const dest = await stateOf(tx, userId, shippingId);
     const co = await buildCheckout(req.user.id, cartItems, { promoCodes, paymentMethods, shippingState: dest.state, db: tx, commit: true });
+    // every line needs a price (the product's, its variant's or a price list's)
+    for (const item of cartItems) {
+      if (item.unit_price === null || item.unit_price === undefined) {
+        throw new HttpError(400, `"${inv.label(item.products.title, item.flavor)}" has no price yet. Please remove it or contact us.`);
+      }
+    }
     for (const g of co.groups) compliance.assertNoProblems(g.compliance);
     if (co.promoErrors.length) {
       throw new HttpError(400, `Promo code ${co.promoErrors[0].code}: ${co.promoErrors[0].message}`);

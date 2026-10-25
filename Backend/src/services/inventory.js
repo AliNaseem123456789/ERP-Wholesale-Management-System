@@ -136,6 +136,22 @@ const receive = async (tx, {
       where: { id: BigInt(productId) },
       data: { cost_price: new Prisma.Decimal(newCost.toFixed(4)) },
     });
+    // Each variant also keeps its own moving average (e.g. a 100 ml bottle costs more than a 50 ml one).
+    if (fl) {
+      const variant = await tx.product_variants.findUnique({
+        where: { product_id_flavor: { product_id: BigInt(productId), flavor: fl } },
+        select: { id: true, cost_price: true },
+      });
+      if (variant) {
+        const [{ vtotal }] = await tx.$queryRaw`
+          SELECT COALESCE(SUM(on_hand), 0)::int AS vtotal FROM inventory_levels
+          WHERE company_id = ${BigInt(companyId)} AND product_id = ${BigInt(productId)} AND flavor = ${fl}`;
+        const vOldQty = Math.max(0, Number(vtotal));
+        const vOldCost = variant.cost_price === null ? Number(unitCost) : Number(variant.cost_price);
+        const vCost = vOldQty === 0 ? Number(unitCost) : (vOldQty * vOldCost + qty * Number(unitCost)) / (vOldQty + qty);
+        await tx.product_variants.update({ where: { id: variant.id }, data: { cost_price: new Prisma.Decimal(vCost.toFixed(4)) } });
+      }
+    }
   }
 
   const lotWhere = {
@@ -249,30 +265,66 @@ const release = async (tx, { warehouseId, productId, flavor = "", quantity }) =>
     WHERE warehouse_id = ${BigInt(warehouseId)} AND product_id = ${BigInt(productId)} AND flavor = ${normFlavor(flavor)}`;
 };
 
+// Quantities customers have ordered that the seller hasn't confirmed yet. They count as taken, so two
+// customers can't both buy the last units (the seller reserves them in a warehouse when confirming).
+// Key: `${productId}|${flavor}`.
+const pendingHolds = async (productIds, db = prisma) => {
+  if (!productIds.length) return new Map();
+  const ids = productIds.map((id) => BigInt(id));
+  const rows = await db.$queryRaw`
+    SELECT oi.product_id, COALESCE(oi.flavor, '') AS flavor, SUM(oi.quantity - oi.reserved_quantity)::int AS qty
+    FROM order_items oi JOIN orders o ON o.id = oi.order_id
+    WHERE oi.product_id IN (${Prisma.join(ids)}) AND COALESCE(o.status, 'pending') = 'pending'
+    GROUP BY 1, 2`;
+  return new Map(rows.filter((r) => Number(r.qty) > 0).map((r) => [flavorKey(r.product_id, r.flavor), Number(r.qty)]));
+};
+
+/**
+ * Serialises stock checks for these products until the transaction ends (checkout, accepting a quote),
+ * so parallel checkouts see each other's orders. Locks are taken in id order to avoid deadlocks.
+ */
+const lockProductsForSale = async (tx, productIds) => {
+  const ids = [...new Set(productIds.map(String))].sort((a, b) => (BigInt(a) < BigInt(b) ? -1 : 1));
+  for (const id of ids) await tx.$executeRaw`SELECT pg_advisory_xact_lock(${7340021}::int, ${Number(BigInt(id) % 2147483647n)}::int)`;
+};
+
 // Available-to-sell per product across all warehouses of a company.
 // For products with flavours only stock assigned to a flavour counts (unassigned stock can't be ordered).
 const availabilityFor = async (productIds, db = prisma) => {
   if (!productIds.length) return new Map();
   const ids = productIds.map((id) => BigInt(id));
-  const rows = await db.$queryRaw`
+  const [rows, holds] = await Promise.all([
+    db.$queryRaw`
     SELECT l.product_id, COALESCE(SUM(l.on_hand - l.reserved), 0)::int AS available
     FROM inventory_levels l JOIN products p ON p.id = l.product_id
     WHERE l.product_id IN (${Prisma.join(ids)})
       AND (l.flavor <> '' OR COALESCE(cardinality(p.flavors), 0) = 0)
-    GROUP BY l.product_id`;
-  return new Map(rows.map((r) => [String(r.product_id), Number(r.available)]));
+    GROUP BY l.product_id`,
+    pendingHolds(productIds, db),
+  ]);
+  const held = new Map();
+  for (const [k, q] of holds) {
+    const pid = k.split("|")[0];
+    held.set(pid, (held.get(pid) || 0) + q);
+  }
+  return new Map(rows.map((r) => [String(r.product_id), Number(r.available) - (held.get(String(r.product_id)) || 0)]));
 };
 
 // Available-to-sell per product + flavour. Key: `${productId}|${flavor}`.
 const flavorKey = (productId, flavor) => `${productId}|${normFlavor(flavor)}`;
 const availabilityByFlavor = async (productIds, db = prisma) => {
   if (!productIds.length) return new Map();
-  const rows = await db.inventory_levels.groupBy({
-    by: ["product_id", "flavor"],
-    where: { product_id: { in: productIds.map((id) => BigInt(id)) } },
-    _sum: { on_hand: true, reserved: true },
-  });
-  return new Map(rows.map((r) => [flavorKey(r.product_id, r.flavor), (r._sum.on_hand || 0) - (r._sum.reserved || 0)]));
+  const [rows, holds] = await Promise.all([
+    db.inventory_levels.groupBy({
+      by: ["product_id", "flavor"],
+      where: { product_id: { in: productIds.map((id) => BigInt(id)) } },
+      _sum: { on_hand: true, reserved: true },
+    }),
+    pendingHolds(productIds, db),
+  ]);
+  const out = new Map(rows.map((r) => [flavorKey(r.product_id, r.flavor), (r._sum.on_hand || 0) - (r._sum.reserved || 0)]));
+  for (const [k, q] of holds) out.set(k, (out.get(k) || 0) - q);
+  return out;
 };
 
 // Available quantity of one product line (flavour-aware) from the two maps above.
@@ -354,6 +406,8 @@ module.exports = {
   release,
   availabilityFor,
   availabilityByFlavor,
+  pendingHolds,
+  lockProductsForSale,
   availableOf,
   flavorKey,
   normFlavor,
