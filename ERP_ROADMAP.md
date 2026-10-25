@@ -690,3 +690,24 @@ Database changes: `009_marketplace.sql`, `010_buying.sql`, `011_quotes.sql` (add
 ### Notes
 - 010 replaces the cart line uniqueness (user, product, flavour) with (cart, product, flavour). Code older than this release doesn't work against the migrated database's carts, so don't roll the backend back below it.
 - The top menu now starts with the admin-managed items (Admin → Marketplace); the old hard-coded smoke-shop menu still shows after them.
+
+## Analytics, deals, Excel, commission, reviews, reports, SEO (Phases 6–9 of the marketplace plan)
+
+Database change: `Backend/prisma/sql/012_insights.sql` (additive only: new tables `analytics_events`, `commission_statements`, `reviews`, `issue_reports`; new columns on `products` (sale), `promotions` (show_on_storefront) and `orders` (commission); a trigger that copies the company's commission rate onto each new order).
+
+### What changed
+- **Seller analytics** (Business → Analytics): visitors, store and product views, search appearances (and the words used), add-to-carts, orders and revenue with a comparison to the previous period, daily charts, a product table (views → cart → units → revenue), quote win rate and competitive requests. Views are anonymous (the visitor id is stored only as a hash), repeats within 30 minutes count once, and a company's own staff aren't counted.
+- **Deals**: a time-limited sale (% off, label, start/end) per product in the product editor; buyers pay whichever is lower, their usual price or the sale price, at the cart, checkout and in quotes. Sale badges on cards and product pages. Promo codes can be advertised ("Advertise this code" in Pricing & promos). `/deals` page, an "On offer" filter, and the storefront offers section now shows sales, volume prices and advertised codes. The default "Deals" menu item goes to `/deals`.
+- **Excel**: every export, import template and report download can be `.xlsx` as well as CSV, and imports accept `.xlsx` files (same columns, same preview).
+- **Platform commission**: each order keeps the company's rate from when it was placed. Admin → Commission creates statements per company and period (delivered orders: subtotal minus discounts and credited returns; no shipping or tax), marks them paid with a reference, or voids them (the orders can be billed again). Business → Platform commission shows the rate, what isn't billed yet and the statements.
+- **Reviews**: buyers with a delivered order review products and suppliers (1–5 stars, one each, editable). Ratings on product cards, product pages, supplier cards and store pages; a Reviews tab on store pages. Sellers reply (Business → Reviews) and can report a review; admins hide or republish (Admin → Reviews). Hidden reviews don't count.
+- **Problem reports**: "Report a problem" on listings, store pages, orders and reviews. Admin → Reports is the queue (internal note, decision, and actions: hide the listing or review, suspend the seller). Sellers see reports about them (who reported only for their own orders) and answer (Business → Problems reported); buyers follow theirs under My account → Reported problems.
+- **SEO and link previews**: page titles, descriptions and canonical links on public pages; private areas are noindex. `/sitemap.xml`, `/robots.txt`, and for crawlers and chat apps (which don't run JavaScript) Vercel sends product, category, brand, company and collection links to a small server-made page with the title, description, image and structured data (no prices).
+
+### Deploying
+1. `cd Backend && npm run db:export`
+2. `npm run db:verify -- snapshot before-012.json`
+3. `npm run db:migrate` (applies every file not applied yet: 009–012 if only 008 is in, otherwise 012)
+4. `npm run db:verify -- compare before-012.json`: only `_app_migrations` should change.
+5. `npx prisma generate`, then deploy the backend and the frontend (the frontend's `vercel.json` gained the sitemap, robots and crawler rewrites; they point at the Render backend URL already used for `/api`).
+6. Set `APP_URL` on the backend to the public site address (used in the sitemap and share pages).

@@ -1,5 +1,6 @@
 // Create / edit one product: basics, pricing & ordering rules, categories, visibility,
 // details (category attributes), variants (options such as Size or Colour) and the image gallery.
+import { toLocalInput } from "./CollectionsPage";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { ArrowLeft, Plus, Trash2, ArrowUp, ArrowDown, Lock, AlertTriangle, ImagePlus, X, Save } from "lucide-react";
@@ -474,7 +475,7 @@ const ImagesSection: React.FC<{ productId: number; initial: ProductImage[]; vari
 // ---- page ------------------------------------------------------------------------------------------
 
 const emptyForm = {
-  title: "", brand: "", brand_relationship: "", sku: "", barcode: "", short_description: "", description: "", status: "draft", slug: "", is_featured: false, allow_preorder: false,
+  title: "", brand: "", brand_relationship: "", sku: "", barcode: "", short_description: "", description: "", status: "draft", slug: "", is_featured: false, allow_preorder: false, sale_percent: "", sale_label: "", sale_starts_at: "", sale_ends_at: "",
   price: "", unit: "each", min_order_qty: "1", order_multiple: "1", pack_size: "", cost_price: "", reorder_point: "", reorder_quantity: "",
   preferred_supplier_id: "", visibility: "public", compliance_category: "none", nicotine_ml: "", is_flavored: false,
 };
@@ -505,7 +506,7 @@ export const ProductEditorPage: React.FC = () => {
       setProduct(p);
       setForm({
         title: p.title, brand: p.brand, brand_relationship: "", sku: str(p.sku), barcode: str(p.barcode), short_description: str(p.short_description),
-        description: str(p.description), status: p.status, slug: str(p.slug), is_featured: !!p.is_featured, allow_preorder: !!p.allow_preorder, price: str(p.price), unit: p.unit || "each",
+        description: str(p.description), status: p.status, slug: str(p.slug), is_featured: !!p.is_featured, allow_preorder: !!p.allow_preorder, sale_percent: p.sale_percent == null ? "" : String(Number(p.sale_percent)), sale_label: str(p.sale_label), sale_starts_at: toLocalInput(p.sale_starts_at), sale_ends_at: toLocalInput(p.sale_ends_at), price: str(p.price), unit: p.unit || "each",
         min_order_qty: str(p.min_order_qty), order_multiple: str(p.order_multiple), pack_size: str(p.pack_size), cost_price: str(p.cost_price),
         reorder_point: str(p.reorder_point), reorder_quantity: str(p.reorder_quantity), preferred_supplier_id: str(p.preferred_supplier_id),
         visibility: p.visibility || "public", compliance_category: p.compliance_category || "none", nicotine_ml: str(p.nicotine_ml), is_flavored: !!p.is_flavored,
@@ -543,7 +544,7 @@ export const ProductEditorPage: React.FC = () => {
     try {
       const body: Record<string, unknown> = {
         title: form.title, brand: form.brand, sku: form.sku, barcode: form.barcode, short_description: form.short_description, description: form.description,
-        status: form.status, is_featured: form.is_featured, allow_preorder: form.allow_preorder, price: form.price === "" ? null : Number(form.price), unit: form.unit,
+        status: form.status, is_featured: form.is_featured, allow_preorder: form.allow_preorder, sale_percent: form.sale_percent === "" ? null : Number(form.sale_percent), sale_label: form.sale_label || null, sale_starts_at: form.sale_starts_at ? new Date(form.sale_starts_at).toISOString() : null, sale_ends_at: form.sale_ends_at ? new Date(form.sale_ends_at).toISOString() : null, price: form.price === "" ? null : Number(form.price), unit: form.unit,
         min_order_qty: form.min_order_qty || 1, order_multiple: form.order_multiple || 1, pack_size: form.pack_size === "" ? null : form.pack_size,
         reorder_point: form.reorder_point, reorder_quantity: form.reorder_quantity, visibility: form.visibility,
         visible_group_ids: form.visibility === "groups" ? groupIds : [], category_ids: categoryIds,
@@ -647,6 +648,18 @@ export const ProductEditorPage: React.FC = () => {
               </Field>
             )}
           </div>
+        </Section>
+
+        <Section title="Sale" subtitle="A % off the price for every buyer, for a limited time. Buyers pay whichever is lower: their usual price or the sale price.">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Field label="Discount (%)" hint="Empty = no sale"><input type="number" min="0.01" max="99.99" step="0.01" disabled={!canEdit} className={inputCls} value={form.sale_percent} onChange={set("sale_percent")} /></Field>
+            <Field label="Label" hint="e.g. Summer sale"><input maxLength={60} disabled={!canEdit} className={inputCls} value={form.sale_label} onChange={set("sale_label")} /></Field>
+            <Field label="Starts" hint="Empty = now"><input type="datetime-local" disabled={!canEdit} className={inputCls} value={form.sale_starts_at} onChange={set("sale_starts_at")} /></Field>
+            <Field label="Ends" hint="Empty = until you remove it"><input type="datetime-local" disabled={!canEdit} className={inputCls} value={form.sale_ends_at} min={form.sale_starts_at || undefined} onChange={set("sale_ends_at")} /></Field>
+          </div>
+          {form.sale_percent !== "" && form.price !== "" && Number(form.sale_percent) > 0 && (
+            <p className="text-sm text-gray-600 mt-2">Sale price: <b>${(Number(form.price) * (1 - Number(form.sale_percent) / 100)).toFixed(2)}</b> instead of ${Number(form.price).toFixed(2)}{variantKeys.length ? " (variants with their own price get the same % off)" : ""}.</p>
+          )}
         </Section>
 
         <Section title="Categories" subtitle="The first one is the main category. Categories decide which details are suggested.">

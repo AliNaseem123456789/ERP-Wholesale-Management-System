@@ -6,6 +6,28 @@ import { Mail, Phone, Globe, MapPin, Truck, CreditCard, Clock, ShoppingBag, Mega
 import { marketplaceApi, Section, Storefront, Contact } from "./api";
 import { CatalogBrowser, Crumbs, Empty, Loading, ProductGrid, BrandTile, CategoryTile, SectionTitle } from "./components";
 import ProductCard from "../products/components/ProductCard";
+import { track, dealText, DealCode } from "../insights/api";
+import { useSeo } from "../insights/seo";
+import { ReviewsSection, Stars, ReportButton } from "../insights/components";
+
+/** Promo codes a seller advertises (copy to use at checkout). */
+export const PromoCodes: React.FC<{ codes: DealCode[]; showCompany?: boolean }> = ({ codes, showCompany }) => (
+  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+    {codes.map((c) => (
+      <div key={`${c.company?.id || ""}-${c.code}`} className="bg-white border-2 border-dashed border-gray-300 rounded-xl p-4 flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="font-black text-gray-900">{dealText(c)}</p>
+          {c.description && <p className="text-sm text-gray-600 line-clamp-2">{c.description}</p>}
+          <p className="text-xs text-gray-400 mt-1">
+            {showCompany && c.company ? <Link to={`/companies/${c.company.slug}`} className="text-blue-600 hover:underline">{c.company.name}</Link> : null}
+            {showCompany && c.company && c.ends_at ? " · " : ""}{c.ends_at ? `Ends ${new Date(c.ends_at).toLocaleDateString()}` : ""}
+          </p>
+        </div>
+        <button onClick={() => { navigator.clipboard?.writeText(c.code).catch(() => {}); }} title="Copy the code" className="font-mono font-black text-sm px-3 py-2 rounded-lg bg-gray-900 text-white">{c.code}</button>
+      </div>
+    ))}
+  </div>
+);
 
 const isInternal = (href?: string) => !!href && href.startsWith("/");
 const SmartLink: React.FC<{ href?: string; className?: string; style?: React.CSSProperties; children: React.ReactNode }> = ({ href, className, style, children }) => {
@@ -109,12 +131,19 @@ const SectionView: React.FC<{ s: Section; slug: string }> = ({ s, slug }) => {
           </div>
         </div>
       );
-    case "featured_products":
-    case "product_grid":
     case "deals":
       return (
+        <div className="space-y-4">
+          <SectionTitle title={s.title || "Wholesale offers"} subtitle={s.subtitle || "Sales, volume prices and promo codes"} to={`/companies/${slug}?tab=products&deals=1`} />
+          {!!(s as any).promotions?.length && <PromoCodes codes={(s as any).promotions} />}
+          {!!s.products?.length && <ProductsBlock s={s} />}
+        </div>
+      );
+    case "featured_products":
+    case "product_grid":
+      return (
         <div>
-          <SectionTitle title={s.title || (s.type === "deals" ? "Wholesale offers" : "Products")} subtitle={s.subtitle || (s.type === "deals" ? "Volume pricing available" : undefined)} to={`/companies/${slug}?tab=products`} />
+          <SectionTitle title={s.title || "Products"} subtitle={s.subtitle || undefined} to={`/companies/${slug}?tab=products`} />
           <ProductsBlock s={s} />
         </div>
       );
@@ -204,11 +233,14 @@ export const CompanyHeader: React.FC<{ store: Storefront; tab: string; setTab: (
       <div className="flex-1 min-w-[200px] pt-9">
         <h1 className="text-2xl font-black text-gray-900">{store.name}</h1>
         <p className="text-sm text-gray-500">{store.tagline || [store.city, store.state].filter(Boolean).join(", ")}</p>
+        {store.rating && store.rating.count > 0 && store.rating.average !== null && (
+          <button onClick={() => setTab("reviews")} className="mt-1 flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900"><Stars value={store.rating.average} /> <b>{store.rating.average.toFixed(1)}</b> ({store.rating.count} reviews)</button>
+        )}
       </div>
       <p className="text-sm text-gray-500 pt-9">{store.product_count} products · {store.brands.length} brands</p>
     </div>
     <div className="flex gap-1 px-4 sm:px-6 border-t border-gray-100 overflow-x-auto">
-      {[["home", "Storefront"], ["products", "All products"], ...(store.collections.length ? [["collections", "Collections"]] : []), ["about", "About & terms"]].map(([k, label]) => (
+      {[["home", "Storefront"], ["products", "All products"], ...(store.collections.length ? [["collections", "Collections"]] : []), ["reviews", "Reviews"], ["about", "About & terms"]].map(([k, label]) => (
         <button key={k} onClick={() => setTab(k)} className={`px-3 py-3 text-sm font-semibold border-b-2 whitespace-nowrap ${tab === k ? "text-gray-900" : "border-transparent text-gray-500 hover:text-gray-800"}`} style={tab === k ? { borderColor: store.theme.primary } : undefined}>
           {label}
         </button>
@@ -225,6 +257,8 @@ export const StorefrontPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const tab = params.get("tab") || "home";
   const setTab = (t: string) => setParams(t === "home" ? {} : { tab: t });
+  useSeo(store ? { title: `${store.name}${store.tagline ? ` – ${store.tagline}` : ""}`, description: store.description || store.tagline || `${store.name} wholesale catalogue`, image: store.banner_url || store.logo_url, path: `/companies/${slug}` } : null);
+  useEffect(() => { if (store?.slug) track({ kind: "storefront", company_slug: store.slug }); }, [store?.slug]);
 
   useEffect(() => {
     setStore(null);
@@ -260,6 +294,12 @@ export const StorefrontPage: React.FC = () => {
             ))}
           </div>
         )}
+        {tab === "reviews" && (
+          <div className="space-y-4">
+            <ReviewsSection companySlug={slug} companyId={store.id} companyName={store.name} title={`Reviews of ${store.name}`} />
+            <p className="text-sm text-gray-500">Product reviews are on each product's page.</p>
+          </div>
+        )}
         {tab === "about" && (
           <div className="space-y-6">
             {store.description && <div className="bg-white rounded-2xl border border-gray-200 p-6"><h2 className="text-xl font-black text-gray-900 mb-2">About {store.name}</h2><p className="text-gray-700 whitespace-pre-line">{store.description}</p></div>}
@@ -268,6 +308,7 @@ export const StorefrontPage: React.FC = () => {
               <div><SectionTitle title="Categories supplied" /><div className="flex flex-wrap gap-2">{store.categories.map((c) => <Link key={c.id} to={`/companies/${slug}?tab=products&category=${c.slug}`} className="bg-white border border-gray-200 rounded-full px-3 py-1 text-sm">{c.name} <span className="text-gray-400">{c.count}</span></Link>)}</div></div>
             )}
             {store.brands.length > 0 && <div><SectionTitle title="Brands supplied" /><div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">{store.brands.map((b) => <BrandTile key={b.id} b={b} />)}</div></div>}
+            <div className="text-right"><ReportButton target={{ kind: "seller", company_id: store.id }} label="Report this seller" /></div>
           </div>
         )}
       </div>
@@ -284,6 +325,7 @@ export const CollectionPage: React.FC = () => {
     setData(null);
     (collection ? marketplaceApi.companyCollection(slug, collection) : marketplaceApi.collection(slug)).then(setData).catch((e) => setError(e.message));
   }, [slug, collection]);
+  useSeo(data ? { title: `${data.collection.name}${data.company ? ` | ${data.company.name}` : ""}`, description: data.collection.description || `${data.collection.name}: ${data.products.length} products`, image: data.collection.cover_image_url } : error ? { title: "Collection not available", noindex: true } : null);
   if (error) return <div className="min-h-screen bg-gray-50 p-6"><div className="max-w-3xl mx-auto"><Empty title="This collection isn't available" text={error} /></div></div>;
   if (!data) return <div className="min-h-screen bg-gray-50"><Loading /></div>;
   return (

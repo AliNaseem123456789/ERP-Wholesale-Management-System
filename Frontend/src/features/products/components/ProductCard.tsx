@@ -5,6 +5,7 @@ import { useAuth } from "../../auth/context/AuthContext";
 import { Lock } from "lucide-react";
 import { productImage } from "../utils/getProductImage";
 import QuickOrderModal from "../../../app/components/home/QuickOrderModal";
+import { RatingBadge, SaleBadge } from "../../insights/components";
 
 interface ProductCardProps {
   product: Product; // Changed from ProductWithImages
@@ -48,6 +49,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickOrder }) => {
             Pre-order
           </span>
         )}
+        {product.sale && <SaleBadge sale={product.sale} className="absolute top-2 right-2 z-10" />}
         <img
           src={productImage(product)}
           alt={product.title}
@@ -62,6 +64,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickOrder }) => {
         {product.brand}
       </p>
       <h3 className="text-sm font-bold line-clamp-1">{product.title}</h3>
+      <RatingBadge rating={product.rating} />
       {product.company && (
         <button
           onClick={() => navigate(`/companies/${product.company!.slug}`)}

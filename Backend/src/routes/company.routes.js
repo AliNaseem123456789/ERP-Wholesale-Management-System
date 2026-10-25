@@ -24,6 +24,7 @@ const scan = require("../controllers/company/scan.controller");
 const compliancec = require("../controllers/company/compliance.controller");
 const reportsHub = require("../controllers/company/reportsHub.controller");
 const storefront = require("../controllers/company/storefront.controller");
+const insights = require("../controllers/insights.controller");
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 const router = express.Router();
@@ -40,6 +41,16 @@ router.get("/profile", business.getProfile);
 router.patch("/profile", perm("company.manage"), business.updateProfile);
 router.post("/logo", perm("company.manage"), upload.single("image"), business.uploadLogo);
 router.post("/banner", perm("company.manage", "storefront.manage"), upload.single("image"), business.uploadBanner);
+
+// analytics, reviews, problem reports, platform commission
+router.get("/analytics", perm("reports.view", "dashboard.view"), insights.companyAnalytics);
+router.get("/reviews", perm("products.view", "customers.view"), insights.sellerReviews);
+router.post("/reviews/:id/reply", perm("products.manage", "customers.manage"), insights.replyToReview);
+router.post("/reviews/:id/report", perm("products.manage", "customers.manage"), insights.reportReview);
+router.get("/reports", perm("orders.view", "products.view"), insights.sellerReports);
+router.post("/reports/:id/respond", perm("orders.manage", "products.manage"), insights.respondToReport);
+router.get("/commission", perm("accounting.view", "company.manage"), insights.sellerCommission);
+router.get("/commission/statements/:id", perm("accounting.view", "company.manage"), insights.sellerStatement);
 
 // storefront & collections
 router.get("/collections", perm("products.view", "storefront.manage"), storefront.listCollections);

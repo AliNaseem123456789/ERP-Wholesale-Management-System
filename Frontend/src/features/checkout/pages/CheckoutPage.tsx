@@ -16,8 +16,10 @@ import { apiClient } from "../../../api/apiClient";
 import { clearCart, fetchCart } from "../../cart/redux/cartSlice";
 import { AppDispatch, RootState } from "../../../app/store";
 import { useAuth } from "../../auth/context/AuthContext";
+import { useSeo } from "../../insights/seo";
 
 export const CheckoutPage = () => {
+  useSeo({ title: "Checkout", noindex: true });
   const [addresses, setAddresses] = useState<any[]>([]);
   const [cartItems, setCartItems] = useState<any[]>([]);
   const [totals, setTotals] = useState({ subtotal: 0, discount: 0, shipping: 0, tax: 0, excise: 0, total: 0 });

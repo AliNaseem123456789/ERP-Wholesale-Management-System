@@ -6,6 +6,7 @@ import { documentsApi } from "../api/documents.api";
 import { RequestReturnModal } from "./tabs/ReturnsTab";
 import { RecurringEditor } from "./tabs/RecurringTab";
 import { useBuyAgain } from "../hooks/useBuyAgain";
+import { ReportButton } from "../../insights/components";
 
 interface OrderDetailProps {
   order: Order;
@@ -52,6 +53,7 @@ export const OrderDetail: React.FC<OrderDetailProps> = ({ order, onBack }) => {
               <Undo2 size={18} /> Request a return
             </button>
           )}
+          <ReportButton target={{ kind: "order", order_id: order.id }} title={`Problem with order ${order.order_number || order.id}`} className="px-2 text-sm" />
           <button
             onClick={handlePrint}
             className="flex items-center gap-2 bg-black text-white px-6 py-2.5 rounded-xl font-bold hover:bg-gray-800 transition-all shadow-sm"

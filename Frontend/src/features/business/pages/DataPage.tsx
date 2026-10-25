@@ -24,11 +24,15 @@ const Exports: React.FC<{ types: { type: string; allowed: boolean }[] }> = ({ ty
   const { companyId, company } = useBusiness();
   const [range, setRange] = useState({ from: "", to: "" });
   const [busy, setBusy] = useState("");
+  const [format, setFormat] = useState<"csv" | "xlsx">(() => { try { return (localStorage.getItem("exportFormat") as "csv" | "xlsx") || "xlsx"; } catch { return "xlsx"; } });
+  const chooseFormat = (f: "csv" | "xlsx") => { setFormat(f); try { localStorage.setItem("exportFormat", f); } catch { /* ignore */ } };
   const go = async (type: string) => {
     setBusy(type);
     try {
-      const q = DATED.includes(type) ? `?${new URLSearchParams(Object.entries(range).filter(([, v]) => v))}` : "";
-      await downloadCsv(companyId!, `/company/export/${type}${q}`, `${(company as any)?.slug || "company"}-${type}.csv`);
+      const params = new URLSearchParams(DATED.includes(type) ? Object.entries(range).filter(([, v]) => v) : []);
+      if (format === "xlsx") params.set("format", "xlsx");
+      const q = params.toString() ? `?${params}` : "";
+      await downloadCsv(companyId!, `/company/export/${type}${q}`, `${(company as any)?.slug || "company"}-${type}.${format}`);
     } catch (err) {
       toast.error(errorMessage(err, "Export failed"));
     } finally {
@@ -40,7 +44,12 @@ const Exports: React.FC<{ types: { type: string; allowed: boolean }[] }> = ({ ty
       <div className="flex flex-wrap items-end gap-3 mb-4 text-sm">
         <Field label="From (dated exports)"><input type="date" className={inputBase} value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} /></Field>
         <Field label="To"><input type="date" className={inputBase} value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} /></Field>
-        <p className="text-gray-500 pb-2">Leave empty for everything. Files open in Excel, Google Sheets or Numbers.</p>
+        <Field label="File type">
+          <select className={inputBase} value={format} onChange={(e) => chooseFormat(e.target.value as "csv" | "xlsx")}>
+            <option value="xlsx">Excel (.xlsx)</option><option value="csv">CSV</option>
+          </select>
+        </Field>
+        <p className="text-gray-500 pb-2">Leave the dates empty for everything.</p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {types.filter((t) => t.allowed).map((t) => (
@@ -59,7 +68,7 @@ const Imports: React.FC<{ types: { type: string; columns: string[]; required: st
   const { companyId } = useBusiness();
   const allowed = types.filter((t) => t.allowed);
   const [type, setType] = useState(allowed[0]?.type || "");
-  const [file, setFile] = useState<{ name: string; text: string } | null>(null);
+  const [file, setFile] = useState<{ name: string; text?: string; xlsx?: string } | null>(null);
   const [result, setResult] = useState<any>(null);
   const [busy, setBusy] = useState(false);
   const def = allowed.find((t) => t.type === type);
@@ -67,16 +76,23 @@ const Imports: React.FC<{ types: { type: string; columns: string[]; required: st
   if (!allowed.length) return <Card className="p-6 text-sm text-gray-500">You don't have permission to import anything.</Card>;
   const pick = (f?: File | null) => {
     if (!f) return setFile(null);
-    if (f.size > 5 * 1024 * 1024) return toast.error("The file is too big (max 5 MB)");
+    const excel = /\.xlsx$/i.test(f.name);
+    if (/\.xls$/i.test(f.name)) return toast.error("Old .xls files aren't supported: save it as .xlsx or CSV first");
+    if (f.size > (excel ? 4 : 5) * 1024 * 1024) return toast.error(`The file is too big (max ${excel ? 4 : 5} MB)`);
     const reader = new FileReader();
-    reader.onload = () => setFile({ name: f.name, text: String(reader.result || "") });
-    reader.readAsText(f);
+    if (excel) {
+      reader.onload = () => setFile({ name: f.name, xlsx: String(reader.result || "").replace(/^data:[^,]*,/, "") });
+      reader.readAsDataURL(f);
+    } else {
+      reader.onload = () => setFile({ name: f.name, text: String(reader.result || "") });
+      reader.readAsText(f);
+    }
   };
   const run = async (dryRun: boolean) => {
-    if (!file) return toast.error("Choose a CSV file first");
+    if (!file) return toast.error("Choose a file first");
     setBusy(true);
     try {
-      const r = await opsApi.importCsv(companyId!, type, file.text, dryRun);
+      const r = file.xlsx ? await opsApi.importXlsx(companyId!, type, file.xlsx, dryRun) : await opsApi.importCsv(companyId!, type, file.text || "", dryRun);
       setResult(r);
       if (r.applied) toast.success(r.message);
     } catch (err) {
@@ -93,8 +109,11 @@ const Imports: React.FC<{ types: { type: string; columns: string[]; required: st
             {allowed.map((t) => <option key={t.type} value={t.type}>{LABELS[t.type] || t.type}</option>)}
           </select>
         </Field>
-        <Field label="CSV file"><input type="file" accept=".csv,text/csv" aria-label="CSV file" onChange={(e) => pick(e.target.files?.[0])} className="text-sm" /></Field>
-        <button type="button" onClick={() => downloadCsv(companyId!, `/company/import/${type}/template`, `${type}-template.csv`).catch((e) => toast.error(errorMessage(e)))} className={btnSecondary}><Download size={16} /> Template</button>
+        <Field label="Excel or CSV file"><input type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" aria-label="Excel or CSV file" onChange={(e) => pick(e.target.files?.[0])} className="text-sm" /></Field>
+        <div className="flex gap-2">
+          <button type="button" onClick={() => downloadCsv(companyId!, `/company/import/${type}/template?format=xlsx`, `${type}-template.xlsx`).catch((e) => toast.error(errorMessage(e)))} className={btnSecondary}><Download size={16} /> Excel template</button>
+          <button type="button" onClick={() => downloadCsv(companyId!, `/company/import/${type}/template`, `${type}-template.csv`).catch((e) => toast.error(errorMessage(e)))} className={btnSecondary}>CSV</button>
+        </div>
       </div>
       <div className="bg-gray-50 rounded-xl px-4 py-3 text-gray-600">
         <p>{IMPORT_HELP[type] || (def as any)?.note}</p>
@@ -134,7 +153,7 @@ export const DataPage: React.FC = () => {
   useEffect(() => { opsApi.dataTypes(companyId!).then(setTypes).catch((e) => toast.error(errorMessage(e))); }, [companyId]);
   return (
     <div>
-      <PageHeader title="Import & export" subtitle="Move data in and out with CSV files" />
+      <PageHeader title="Import & export" subtitle="Move data in and out with Excel or CSV files" />
       <div className="mb-3"><FilterTabs value={tab} onChange={setTab} options={[{ value: "export", label: "Export" }, { value: "import", label: "Import" }]} /></div>
       {!types ? <Spinner /> : tab === "export" ? <Exports types={types.exports} /> : <Imports types={types.data} />}
     </div>

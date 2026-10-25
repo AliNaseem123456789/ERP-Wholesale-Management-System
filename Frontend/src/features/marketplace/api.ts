@@ -28,6 +28,7 @@ export type CompanyCardT = {
   id: number; name: string; slug: string; logo_url?: string | null; banner_url?: string | null; tagline?: string | null;
   city?: string | null; state?: string | null; country?: string | null; is_featured?: boolean; product_count?: number; brand_count?: number;
   top_categories?: { name: string; slug: string }[];
+  rating?: { average: number | null; count: number } | null;
 };
 export type Contact = {
   email: string | null; phone: string | null; website: string | null; city: string | null; state: string | null; country: string | null;
@@ -48,6 +49,8 @@ export type Storefront = CompanyCardT & {
   categories: { id: number; name: string; slug: string; count: number }[];
   brands: { id: number; name: string; slug: string; logo_url?: string | null; relationship?: string }[];
   collections: { id: number; name: string; slug: string; description?: string | null; cover_image_url?: string | null }[];
+  rating?: { average: number | null; count: number } | null;
+  promotions?: { code: string; description: string | null; type: "percent" | "fixed" | "free_shipping"; value: number; min_order_amount: number; ends_at: string | null }[];
 };
 export type NavItem = { label: string; href: string; external?: boolean };
 export type Banner = { image_url: string; image_alt?: string; title?: string; subtitle?: string; link?: string };

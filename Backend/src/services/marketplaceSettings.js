@@ -15,7 +15,7 @@ const DEFAULTS = {
     { label: "Categories", type: "link", ref: "/categories" },
     { label: "Brands", type: "link", ref: "/brands" },
     { label: "Suppliers", type: "link", ref: "/companies" },
-    { label: "Deals", type: "link", ref: "/products?featured=1" },
+    { label: "Deals", type: "link", ref: "/deals" },
   ],
   featured: { brand_ids: [], category_ids: [], company_ids: [] },
   banners: [],

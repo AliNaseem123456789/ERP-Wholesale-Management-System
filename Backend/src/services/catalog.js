@@ -54,7 +54,25 @@ const forViewer = (req) => (product) => {
   const out = pick(product, PUBLIC_FIELDS);
   out.company = product.companies ?? product.company ?? null;
   if (req?.user) out.price = product.price;
+  // a running sale is public (the sale price itself is added for signed-in buyers by the pricing step)
+  const { saleActive } = require("./pricing");
+  if (saleActive(product)) out.sale = { percent: Number(product.sale_percent), label: product.sale_label || null, ends_at: product.sale_ends_at || null };
   return out;
+};
+
+// Average rating and count of published reviews: product.rating = { average, count } (only when reviewed).
+const withRatings = async (products) => {
+  const list = products.filter(Boolean);
+  if (!list.length) return;
+  const rows = await prisma.reviews.groupBy({
+    by: ["product_id"], where: { product_id: { in: list.map((p) => BigInt(p.id)) }, status: "published" },
+    _avg: { rating: true }, _count: true,
+  });
+  const by = new Map(rows.map((r) => [String(r.product_id), r]));
+  for (const p of list) {
+    const r = by.get(String(p.id));
+    if (r) p.rating = { average: Math.round(r._avg.rating * 10) / 10, count: r._count };
+  }
 };
 
 // Adds stock info for products of companies that track inventory:
@@ -203,12 +221,13 @@ const decorate = async (req, products, { variants = true } = {}) => {
   if (variants) await withVariantsAndImages(req, products);
   await withMainImage(products);
   await hideInactiveVariants(products);
+  await withRatings(products);
   const { applyCustomerPricing } = require("./pricing");
   await applyCustomerPricing(req, products);
   return products;
 };
 
 module.exports = {
-  publicProductWhere, publicWhere, companyBrief, forViewer, withStock, withVariantsAndImages, withMainImage, decorate, trackedCompanyIds,
+  publicProductWhere, publicWhere, companyBrief, forViewer, withStock, withVariantsAndImages, withMainImage, decorate, trackedCompanyIds, withRatings,
   PUBLIC_FIELDS, PUBLIC_VARIANT_FIELDS,
 };

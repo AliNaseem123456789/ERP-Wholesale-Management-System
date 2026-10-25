@@ -41,7 +41,7 @@ export type PriceList = { id: number; name: string; description?: string | null;
 export type Promotion = {
   id: number; code: string; description?: string | null; type: "percent" | "fixed" | "free_shipping"; value: number; min_order_amount: number;
   starts_at?: string | null; ends_at?: string | null; max_uses?: number | null; max_uses_per_customer?: number | null; uses_count: number;
-  is_active: boolean; total_discount?: number;
+  is_active: boolean; total_discount?: number; show_on_storefront?: boolean;
 };
 
 export const salesApi = {

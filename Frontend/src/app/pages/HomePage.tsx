@@ -8,11 +8,13 @@ import QuickOrderModal from "../components/home/QuickOrderModal";
 import ProductCard from "../../features/products/components/ProductCard";
 import { productImage } from "../../features/products/utils/getProductImage";
 import { MarketplaceHome } from "../../features/marketplace/pages";
+import { useSeo } from "../../features/insights/seo";
 
 const WhyChooseUs = lazy(() => import("../components/home/WhyChoseUS"));
 const LogoMarquee = lazy(() => import("../components/home/LogoMarquee"));
 
 export const HomePage: React.FC = () => {
+  useSeo({ title: null, description: "B2B wholesale marketplace: approved suppliers, wholesale prices, quotes from several sellers, and repeat orders.", path: "/" });
   const { featured, newArrivals, bestSellers, loading, error } =
     useHomeProducts();
 

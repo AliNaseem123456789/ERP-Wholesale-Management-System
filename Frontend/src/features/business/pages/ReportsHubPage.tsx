@@ -53,6 +53,7 @@ const RunTab: React.FC<{ catalog: { key: string; label: string; period: boolean 
         ) : <p className="text-gray-500 pb-2">As of today</p>}
         <button disabled={busy || !key} onClick={run} className={btnPrimary}><Play size={16} /> Run</button>
         <button disabled={!key} onClick={() => downloadCsv(companyId!, `/company/reports/run/${key}?from=${range.from}&to=${range.to}&format=csv`, `${key}.csv`).catch((e) => toast.error(errorMessage(e)))} className={btnSecondary}><Download size={16} /> CSV</button>
+        <button disabled={!key} onClick={() => downloadCsv(companyId!, `/company/reports/run/${key}?from=${range.from}&to=${range.to}&format=xlsx`, `${key}.xlsx`).catch((e) => toast.error(errorMessage(e)))} className={btnSecondary}><Download size={16} /> Excel</button>
       </Card>
       {r && (
         <Card className="overflow-x-auto">
@@ -154,7 +155,8 @@ const ScheduledTab: React.FC<{ catalog: { key: string; label: string; period: bo
               <td className="px-4 py-2">{dateTime(r.created_at)}</td><td className="font-semibold">{r.title}</td>
               <td className="text-gray-500">{r.period_from ? `${dateOnly(r.period_from)}${r.period_to !== r.period_from ? ` – ${dateOnly(r.period_to)}` : ""}` : ""}</td>
               <td>{r.status === "ok" ? `${r.row_count} rows` : <span className="text-red-700">{r.error}</span>}</td>
-              <td className="text-right pr-4">{r.status === "ok" && <button onClick={() => downloadCsv(companyId!, `/company/reports/runs/${r.id}/csv`, `${r.report}-${r.id}.csv`).catch((e) => toast.error(errorMessage(e)))} className="text-gray-500 hover:text-blue-700" aria-label="Download CSV"><Download size={15} /></button>}</td>
+              <td className="text-right pr-4">{r.status === "ok" && <button onClick={() => downloadCsv(companyId!, `/company/reports/runs/${r.id}/csv`, `${r.report}-${r.id}.csv`).catch((e) => toast.error(errorMessage(e)))} className="text-gray-500 hover:text-blue-700" aria-label="Download CSV"><Download size={15} /></button>}
+                {r.status === "ok" && <button onClick={() => downloadCsv(companyId!, `/company/reports/runs/${r.id}/csv?format=xlsx`, `${r.report}-${r.id}.xlsx`).catch((e) => toast.error(errorMessage(e)))} className="ml-2 text-xs font-bold text-green-700 hover:underline" aria-label="Download Excel">xlsx</button>}</td>
             </tr>
           ))}</tbody></table>
         </Card>

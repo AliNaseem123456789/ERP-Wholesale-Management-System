@@ -96,6 +96,24 @@ const productData = (body) => {
     if (!["public", "groups"].includes(body.visibility)) throw new HttpError(400, "Visibility must be public or groups");
     data.visibility = body.visibility;
   }
+  // a time-limited % off for every buyer (buyers pay the lower of their usual price and the sale price)
+  if (body.sale_percent !== undefined) {
+    if (body.sale_percent === "" || body.sale_percent === null) data.sale_percent = null;
+    else {
+      const n = Number(body.sale_percent);
+      if (!Number.isFinite(n) || n <= 0 || n >= 100) throw new HttpError(400, "Sale discount must be more than 0% and less than 100%");
+      data.sale_percent = Math.round(n * 100) / 100;
+    }
+  }
+  for (const [k, label] of [["sale_starts_at", "Sale start"], ["sale_ends_at", "Sale end"]]) {
+    if (body[k] === undefined) continue;
+    if (body[k] === "" || body[k] === null) { data[k] = null; continue; }
+    const d = new Date(body[k]);
+    if (Number.isNaN(d.getTime())) throw new HttpError(400, `${label} isn't a valid date`);
+    data[k] = d;
+  }
+  if (data.sale_starts_at && data.sale_ends_at && data.sale_ends_at < data.sale_starts_at) throw new HttpError(400, "The sale ends before it starts");
+  if (body.sale_label !== undefined) data.sale_label = body.sale_label ? String(body.sale_label).replace(/<[^>]*>/g, "").trim().slice(0, 60) || null : null;
   if (body.short_description !== undefined) data.short_description = body.short_description ? String(body.short_description).slice(0, 500) : null;
   if (data.title === "" || data.brand === "") throw new HttpError(400, "Title and brand can't be empty");
   return data;

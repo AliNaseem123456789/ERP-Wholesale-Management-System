@@ -27,8 +27,9 @@ const parse = (text) => {
 };
 
 // -> { headers: [normalised names], records: [{ header: value }], line numbers start at 2 }
-const parseRecords = (text) => {
-  const rows = parse(text);
+// Accepts CSV text or rows already read (e.g. from an Excel file).
+const parseRecords = (input) => {
+  const rows = Array.isArray(input) ? input : parse(input);
   if (!rows.length) return { headers: [], records: [] };
   const headers = rows[0].map((h) => String(h).trim().toLowerCase().replace(/[\s-]+/g, "_"));
   const records = rows.slice(1).map((r, i) => {

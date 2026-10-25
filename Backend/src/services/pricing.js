@@ -4,6 +4,8 @@
 //   2. the best tier on C's DEFAULT price list, else
 //   3. the base price (V's own price if it has one, otherwise P's) minus the customer group's discount %.
 // On a price list, tiers set for variant V win over tiers set for the whole product.
+// A running sale (products.sale_percent between sale_starts_at and sale_ends_at) gives every buyer the base price
+// minus that %; the buyer pays whichever is lower: their usual price or the sale price.
 const prisma = require("../prisma");
 const { round2, num } = require("./money");
 
@@ -77,6 +79,22 @@ const priceOne = (product, quantity, ctx, items, { flavor = "", variantPrice = n
   };
 };
 
+/** Is the product's sale running now? */
+const saleActive = (p, now = new Date()) =>
+  p && p.sale_percent !== null && p.sale_percent !== undefined && num(p.sale_percent) > 0 &&
+  (!p.sale_starts_at || new Date(p.sale_starts_at) <= now) && (!p.sale_ends_at || new Date(p.sale_ends_at) >= now);
+
+// Sale settings of products: Map productId -> { sale_percent, sale_starts_at, sale_ends_at, sale_label }
+const loadSales = async (entries, db = prisma) => {
+  const ids = [...new Set(entries.map((e) => String(e.product.id)))];
+  if (!ids.length) return new Map();
+  const rows = await db.products.findMany({
+    where: { id: { in: ids.map((id) => BigInt(id)) }, sale_percent: { not: null } },
+    select: { id: true, sale_percent: true, sale_starts_at: true, sale_ends_at: true, sale_label: true },
+  });
+  return new Map(rows.map((r) => [String(r.id), r]));
+};
+
 // Own prices of variants: Map `${productId}|${flavor}` -> price (only variants that have one).
 const loadVariantPrices = async (entries, db = prisma) => {
   const ids = [...new Set(entries.filter((e) => e.flavor).map((e) => String(e.product.id)))];
@@ -97,15 +115,23 @@ const priceEntries = async (userId, entries, db = prisma) => {
   const companyIds = entries.map((e) => e.product.company_id ?? e.product.company?.id);
   const contexts = await loadContexts(userId, companyIds, db);
   const listIds = [...new Set([...contexts.values()].flatMap((c) => c.listIds.map(String)))].map((id) => BigInt(id));
-  const [items, variantPrices] = await Promise.all([loadListItems(listIds, entries.map((e) => e.product.id), db), loadVariantPrices(entries, db)]);
+  const [items, variantPrices, sales] = await Promise.all([loadListItems(listIds, entries.map((e) => e.product.id), db), loadVariantPrices(entries, db), loadSales(entries, db)]);
+  const now = new Date();
   return entries.map((e) => {
     const ctx = contexts.get(String(e.product.company_id ?? e.product.company?.id));
     const flavor = e.flavor ? String(e.flavor) : "";
     const variantPrice = flavor ? variantPrices.get(`${e.product.id}|${flavor}`) ?? null : null;
-    const r = priceOne(e.product, e.quantity || 1, ctx, items, { flavor, variantPrice });
+    let r = priceOne(e.product, e.quantity || 1, ctx, items, { flavor, variantPrice });
     const basePrice = variantPrice ?? e.product.base_price ?? e.product.price;
     const list = basePrice === null || basePrice === undefined ? null : round2(basePrice);
-    return { ...e, ...r, list, ctx };
+    const sale = sales.get(String(e.product.id));
+    let saleInfo = null;
+    if (list !== null && saleActive(sale, now)) {
+      const salePrice = round2(list * (1 - num(sale.sale_percent) / 100));
+      saleInfo = { percent: num(sale.sale_percent), label: sale.sale_label || null, ends_at: sale.sale_ends_at || null, price: salePrice };
+      if (r.unit === null || salePrice < r.unit) r = { ...r, unit: salePrice, source: "sale" };
+    }
+    return { ...e, ...r, list, ctx, sale: saleInfo };
   });
 };
 
@@ -129,8 +155,9 @@ const applyCustomerPricing = async (req, products) => {
     if (r.list !== null && r.unit !== null && r.list !== r.unit) t.list_price = r.list;
     else delete t.list_price;
     if (r.tiers.length) t.price_tiers = r.tiers;
+    if (r.sale) t.sale = r.sale;
   }
   return products;
 };
 
-module.exports = { loadContexts, priceEntries, applyCustomerPricing, priceOne };
+module.exports = { loadContexts, priceEntries, applyCustomerPricing, priceOne, saleActive };

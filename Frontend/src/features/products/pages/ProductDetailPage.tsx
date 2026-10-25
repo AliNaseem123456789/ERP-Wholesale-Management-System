@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { TriangleAlert, Plus, Minus, Lock, ArrowLeft, Info, BellRing } from "lucide-react";
 import { buyingApi, buyingError } from "../../account/api/buying.api";
+import { track } from "../../insights/api";
+import { useSeo } from "../../insights/seo";
+import { ReviewsSection, RatingBadge, ReportButton, SaleBadge } from "../../insights/components";
 import { toast } from "sonner";
 import { useProductDetail } from "../hooks/useProductDetails";
 import { useAuth } from "../../auth/context/AuthContext";
@@ -102,6 +105,10 @@ export const ProductDetailPage: React.FC = () => {
   useEffect(() => {
     setQuantity(allowedQty(1, minQty, step));
   }, [variantKey, minQty, step]);
+
+  // page title / description, and a product view for the seller's analytics
+  useSeo(product ? { title: `${product.title}${product.company ? ` | ${product.company.name}` : ""}`, description: (product as any).short_description || product.description || `${product.title} by ${product.brand}`, image: (product as any).image || null, path: `/product/${(product as any).slug || product.id}` } : null);
+  useEffect(() => { if (product?.id) track({ kind: "product", product_id: product.id }); }, [product?.id]);
 
   if (loading || authLoading) {
     return (
@@ -206,11 +213,20 @@ export const ProductDetailPage: React.FC = () => {
           <div className="flex flex-col">
             <div className="mb-6">
               {product.brand_info?.slug ? (
-                <Link to={`/brand/${product.brand_info.slug}`} className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-2 inline-block hover:underline">{product.brand}</Link>
+                <Link to={`/brands/${product.brand_info.slug}`} className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-2 inline-block hover:underline">{product.brand}</Link>
               ) : (
                 <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-2">{product.brand}</p>
               )}
               <h1 className="text-4xl font-extrabold text-gray-900 mb-2 leading-tight">{product.title}</h1>
+              <div className="flex flex-wrap items-center gap-3 mb-2">
+                <SaleBadge sale={(product as any).sale} />
+                {(product as any).rating && <a href="#reviews-title"><RatingBadge rating={(product as any).rating} className="text-sm" /></a>}
+              </div>
+              {(product as any).sale && (
+                <p className="text-sm text-red-700 font-semibold mb-2">
+                  {(product as any).sale.percent}% off{(product as any).sale.ends_at ? ` until ${new Date((product as any).sale.ends_at).toLocaleDateString()}` : ""}{!user ? ". Sign in to see your price." : ""}
+                </p>
+              )}
               {product.company && (
                 <button onClick={() => navigate(`/companies/${product.company!.slug}`)} className="text-sm text-gray-600 mb-3 hover:text-blue-600 hover:underline">
                   Sold by <b>{product.company.name}</b>
@@ -219,7 +235,7 @@ export const ProductDetailPage: React.FC = () => {
               {!!product.category_list?.length && (
                 <div className="flex flex-wrap gap-1.5 mb-4">
                   {product.category_list.map((c) => (
-                    <Link key={c.id} to={`/category/${c.slug}`} className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full">{c.name}</Link>
+                    <Link key={c.id} to={`/categories/${c.slug}`} className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full">{c.name}</Link>
                   ))}
                 </div>
               )}
@@ -426,6 +442,10 @@ export const ProductDetailPage: React.FC = () => {
               )}
             </div>
           </div>
+        </div>
+        <div className="mt-10 space-y-3">
+          <ReviewsSection productId={product.id} companyName={product.company?.name} title="Customer reviews" />
+          <div className="text-right"><ReportButton target={{ kind: "listing", product_id: product.id }} label="Report this listing" /></div>
         </div>
       </div>
     </div>

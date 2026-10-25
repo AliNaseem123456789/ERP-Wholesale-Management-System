@@ -39,6 +39,14 @@ const trail = (rows, id) => {
   return out;
 };
 
+/** Products on offer: a running sale, or volume prices on the seller's standard price list. */
+const dealsWhere = (now = new Date()) => ({
+  OR: [
+    { sale_percent: { not: null }, AND: [{ OR: [{ sale_starts_at: null }, { sale_starts_at: { lte: now } }] }, { OR: [{ sale_ends_at: null }, { sale_ends_at: { gte: now } }] }] },
+    { price_list_items: { some: { min_quantity: { gt: 1 }, price_lists: { is_default: true, is_active: true } } } },
+  ],
+});
+
 const list = (v) => (Array.isArray(v) ? v : v === undefined || v === null || v === "" ? [] : String(v).split(",")).map((x) => String(x).trim()).filter(Boolean);
 
 /**
@@ -73,6 +81,7 @@ const buildWhere = async (req, query, { exclude = null } = {}) => {
   const companies = list(query.company);
   if (companies.length && exclude !== "company") and.push({ companies: { is: { slug: { in: companies.map((c) => c.toLowerCase()) } } } });
   if (query.featured === "1" || query.featured === "true") and.push({ is_featured: true });
+  if (query.deals === "1" || query.deals === "true") and.push(dealsWhere());
   if (query.collection) and.push({ collection_products: { some: { collection_id: BigInt(query.collection) } } });
   if (query.in_stock === "1" || query.in_stock === "true") {
     // sellers that don't track stock are always orderable; tracked ones need stock on hand not reserved
@@ -202,4 +211,4 @@ const searchProducts = async (req, query, { withFacets = true, limitMax = 60 } =
   };
 };
 
-module.exports = { SORTS, activeCategories, clearCategoryCache, descendants, trail, buildWhere, searchProducts };
+module.exports = { SORTS, activeCategories, clearCategoryCache, descendants, trail, buildWhere, searchProducts, dealsWhere };

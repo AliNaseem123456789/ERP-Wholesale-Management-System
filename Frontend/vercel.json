@@ -4,6 +4,39 @@
       "source": "/api/:path*",
       "destination": "https://erp-wholesale-management-system.onrender.com/api/:path*"
     },
-    { "source": "/(.*)", "destination": "/" }
+    {
+      "source": "/sitemap.xml",
+      "destination": "https://erp-wholesale-management-system.onrender.com/api/seo/sitemap.xml"
+    },
+    {
+      "source": "/robots.txt",
+      "destination": "https://erp-wholesale-management-system.onrender.com/api/seo/robots.txt"
+    },
+    {
+      "source": "/:section(products|product|categories|brands|companies|collections)",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([Bb]ot|BOT|[Cc]rawl|[Ss]pider|[Ss]lurp|facebookexternalhit|WhatsApp|Embedly|SkypeUriPreview|vkShare|Google-InspectionTool|Pinterest).*"
+        }
+      ],
+      "destination": "https://erp-wholesale-management-system.onrender.com/api/seo/share/:section"
+    },
+    {
+      "source": "/:section(products|product|categories|brands|companies|collections)/:path*",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([Bb]ot|BOT|[Cc]rawl|[Ss]pider|[Ss]lurp|facebookexternalhit|WhatsApp|Embedly|SkypeUriPreview|vkShare|Google-InspectionTool|Pinterest).*"
+        }
+      ],
+      "destination": "https://erp-wholesale-management-system.onrender.com/api/seo/share/:section/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/"
+    }
   ]
 }

@@ -21,10 +21,12 @@ import {
   CreditCard,
   Lock,
 } from "lucide-react";
+import { useSeo } from "../../insights/seo";
 
 const PLACEHOLDER_IMAGE = "/product-placeholder.png";
 
 export const CartPage: React.FC = () => {
+  useSeo({ title: "Cart", noindex: true });
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useAuth();

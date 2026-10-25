@@ -9,6 +9,7 @@ const {
 const rfq = require("../controllers/rfq.controller");
 const buying = require("../controllers/buying.controller");
 const sales = require("../controllers/customerSales.controller");
+const insights = require("../controllers/insights.controller");
 const { verifyTokenFromCookie } = require("../jwt");
 
 const router = express.Router();
@@ -46,6 +47,14 @@ router.get("/recurring-orders/:id", buying.getRecurring);
 router.patch("/recurring-orders/:id", buying.updateRecurring);
 router.delete("/recurring-orders/:id", buying.cancelRecurring);
 router.post("/recurring-orders/:id/run", buying.runNow);
+// reviews and problem reports
+router.get("/reviews", insights.myReviews);
+router.post("/reviews", insights.createReview);
+router.patch("/reviews/:id", insights.updateReview);
+router.delete("/reviews/:id", insights.deleteReview);
+router.get("/reports", insights.myReports);
+router.get("/reports/reasons", insights.reportReasons);
+router.post("/reports", insights.createReport);
 router.get("/stock-alerts", buying.listAlerts);
 router.post("/stock-alerts", buying.createAlert);
 router.delete("/stock-alerts/:id", buying.deleteAlert);

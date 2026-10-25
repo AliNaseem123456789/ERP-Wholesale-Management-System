@@ -56,6 +56,15 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/notifications", require("./routes/notifications.routes"));
 app.use("/api/company", companyRoutes);
 app.use("/api/marketplace", require("./routes/marketplace.routes"));
+// search engines and link previews (the frontend host sends crawlers and /sitemap.xml here)
+{
+  const seo = require("./controllers/seo.controller");
+  app.get("/api/seo/sitemap.xml", seo.sitemap);
+  app.get("/api/seo/robots.txt", seo.robots);
+  app.get("/api/seo/share/:section", seo.share);
+  app.get("/api/seo/share/:section/:slug", seo.share);
+  app.get("/api/seo/share/:section/:slug/*rest", (req, res, next) => { req.params[0] = [].concat(req.params.rest).join("/"); return seo.share(req, res, next); });
+}
 app.use("/api", publicRoutes);
 
 app.use("/api", (req, res) => res.status(404).json({ message: "Not found" }));

@@ -25,6 +25,17 @@ router.post("/jobs/:job", async (req, res) => {
   if (req.params.job === "quote-reminders") return res.json({ message: `${await require("../services/quoteFlow").quoteReminders()} quote reminder(s) sent` });
   res.status(404).json({ message: "Unknown job" });
 });
+// platform commission, review moderation, problem reports
+const ins = require("../controllers/insights.controller");
+router.get("/commission", ins.adminCommission);
+router.post("/commission/statements", ins.createStatement);
+router.get("/commission/statements/:id", ins.adminStatement);
+router.patch("/commission/statements/:id", ins.updateStatement);
+router.get("/reviews", ins.adminReviews);
+router.patch("/reviews/:id", ins.moderateReview);
+router.get("/reports", ins.adminReports);
+router.patch("/reports/:id", ins.adminUpdateReport);
+
 router.get("/users", a.getAllUsers);
 router.patch("/users/:id/role", a.updateUserRole);
 router.delete("/users/:id", a.deleteUser);

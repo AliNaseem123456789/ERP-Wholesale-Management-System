@@ -2,6 +2,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ChevronLeft, ChevronRight, SlidersHorizontal, X, Search, Loader2, MapPin, PackageSearch } from "lucide-react";
+import { RatingBadge } from "../insights/components";
+import { track } from "../insights/api";
 import ProductCard from "../products/components/ProductCard";
 import { Product } from "../products/types/product.types";
 import { SearchResult, SORT_LABELS, CompanyCardT, Facets } from "./api";
@@ -104,6 +106,7 @@ const FacetPanel: React.FC<{ facets: Facets; hide: string[]; params: URLSearchPa
       <FacetGroup title="Availability">
         <Check label="In stock" checked={params.get("in_stock") === "1"} onChange={() => set("in_stock", params.get("in_stock") === "1" ? null : "1")} />
         <Check label="Featured" checked={params.get("featured") === "1"} onChange={() => set("featured", params.get("featured") === "1" ? null : "1")} />
+        <Check label="On offer (sales & volume prices)" checked={params.get("deals") === "1"} onChange={() => set("deals", params.get("deals") === "1" ? null : "1")} />
       </FacetGroup>
     </div>
   );
@@ -136,7 +139,13 @@ export const CatalogBrowser: React.FC<{
     const p: Record<string, string> = {};
     params.forEach((v, k) => { if (k !== "tab") p[k] = v; });
     fetcher({ limit: "24", ...p })
-      .then((r) => { if (live) { setResult(r); onResult?.(r); } })
+      .then((r) => {
+        if (!live) return;
+        setResult(r);
+        onResult?.(r);
+        // searches count for the sellers whose products came up (first page only)
+        if (p.q && (!p.page || p.page === "1") && r.data.length) track({ kind: "search", query: p.q, product_ids: r.data.map((x) => x.id) });
+      })
       .catch((e) => live && setError(e.message))
       .finally(() => live && setBusy(false));
     return () => { live = false; };
@@ -155,6 +164,7 @@ export const CatalogBrowser: React.FC<{
       if (["q", "sort", "page", "tab", "limit"].includes(k)) return;
       if (k === "in_stock") out.push({ key: k, label: "In stock" });
       else if (k === "featured") out.push({ key: k, label: "Featured" });
+      else if (k === "deals") out.push({ key: k, label: "On offer" });
       else out.push({ key: k, label: v.split(",").join(", ") });
     });
     return out;
@@ -238,7 +248,7 @@ export const CompanyCard: React.FC<{ c: CompanyCardT }> = ({ c }) => {
         <div className="flex flex-wrap gap-1 mt-2">
           {(c.top_categories || []).map((t) => <span key={t.slug} className="text-[10px] bg-gray-100 text-gray-600 rounded-full px-2 py-0.5">{t.name}</span>)}
         </div>
-        <p className="text-xs text-gray-500 mt-auto pt-3">{c.product_count ?? 0} products{c.brand_count ? ` · ${c.brand_count} brands` : ""}</p>
+        <p className="text-xs text-gray-500 mt-auto pt-3 flex flex-wrap items-center gap-x-2">{c.product_count ?? 0} products{c.brand_count ? ` · ${c.brand_count} brands` : ""}<RatingBadge rating={c.rating} /></p>
       </div>
     </button>
   );

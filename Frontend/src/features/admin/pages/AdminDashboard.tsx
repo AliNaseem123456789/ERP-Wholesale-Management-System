@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Users, Package, LayoutDashboard, Settings, Building2, Tags, Mail, Gauge, FolderTree, ListChecks, Store } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { Users, Package, LayoutDashboard, Settings, Building2, Tags, Mail, Gauge, FolderTree, ListChecks, Store, Percent, Star, Flag } from "lucide-react";
 import { AdminOverview } from "./AdminOverview";
 import { UserManagement } from "./UserManagement";
 import { ProductManagement } from "./ProductManagement";
@@ -10,14 +11,23 @@ import { EmailsManagement } from "./EmailsManagement";
 import { CategoriesManagement } from "./CategoriesManagement";
 import { AttributesManagement } from "./AttributesManagement";
 import { MarketplaceManagement } from "./MarketplaceManagement";
-type AdminTab = "overview" | "marketplace" | "companies" | "brands" | "categories" | "attributes" | "users" | "products" | "features" | "emails";
+import { CommissionManagement, ReviewsModeration, ReportsQueue } from "./TrustManagement";
+import { useSeo } from "../../insights/seo";
+type AdminTab = "overview" | "marketplace" | "commission" | "reviews" | "reports" | "companies" | "brands" | "categories" | "attributes" | "users" | "products" | "features" | "emails";
 
 export const AdminDashboard = () => {
-  const [activeTab, setActiveTab] = useState<AdminTab>("overview");
+  useSeo({ title: "Platform admin", noindex: true });
+  // ?tab= opens a tab directly (links in notification emails)
+  const [params, setParams] = useSearchParams();
+  const [activeTab, setActiveTabState] = useState<AdminTab>((params.get("tab") as AdminTab) || "overview");
+  const setActiveTab = (t: AdminTab) => { setActiveTabState(t); setParams(t === "overview" ? {} : { tab: t }, { replace: true }); };
   const tabs = [
     { id: "overview", label: "Overview", icon: Gauge },
     { id: "marketplace", label: "Marketplace", icon: Store },
     { id: "companies", label: "Companies", icon: Building2 },
+    { id: "commission", label: "Commission", icon: Percent },
+    { id: "reviews", label: "Reviews", icon: Star },
+    { id: "reports", label: "Reports", icon: Flag },
     { id: "categories", label: "Categories", icon: FolderTree },
     { id: "attributes", label: "Details", icon: ListChecks },
     { id: "brands", label: "Brands", icon: Tags },
@@ -65,6 +75,9 @@ export const AdminDashboard = () => {
           {activeTab === "overview" && <AdminOverview />}
           {activeTab === "marketplace" && <MarketplaceManagement />}
           {activeTab === "companies" && <CompaniesManagement />}
+          {activeTab === "commission" && <CommissionManagement />}
+          {activeTab === "reviews" && <ReviewsModeration />}
+          {activeTab === "reports" && <ReportsQueue />}
           {activeTab === "brands" && <BrandsManagement />}
           {activeTab === "categories" && <CategoriesManagement />}
           {activeTab === "attributes" && <AttributesManagement />}

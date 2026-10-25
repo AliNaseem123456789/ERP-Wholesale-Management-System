@@ -280,6 +280,7 @@ const PromoForm: React.FC<{ promo: Promotion | null; onClose: () => void; onSave
     max_uses: promo?.max_uses == null ? "" : String(promo.max_uses),
     max_uses_per_customer: promo?.max_uses_per_customer == null ? "" : String(promo.max_uses_per_customer),
     is_active: promo?.is_active ?? true,
+    show_on_storefront: promo?.show_on_storefront ?? false,
   });
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -318,6 +319,8 @@ const PromoForm: React.FC<{ promo: Promotion | null; onClose: () => void; onSave
         <Field label="Max uses per customer"><input type="number" min={1} className={inputCls} value={form.max_uses_per_customer} onChange={(e) => setForm({ ...form, max_uses_per_customer: e.target.value })} placeholder="Unlimited" /></Field>
         <div className="col-span-2"><Field label="Description (shown at checkout)"><input className={inputCls} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Field></div>
         <label className="col-span-2 flex items-center gap-2 text-sm"><input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} /> Active</label>
+        <label className="col-span-2 flex items-start gap-2 text-sm"><input type="checkbox" className="mt-0.5" checked={form.show_on_storefront} onChange={(e) => setForm({ ...form, show_on_storefront: e.target.checked })} />
+          <span>Advertise this code <span className="block text-xs text-gray-500">Shown on your storefront's offers section and on the marketplace Deals page. Leave off for private codes.</span></span></label>
         <div className="col-span-2 flex justify-end gap-2"><button type="button" onClick={onClose} className={btnSecondary}>Cancel</button><button className={btnPrimary}>Save</button></div>
       </form>
     </Modal>
@@ -360,7 +363,7 @@ const PromotionsTab: React.FC = () => {
                 <td className="px-4 py-3 text-xs">{p.starts_at || p.ends_at ? `${p.starts_at ? dateOnly(p.starts_at) : "now"} – ${p.ends_at ? dateOnly(p.ends_at) : "no end"}` : "Always"}</td>
                 <td className="px-4 py-3 text-right">{p.uses_count}{p.max_uses ? ` / ${p.max_uses}` : ""}</td>
                 <td className="px-4 py-3 text-right">{money(p.total_discount)}</td>
-                <td className="px-4 py-3"><StatusBadge status={p.is_active ? "active" : "inactive"} /></td>
+                <td className="px-4 py-3"><StatusBadge status={p.is_active ? "active" : "inactive"} />{p.show_on_storefront && <p className="text-[10px] font-bold uppercase text-blue-600 mt-1">Advertised</p>}</td>
                 <td className="px-4 py-3 text-right whitespace-nowrap">{canManage && <>
                   <button onClick={() => setEditing(p)} className="text-blue-600 font-semibold mr-3">Edit</button>
                   <button onClick={() => remove(p)} className="text-gray-400 hover:text-red-600" aria-label="Delete"><Trash2 size={15} /></button>

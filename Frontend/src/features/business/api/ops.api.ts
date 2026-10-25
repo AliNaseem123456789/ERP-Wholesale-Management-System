@@ -28,6 +28,8 @@ export const downloadCsv = async (companyId: string, url: string, filename: stri
 export const opsApi = {
   dataTypes: async (c: string) => (await apiClient.get("/company/data/types", co(c))).data as { data: { type: string; columns: string[]; required: string[]; note: string | null; allowed: boolean }[]; exports: { type: string; allowed: boolean }[] },
   importCsv: async (c: string, type: string, csv: string, dryRun: boolean) => (await apiClient.post(`/company/import/${type}`, { csv, dry_run: dryRun }, co(c))).data,
+  /** Excel file as base64 */
+  importXlsx: async (c: string, type: string, xlsx: string, dryRun: boolean) => (await apiClient.post(`/company/import/${type}`, { xlsx, dry_run: dryRun }, co(c))).data,
 
   scanLookup: async (c: string, code: string, warehouseId?: string) => (await apiClient.get(`/company/scan/lookup?${qs({ code, warehouse_id: warehouseId })}`, co(c))).data.data,
   scanCount: async (c: string, body: Record<string, unknown>) => (await apiClient.post("/company/scan/count", body, co(c))).data,

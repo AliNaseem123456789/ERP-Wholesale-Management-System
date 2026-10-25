@@ -8,6 +8,11 @@ const { audit } = require("../../services/audit");
 const { round2, num } = require("../../services/money");
 const { nextNumber } = require("../../services/sequences");
 const { parseRecords, stringify, sendCsv } = require("../../services/csv");
+const xlsx = require("../../services/xlsx");
+
+// ?format=xlsx sends an Excel file instead of CSV (same columns)
+const sendTable = (req, res, base, rows, columns) =>
+  req.query.format === "xlsx" ? xlsx.sendXlsx(res, `${base}.xlsx`, xlsx.write(rows, columns, base.slice(0, 31))) : sendCsv(res, `${base}.csv`, stringify(rows, columns));
 const { productData } = require("../../services/productInput");
 const inv = require("../../services/inventory");
 const { applyCount } = require("../../services/stockcount");
@@ -208,7 +213,7 @@ const exportCsv = async (req, res) => {
   if (req.params.type === "journal") for (const k of ["from", "to"]) if (req.query[k] && !/^\d{4}-\d{2}-\d{2}$/.test(String(req.query[k]))) throw new HttpError(400, `${k} must be YYYY-MM-DD`);
   const { rows, columns } = await def.run(req);
   await audit(req, "data.export", { entity: "export", entityId: null, changes: { type: req.params.type, rows: rows.length } });
-  sendCsv(res, `${req.company.slug || "company"}-${req.params.type}-${today()}.csv`, stringify(rows, columns));
+  sendTable(req, res, `${req.company.slug || "company"}-${req.params.type}-${today()}`, rows, columns);
 };
 
 // ---------------------------------------------------------------------------------------------------
@@ -546,7 +551,7 @@ const IMPORTS = {
 const importTemplate = async (req, res) => {
   const def = IMPORTS[req.params.type];
   if (!def) throw new HttpError(404, `Unknown import: ${req.params.type}`);
-  sendCsv(res, `${req.params.type}-template.csv`, stringify([], def.columns));
+  sendTable(req, res, `${req.params.type}-template`, [], def.columns);
 };
 
 const importTypes = async (req, res) => {
@@ -557,10 +562,18 @@ const importCsv = async (req, res) => {
   const def = IMPORTS[req.params.type];
   if (!def) throw new HttpError(404, `Unknown import: ${req.params.type}`);
   if (!req.can(def.perm)) throw new HttpError(403, "You don't have permission to import this");
-  const text = String(req.body.csv || "");
-  if (!text.trim()) throw new HttpError(400, "The file is empty");
-  if (text.length > 5 * 1024 * 1024) throw new HttpError(400, "The file is too big (max 5 MB)");
-  const { headers, records } = parseRecords(text);
+  // a CSV as text, or an Excel file as base64 (req.body.xlsx)
+  let input;
+  if (req.body.xlsx) {
+    const b64 = String(req.body.xlsx).replace(/^data:[^,]*,/, "");
+    if (b64.length > 6 * 1024 * 1024) throw new HttpError(400, "The file is too big (max 4 MB for Excel)");
+    input = xlsx.read(Buffer.from(b64, "base64"), { maxRows: MAX_ROWS + 1 });
+  } else {
+    input = String(req.body.csv || "");
+    if (!input.trim()) throw new HttpError(400, "The file is empty");
+    if (input.length > 5 * 1024 * 1024) throw new HttpError(400, "The file is too big (max 5 MB)");
+  }
+  const { headers, records } = parseRecords(input);
   if (!records.length) throw new HttpError(400, "No rows found under the header line");
   if (records.length > MAX_ROWS) throw new HttpError(400, `Up to ${MAX_ROWS} rows per import`);
   const missing = def.required.filter((c) => !headers.includes(c));

@@ -184,6 +184,16 @@ const defaultConfig = (company) => ({
   ],
 });
 
+/** Promo codes the seller chose to advertise, currently valid. */
+const publicPromotions = async (companyId, now = new Date()) => {
+  const rows = await prisma.promotions.findMany({
+    where: { company_id: BigInt(companyId), is_active: true, show_on_storefront: true, AND: [{ OR: [{ starts_at: null }, { starts_at: { lte: now } }] }, { OR: [{ ends_at: null }, { ends_at: { gte: now } }] }] },
+    orderBy: { created_at: "desc" }, take: 6,
+  });
+  return rows.filter((p) => p.max_uses === null || p.uses_count < p.max_uses)
+    .map((p) => ({ code: p.code, description: p.description, type: p.type, value: Number(p.value), min_order_amount: Number(p.min_order_amount), ends_at: p.ends_at }));
+};
+
 const liveCollection = (now) => ({ status: "published", is_enabled: true, AND: [{ OR: [{ starts_at: null }, { starts_at: { lte: now } }] }, { OR: [{ ends_at: null }, { ends_at: { gte: now } }] }] });
 
 /** Products of a collection, in its order, that this viewer may see. */
@@ -240,10 +250,11 @@ const render = async (req, company, cfg) => {
         break;
       }
       case "deals": {
-        // products of this seller on a promotion-friendly footing: featured, or with volume tiers on the default price list
-        const tiers = await prisma.price_list_items.findMany({ where: { price_lists: { company_id: cid, is_default: true, is_active: true }, min_quantity: { gt: 1 } }, select: { product_id: true }, distinct: ["product_id"], take: 100 });
-        r.products = await shape(await prisma.products.findMany({ where: { ...base, id: { in: tiers.map((t) => t.product_id) } }, include, take: s.limit || 8 }));
-        if (!r.products.length) continue;
+        // this seller's products on sale or with volume prices, plus its advertised promo codes
+        const { dealsWhere } = require("./marketplace");
+        r.products = await shape(await prisma.products.findMany({ where: { AND: [base, dealsWhere(now)] }, include, orderBy: [{ sale_percent: { sort: "desc", nulls: "last" } }, { published_at: "desc" }], take: s.limit || 8 }));
+        r.promotions = await publicPromotions(cid, now);
+        if (!r.products.length && !r.promotions.length) continue;
         break;
       }
       case "collection": {
@@ -323,4 +334,4 @@ const publicContact = (c) => ({
 /** Theme colours after applying the company's (allowed) overrides. */
 const themeOf = (cfg) => ({ key: cfg.theme, ...THEMES[cfg.theme] || THEMES.classic, ...(cfg.colors || {}) });
 
-module.exports = { THEMES, SECTIONS, sanitize, checkReferences, defaultConfig, render, collectionProducts, liveCollection, publicContact, themeOf };
+module.exports = { publicPromotions, THEMES, SECTIONS, sanitize, checkReferences, defaultConfig, render, collectionProducts, liveCollection, publicContact, themeOf };

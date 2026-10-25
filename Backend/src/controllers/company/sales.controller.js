@@ -367,6 +367,7 @@ const promoData = (b) => {
   if (b.max_uses !== undefined) data.max_uses = int(b.max_uses, "Max uses", { min: 1, nullable: true });
   if (b.max_uses_per_customer !== undefined) data.max_uses_per_customer = int(b.max_uses_per_customer, "Max uses per customer", { min: 1, nullable: true });
   if (b.is_active !== undefined) data.is_active = !!b.is_active;
+  if (b.show_on_storefront !== undefined) data.show_on_storefront = !!b.show_on_storefront;
   if (data.type === "percent" && data.value > 100) throw new HttpError(400, "A percent discount can't be over 100");
   return data;
 };

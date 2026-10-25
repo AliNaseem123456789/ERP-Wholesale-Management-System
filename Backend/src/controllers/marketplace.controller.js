@@ -166,9 +166,10 @@ const companies = async (req, res) => {
         WHERE p.company_id = ANY(${ids}) AND p.status = 'published' AND p.visibility = 'public' AND c.status = 'active' AND c.parent_id IS NULL
         GROUP BY 1, 2, 3 ORDER BY n DESC`
     : [];
+  const ratings = await require("../services/reviews").companyRatings(ids);
   res.json({
     data: rows.map(({ _count, ...c }) => ({
-      ...c, product_count: _count.products, brand_count: _count.company_brands,
+      ...c, product_count: _count.products, brand_count: _count.company_brands, rating: ratings.get(String(c.id)) || null,
       top_categories: links.filter((l) => l.company_id === c.id).slice(0, 4).map((l) => ({ name: l.name, slug: l.slug })),
     })),
     total, page, pages: Math.max(1, Math.ceil(total / limit)),
@@ -209,10 +210,14 @@ const storefrontPayload = async (req, c, cfg) => {
     prisma.collections.findMany({ where: { company_id: c.id, ...sf.liveCollection(now) }, orderBy: [{ sort_order: "asc" }, { name: "asc" }], select: { id: true, name: true, slug: true, description: true, cover_image_url: true } }),
     prisma.products.count({ where: pw }),
   ]);
+  const rating = (await require("../services/reviews").companyRatings([c.id])).get(String(c.id)) || null;
+  const promotions = await sf.publicPromotions(c.id, now);
   const catRows = await prisma.categories.findMany({ where: { id: { in: catGroups.map((g) => g.category_id) }, status: "active" }, select: { id: true, name: true, slug: true, parent_id: true } });
   return {
     ...publicCompany(c),
     product_count: productCount,
+    rating,
+    promotions,
     theme: sf.themeOf(cfg),
     sections,
     categories: catRows.map((r) => ({ ...r, count: catGroups.find((g) => g.category_id === r.id)?._count || 0 })).sort((a, b) => b.count - a.count),
@@ -242,4 +247,28 @@ const collection = async (req, res) => {
   res.json({ data: { collection: { id: col.id, name: col.name, slug: col.slug, description: col.description, cover_image_url: col.cover_image_url }, products: await sf.collectionProducts(req, col.id, null, 200) } });
 };
 
-module.exports = { storefrontPayload, settings, home, products, categories, category, brands, brand, companies, company, companyProducts, companyCollection, collection, publicCompany };
+// POST /marketplace/track { kind: storefront|product|search, company_slug?, product_id?, query?, product_ids?, visitor }
+const track = async (req, res) => {
+  await require("../services/analytics").track(req, req.body || {});
+  res.status(204).send();
+};
+
+// GET /marketplace/deals/codes -> promo codes sellers advertise, with the seller
+const dealCodes = async (req, res) => {
+  const now = new Date();
+  const rows = await prisma.promotions.findMany({
+    where: {
+      is_active: true, show_on_storefront: true, companies: liveCompany,
+      AND: [{ OR: [{ starts_at: null }, { starts_at: { lte: now } }] }, { OR: [{ ends_at: null }, { ends_at: { gte: now } }] }],
+    },
+    include: { companies: { select: { id: true, name: true, slug: true, logo_url: true } } },
+    orderBy: { created_at: "desc" }, take: 60,
+  });
+  res.json({
+    data: rows.filter((p) => p.max_uses === null || p.uses_count < p.max_uses).map((p) => ({
+      code: p.code, description: p.description, type: p.type, value: Number(p.value), min_order_amount: Number(p.min_order_amount), ends_at: p.ends_at, company: p.companies,
+    })),
+  });
+};
+
+module.exports = { track, dealCodes, storefrontPayload, settings, home, products, categories, category, brands, brand, companies, company, companyProducts, companyCollection, collection, publicCompany };

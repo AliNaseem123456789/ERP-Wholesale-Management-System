@@ -18,6 +18,8 @@ import {
   Repeat,
   BellRing,
   ClipboardList,
+  Star,
+  Flag,
 } from "lucide-react";
 import { useAuth } from "../../auth/context/AuthContext";
 import { OrdersTab } from "../components/tabs/OrdersTab";
@@ -34,6 +36,8 @@ import { ReturnsTab } from "../components/tabs/ReturnsTab";
 import { RecurringTab } from "../components/tabs/RecurringTab";
 import { StockAlertsTab } from "../components/tabs/StockAlertsTab";
 import { RfqsTab } from "../components/tabs/RfqsTab";
+import { ReviewsTab, ReportsTab } from "../components/tabs/FeedbackTabs";
+import { useSeo } from "../../insights/seo";
 
 const TABS = [
   { id: "orders", label: "Orders", icon: Package },
@@ -42,6 +46,8 @@ const TABS = [
   { id: "rfqs", label: "Requests for quotes", icon: ClipboardList },
   { id: "recurring", label: "Recurring orders", icon: Repeat },
   { id: "stock-alerts", label: "Stock alerts", icon: BellRing },
+  { id: "reviews", label: "Reviews", icon: Star },
+  { id: "reports", label: "Reported problems", icon: Flag },
   { id: "returns", label: "Returns", icon: Undo2 },
   { id: "addresses", label: "Addresses", icon: MapPin },
   { id: "details", label: "Account Details", icon: User },
@@ -53,6 +59,7 @@ const TABS = [
 ];
 
 export const AccountPage: React.FC = () => {
+  useSeo({ title: "My account", noindex: true });
   const { user, logout, logoutAllDevices } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "orders";
@@ -109,6 +116,10 @@ export const AccountPage: React.FC = () => {
         return <RecurringTab />;
       case "stock-alerts":
         return <StockAlertsTab />;
+      case "reviews":
+        return <ReviewsTab />;
+      case "reports":
+        return <ReportsTab />;
       case "addresses":
         return <AddressesTab />;
       case "details":

@@ -20,6 +20,8 @@ export interface Product {
   allow_preorder?: boolean;
   incoming_stock?: Record<string, number>;
   expected_date?: string | null;
+  sale?: { percent: number; label?: string | null; ends_at?: string | null; price?: number } | null;
+  rating?: { average: number | null; count: number } | null;
   /** only sent to logged-in customers */
   available?: number;
   /** available per flavour (logged-in customers, sellers that track stock) */

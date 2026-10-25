@@ -4,10 +4,11 @@ import {
   LayoutDashboard, ShoppingBag, Package, Users, Settings, History, Warehouse, Truck,
   Calculator, BadgeDollarSign, Building2, Clock, Boxes, ClipboardList, RefreshCcw, BarChart3,
   UserRound, Tags, FileSignature, FileText, Undo2, LineChart, SlidersHorizontal,
-  BookOpen, ListTree, Receipt, Wallet, Landmark, Scale, ScanLine, ShieldCheck, FileSpreadsheet, FileBarChart, UsersRound, CalendarCheck, Plane, SlidersHorizontal as Sliders2, IdCard, FolderTree, Layers, Store } from "lucide-react";
+  BookOpen, ListTree, Receipt, Wallet, Landmark, Scale, ScanLine, ShieldCheck, FileSpreadsheet, FileBarChart, UsersRound, CalendarCheck, Plane, SlidersHorizontal as Sliders2, IdCard, FolderTree, Layers, Store, Activity, Star, Flag, Percent } from "lucide-react";
 import { BusinessProvider, useBusiness } from "../context/BusinessContext";
 import { Spinner } from "../components/ui";
 import { RegisterBusinessPage } from "./RegisterBusinessPage";
+import { useSeo } from "../../insights/seo";
 
 type NavItem = { to: string; label: string; icon: any; perm: string | string[]; end?: boolean };
 const NAV: { section?: string; items: NavItem[] }[] = [
@@ -19,6 +20,8 @@ const NAV: { section?: string; items: NavItem[] }[] = [
       { to: "/business/catalogue", label: "Categories & brands", icon: FolderTree, perm: "products.view" },
       { to: "/business/collections", label: "Collections", icon: Layers, perm: ["products.view", "storefront.manage"] },
       { to: "/business/storefront", label: "Storefront", icon: Store, perm: ["storefront.manage", "company.manage"] },
+      { to: "/business/analytics", label: "Analytics", icon: Activity, perm: ["reports.view", "dashboard.view"] },
+      { to: "/business/reviews", label: "Reviews", icon: Star, perm: ["products.view", "customers.view"] },
     ],
   },
   {
@@ -29,6 +32,7 @@ const NAV: { section?: string; items: NavItem[] }[] = [
       { to: "/business/quotes", label: "Quotes", icon: FileSignature, perm: ["quotes.view", "quotes.manage"] },
       { to: "/business/invoices", label: "Invoices", icon: FileText, perm: "invoices.view" },
       { to: "/business/returns", label: "Returns", icon: Undo2, perm: "returns.view" },
+      { to: "/business/reports", label: "Problems reported", icon: Flag, perm: ["orders.view", "products.view"] },
       { to: "/business/sales-reports", label: "Sales reports", icon: LineChart, perm: ["reports.view", "invoices.view"] },
       { to: "/business/compliance", label: "Tobacco compliance", icon: ShieldCheck, perm: ["sales.manage", "customers.view"] },
       { to: "/business/sales-settings", label: "Sales settings", icon: SlidersHorizontal, perm: "sales.manage" },
@@ -62,6 +66,7 @@ const NAV: { section?: string; items: NavItem[] }[] = [
       { to: "/business/journal", label: "Journal", icon: BookOpen, perm: ["accounting.view", "accounting.manage"] },
       { to: "/business/chart-of-accounts", label: "Chart of accounts", icon: ListTree, perm: ["accounting.view", "accounting.manage"] },
       { to: "/business/reconcile", label: "Reconcile", icon: Landmark, perm: "accounting.manage" },
+      { to: "/business/commission", label: "Platform commission", icon: Percent, perm: ["accounting.view", "company.manage"] },
     ],
   },
   {
@@ -88,6 +93,7 @@ const NAV: { section?: string; items: NavItem[] }[] = [
 ];
 
 const Shell: React.FC = () => {
+  useSeo({ title: "Business", noindex: true });
   const { companies, companyId, company, loading, switchCompany, can } = useBusiness();
   const navigate = useNavigate();
 

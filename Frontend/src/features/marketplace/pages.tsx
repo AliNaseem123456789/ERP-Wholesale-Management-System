@@ -3,6 +3,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { Search, ChevronRight, Globe } from "lucide-react";
 import { marketplaceApi, CategoryNode, CompanyCardT, SearchResult, Banner } from "./api";
+import { useSeo } from "../insights/seo";
+import { insightsApi, DealCode } from "../insights/api";
+import { PromoCodes } from "./storefront";
 import { PageShell, Crumbs, CatalogBrowser, Loading, Empty, CompanyCard, BrandTile, CategoryTile, ProductGrid, SectionTitle, Pager } from "./components";
 
 const RELATION: Record<string, string> = { manufacturer: "Manufacturer", authorized_distributor: "Authorized distributor", distributor: "Distributor", reseller: "Reseller" };
@@ -11,6 +14,7 @@ const RELATION: Record<string, string> = { manufacturer: "Manufacturer", authori
 export const ProductsPage: React.FC = () => {
   const [params] = useSearchParams();
   const q = params.get("q");
+  useSeo({ title: q ? `Results for “${q}”` : "All products", description: "Wholesale products from approved suppliers. Filter by category, brand, supplier and specifications.", path: "/products", noindex: !!q });
   return (
     <PageShell>
       <Crumbs items={[{ label: "Home", to: "/" }, { label: q ? `Search: ${q}` : "All products" }]} />
@@ -22,6 +26,7 @@ export const ProductsPage: React.FC = () => {
 
 /** /categories */
 export const CategoriesPage: React.FC = () => {
+  useSeo({ title: "Categories", description: "Browse every wholesale category on the marketplace." });
   const [tree, setTree] = useState<CategoryNode[] | null>(null);
   const [q, setQ] = useState("");
   const [found, setFound] = useState<CategoryNode[] | null>(null);
@@ -72,6 +77,7 @@ export const CategoryPage: React.FC = () => {
   const [info, setInfo] = useState<SearchResult["category"]>(null);
   const [missing, setMissing] = useState(false);
   useEffect(() => { setInfo(null); setMissing(false); }, [slug]);
+  useSeo(info ? { title: `${info.name} wholesale`, description: info.description || `Buy ${info.name} wholesale from approved suppliers.`, image: info.image_url, path: `/categories/${slug}` } : missing ? { title: "Category not found", noindex: true } : null);
   return (
     <PageShell>
       {missing ? <Empty title="This category doesn't exist" action={<Link to="/categories" className="text-blue-600 font-bold">All categories</Link>} /> : (
@@ -101,6 +107,7 @@ const LETTERS = ["", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split(""), "#"];
 
 /** /brands */
 export const BrandsPage: React.FC = () => {
+  useSeo({ title: "Brands", description: "Every brand sold on the marketplace, and the suppliers that carry it.", path: "/brands" });
   const [params, setParams] = useSearchParams();
   const [data, setData] = useState<{ data: any[]; page: number; pages: number; total: number } | null>(null);
   const [q, setQ] = useState(params.get("q") || "");
@@ -143,6 +150,7 @@ export const BrandPage: React.FC = () => {
   const [brand, setBrand] = useState<any>(null);
   const [missing, setMissing] = useState(false);
   useEffect(() => { setBrand(null); setMissing(false); }, [slug]);
+  useSeo(brand ? { title: `${brand.name} wholesale`, description: brand.description || `Buy ${brand.name} wholesale from ${brand.sellers?.length || "approved"} suppliers.`, image: brand.logo_url, path: `/brands/${slug}` } : missing ? { title: "Brand not found", noindex: true } : null);
   if (missing) return <PageShell><Empty title="This brand isn't on the marketplace" action={<Link to="/brands" className="text-blue-600 font-bold">All brands</Link>} /></PageShell>;
   return (
     <PageShell>
@@ -182,6 +190,7 @@ export const BrandPage: React.FC = () => {
 
 /** /companies */
 export const CompaniesDirectoryPage: React.FC = () => {
+  useSeo({ title: "Suppliers", description: "Approved wholesale suppliers. Order from several in one cart.", path: "/companies" });
   const [params, setParams] = useSearchParams();
   const [data, setData] = useState<{ data: CompanyCardT[]; page: number; pages: number; total: number } | null>(null);
   const [q, setQ] = useState(params.get("q") || "");
@@ -213,6 +222,28 @@ export const CompaniesDirectoryPage: React.FC = () => {
           <Pager page={data.page} pages={data.pages} onChange={(p) => set("page", String(p))} />
         </>
       )}
+    </PageShell>
+  );
+};
+
+/** /deals: products on sale or with volume prices, and the promo codes sellers advertise. */
+export const DealsPage: React.FC = () => {
+  useSeo({ title: "Deals", description: "Wholesale sales, volume prices and promo codes from approved suppliers.", path: "/deals" });
+  const [codes, setCodes] = useState<DealCode[] | null>(null);
+  useEffect(() => { insightsApi.dealCodes().then(setCodes).catch(() => setCodes([])); }, []);
+  return (
+    <PageShell>
+      <Crumbs items={[{ label: "Home", to: "/" }, { label: "Deals" }]} />
+      <h1 className="text-3xl font-black text-gray-900 mb-1">Deals</h1>
+      <p className="text-gray-500 mb-6">Sales, volume prices and promo codes from suppliers. Prices show once you sign in.</p>
+      {!!codes?.length && (
+        <section className="mb-8">
+          <SectionTitle title="Promo codes" subtitle="Enter the code at checkout. Each code works for that seller's part of your order." />
+          <PromoCodes codes={codes} showCompany />
+        </section>
+      )}
+      <SectionTitle title="Products on offer" />
+      <CatalogBrowser fetcher={(p) => marketplaceApi.products({ ...p, deals: "1" })} />
     </PageShell>
   );
 };

@@ -93,6 +93,7 @@ const addToCart = async (req, res) => {
     select: cartItemSelect,
   });
   const [priced] = await priceCartItems(req.user.id, [shapeItem(item)], await productTotal(cart.id, productId));
+  require("../services/analytics").recordAddToCart(req, product);
   res.status(201).json({ ...priced, cart_id: cart.id });
 };
 

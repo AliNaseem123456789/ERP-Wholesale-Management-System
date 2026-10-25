@@ -28,8 +28,12 @@ const runNow = async (req, res) => {
   const from = iso.test(String(req.query.from || "")) ? String(req.query.from) : `${to.slice(0, 7)}-01`;
   if (from > to) throw new HttpError(400, "From is after To");
   const r = await reports.runReport(req.company, req.params.key, { from, to }, { state: req.query.state ? String(req.query.state).toUpperCase() : null, reportableOnly: req.query.reportable === "1" });
-  if (req.query.format === "csv") {
-    await audit(req, "report.download", { entity: "report", entityId: null, changes: { report: req.params.key, from, to, rows: r.rows.length } });
+  if (req.query.format === "csv" || req.query.format === "xlsx") {
+    await audit(req, "report.download", { entity: "report", entityId: null, changes: { report: req.params.key, from, to, rows: r.rows.length, format: req.query.format } });
+    if (req.query.format === "xlsx") {
+      const xlsx = require("../../services/xlsx");
+      return xlsx.sendXlsx(res, `${req.params.key}-${from}-${to}.xlsx`, xlsx.write(r.rows, r.columns, r.title || req.params.key));
+    }
     return sendCsv(res, `${req.params.key}-${from}-${to}.csv`, stringify(r.rows, r.columns));
   }
   res.json({ data: { ...r, from, to, rows: r.rows.slice(0, 1000), row_count: r.rows.length } });
@@ -142,6 +146,15 @@ const runCsv = async (req, res) => {
   const run = await prisma.report_runs.findFirst({ where: { id: toId(req.params.id), company_id: req.company.id } });
   if (!run) throw new HttpError(404, "Report not found");
   allowed(req, run.report);
+  if (req.query.format === "xlsx") {
+    // saved runs are kept as CSV; convert on the way out
+    const { parse } = require("../../services/csv");
+    const xlsx = require("../../services/xlsx");
+    const rows = parse(run.csv || "");
+    const header = rows[0] || [];
+    const objs = rows.slice(1).map((r) => Object.fromEntries(header.map((h, i) => [i, r[i]])));
+    return xlsx.sendXlsx(res, `${run.report}-${run.id}.xlsx`, xlsx.write(objs, header.map((h, i) => ({ key: i, label: h })), run.report));
+  }
   sendCsv(res, `${run.report}-${run.id}.csv`, run.csv);
 };
 

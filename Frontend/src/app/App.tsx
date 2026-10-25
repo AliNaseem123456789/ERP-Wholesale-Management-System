@@ -38,7 +38,7 @@ import { ResetPasswordPage } from "../features/auth/pages/ResetPasswordPage";
 import { VerifyEmailPage } from "../features/auth/pages/VerifyEmailPage";
 import { AcceptInvitePage } from "../features/auth/pages/AcceptInvitePage";
 import { VerifyEmailBanner } from "../features/auth/components/VerifyEmailBanner";
-import { ProductsPage as MarketProducts, CategoriesPage, CategoryPage, BrandsPage, BrandPage, CompaniesDirectoryPage } from "../features/marketplace/pages";
+import { DealsPage, ProductsPage as MarketProducts, CategoriesPage, CategoryPage, BrandsPage, BrandPage, CompaniesDirectoryPage } from "../features/marketplace/pages";
 import { StorefrontPage, CollectionPage } from "../features/marketplace/storefront";
 import { BusinessLayout } from "../features/business/pages/BusinessLayout";
 import { DashboardPage as BusinessDashboard } from "../features/business/pages/DashboardPage";
@@ -48,6 +48,8 @@ import { ProductEditorPage } from "../features/business/pages/ProductEditorPage"
 import { CataloguePage } from "../features/business/pages/CataloguePage";
 import { CollectionsPage } from "../features/business/pages/CollectionsPage";
 import { StorefrontEditorPage } from "../features/business/pages/StorefrontEditorPage";
+import { AnalyticsPage } from "../features/business/pages/AnalyticsPage";
+import { SellerReviewsPage, SellerReportsPage, CommissionPage } from "../features/business/pages/FeedbackPages";
 import { TeamPage as BusinessTeam } from "../features/business/pages/TeamPage";
 import { SettingsPage as BusinessSettings } from "../features/business/pages/SettingsPage";
 import { ActivityPage as BusinessActivity } from "../features/business/pages/ActivityPage";
@@ -158,6 +160,7 @@ function App() {
           />
           <Route path="/product/:id" element={<ProductDetailPage />} />
           <Route path="/products" element={<MarketProducts />} />
+          <Route path="/deals" element={<DealsPage />} />
           <Route path="/products/:id" element={<ProductDetailPage />} />
           <Route path="/categories" element={<CategoriesPage />} />
           <Route path="/categories/:slug" element={<CategoryPage />} />
@@ -201,6 +204,10 @@ function App() {
             <Route path="catalogue" element={<CataloguePage />} />
             <Route path="collections" element={<CollectionsPage />} />
             <Route path="storefront" element={<StorefrontEditorPage />} />
+            <Route path="analytics" element={<AnalyticsPage />} />
+            <Route path="reviews" element={<SellerReviewsPage />} />
+            <Route path="reports" element={<SellerReportsPage />} />
+            <Route path="commission" element={<CommissionPage />} />
             <Route path="team" element={<BusinessTeam />} />
             <Route path="settings" element={<BusinessSettings />} />
             <Route path="activity" element={<BusinessActivity />} />
