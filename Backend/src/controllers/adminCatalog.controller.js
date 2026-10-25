@@ -61,6 +61,12 @@ const categoryData = async (body, id = null) => {
     if (!["active", "hidden"].includes(body.status)) throw new HttpError(400, "Status must be active or hidden");
     d.status = body.status;
   }
+  // where the address of a hidden category sends visitors: a page on this site
+  if (body.redirect_to !== undefined) {
+    const r = String(body.redirect_to || "").trim();
+    if (r && !/^\/(?!\/)[\w\-./?=&%#~+:]*$/.test(r)) throw new HttpError(400, "Send visitors to a page on this site (starting with /), e.g. /brands/zippo");
+    d.redirect_to = r ? r.slice(0, 500) : null;
+  }
   return d;
 };
 
@@ -374,7 +380,7 @@ const catalogueHealth = async (req, res) => {
       WHERE p.sku IS NOT NULL AND btrim(p.sku) <> '' GROUP BY 1, 2, 3 HAVING count(*) > 1 ORDER BY n DESC, sku LIMIT 500`,
     prisma.$queryRaw`SELECT lower(btrim(name)) AS name, array_agg(id ORDER BY id) AS ids, array_agg(name ORDER BY id) AS names
       FROM brands GROUP BY 1 HAVING count(*) > 1`,
-    prisma.$queryRaw`SELECT c.id, c.name FROM categories c WHERE NOT EXISTS (SELECT 1 FROM product_categories pc WHERE pc.category_id = c.id)
+    prisma.$queryRaw`SELECT c.id, c.name FROM categories c WHERE c.status = 'active' AND NOT EXISTS (SELECT 1 FROM product_categories pc WHERE pc.category_id = c.id)
       AND NOT EXISTS (SELECT 1 FROM categories ch WHERE ch.parent_id = c.id) ORDER BY c.name`,
     prisma.products.count({ where: { product_categories: { none: {} }, status: { in: ["published", "draft"] } } }),
   ]);

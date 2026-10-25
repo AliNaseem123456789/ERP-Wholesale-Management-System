@@ -92,7 +92,12 @@ const category = async (req, res) => {
   const slug = String(req.params.slug).toLowerCase();
   const rows = await mk.activeCategories();
   const c = rows.find((x) => x.slug === slug);
-  if (!c) throw new HttpError(404, "Category not found");
+  if (!c) {
+    // a hidden (tidied-up) category can send visitors on, e.g. /categories/zippo -> /brands/zippo
+    const old = await prisma.categories.findFirst({ where: { slug, status: "hidden", NOT: { redirect_to: null } }, select: { redirect_to: true } });
+    if (old) return res.status(404).json({ message: "This category has moved", redirect: old.redirect_to });
+    throw new HttpError(404, "Category not found");
+  }
   res.json(await mk.searchProducts(req, { ...req.query, category: slug }));
 };
 

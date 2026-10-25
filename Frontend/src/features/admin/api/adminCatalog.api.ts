@@ -3,7 +3,7 @@ import { apiClient } from "../../../api/apiClient";
 
 export type AdminCategory = {
   id: number; name: string; slug: string; parent_id: number | null; description?: string | null; image_url?: string | null;
-  is_featured: boolean; sort_order: number; status: "active" | "hidden"; product_count: number; attribute_count: number;
+  is_featured: boolean; sort_order: number; status: "active" | "hidden"; product_count: number; attribute_count: number; redirect_to?: string | null;
   created_by_company?: { id: number; name: string } | null;
 };
 export type AdminAttribute = {

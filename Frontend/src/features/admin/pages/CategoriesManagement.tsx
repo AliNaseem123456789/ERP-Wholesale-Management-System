@@ -23,7 +23,7 @@ const tree = (cats: AdminCategory[]) => {
 const CategoryForm: React.FC<{ category: AdminCategory | null; all: AdminCategory[]; templates: { key: string; name: string }[]; onClose: () => void; onSaved: () => void }> = ({ category, all, templates, onClose, onSaved }) => {
   const [f, setF] = useState({
     name: category?.name || "", slug: category?.slug || "", parent_id: category?.parent_id ? String(category.parent_id) : "", description: category?.description || "",
-    image_url: category?.image_url || "", is_featured: !!category?.is_featured, sort_order: String(category?.sort_order ?? 0), status: category?.status || "active", template: "",
+    image_url: category?.image_url || "", is_featured: !!category?.is_featured, sort_order: String(category?.sort_order ?? 0), status: category?.status || "active", template: "", redirect_to: category?.redirect_to || "",
   });
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,6 +61,11 @@ const CategoryForm: React.FC<{ category: AdminCategory | null; all: AdminCategor
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.is_featured} onChange={(e) => setF({ ...f, is_featured: e.target.checked })} /> Featured</label>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.status === "hidden"} onChange={(e) => setF({ ...f, status: e.target.checked ? "hidden" : "active" })} /> Hidden</label>
         </div>
+        {f.status === "hidden" && (
+          <Field label="Send visitors to" hint="Where its old address goes while it's hidden, e.g. /categories/lighters or /brands/zippo. Empty = “not found”.">
+            <input className={inputCls} value={f.redirect_to} onChange={(e) => setF({ ...f, redirect_to: e.target.value })} placeholder="/categories/…" />
+          </Field>
+        )}
         {!category && (
           <Field label="Details template" hint="Adds the usual details for this kind of product (you can change them after)">
             <select className={inputCls} value={f.template} onChange={(e) => setF({ ...f, template: e.target.value })}>
@@ -169,6 +174,7 @@ export const CategoriesManagement: React.FC = () => {
   const [attrsFor, setAttrsFor] = useState<AdminCategory | null>(null);
   const [mergeFor, setMergeFor] = useState<AdminCategory | null>(null);
   const [q, setQ] = useState("");
+  const [showHidden, setShowHidden] = useState(false);
   const load = () => {
     adminCatalogApi.categories().then(setCats).catch((e) => toast.error(errorMessage(e)));
     adminCatalogApi.health().then(setHealth).catch(() => {});
@@ -177,7 +183,8 @@ export const CategoriesManagement: React.FC = () => {
     load();
     adminCatalogApi.templates().then(setTemplates).catch(() => {});
   }, []);
-  const rows = useMemo(() => tree(cats || []).filter((c) => !q || c.path.toLowerCase().includes(q.toLowerCase())), [cats, q]);
+  const hiddenCount = (cats || []).filter((c) => c.status === "hidden").length;
+  const rows = useMemo(() => tree(cats || []).filter((c) => (showHidden || c.status !== "hidden") && (!q || c.path.toLowerCase().includes(q.toLowerCase()))), [cats, q, showHidden]);
 
   return (
     <div className="space-y-4">
@@ -186,6 +193,9 @@ export const CategoriesManagement: React.FC = () => {
           <h2 className="text-xl font-black text-gray-900 flex items-center gap-2"><FolderTree size={20} /> Categories</h2>
           <p className="text-sm text-gray-500">Shared by every company. Companies can add categories; merge duplicates here.</p>
         </div>
+        {hiddenCount > 0 && (
+          <label className="flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" checked={showHidden} onChange={(e) => setShowHidden(e.target.checked)} /> Show hidden ({hiddenCount})</label>
+        )}
         <input className={`${inputCls} w-56`} placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} />
         <button className={btnPrimary} onClick={() => setEdit(null)}><Plus size={16} /> New category</button>
       </div>
@@ -225,7 +235,7 @@ export const CategoriesManagement: React.FC = () => {
                 <tr key={c.id} className="hover:bg-gray-50">
                   <td className="px-4 py-2" style={{ paddingLeft: 16 + c.depth * 20 }}>
                     <span className={c.depth ? "" : "font-semibold"}>{c.name}</span>{c.is_featured && <Star size={12} className="inline ml-1 text-amber-500 fill-amber-400" />}
-                    <span className="block text-[11px] text-gray-400">/{c.slug}</span>
+                    <span className="block text-[11px] text-gray-400">/{c.slug}{c.status === "hidden" && c.redirect_to ? ` → ${c.redirect_to}` : ""}</span>
                   </td>
                   <td className="px-4 py-2 text-center">{c.product_count}</td>
                   <td className="px-4 py-2 text-center">{c.attribute_count || "—"}</td>

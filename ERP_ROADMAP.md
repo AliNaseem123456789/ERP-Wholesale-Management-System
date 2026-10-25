@@ -711,3 +711,23 @@ Database change: `Backend/prisma/sql/012_insights.sql` (additive only: new table
 4. `npm run db:verify -- compare before-012.json`: only `_app_migrations` should change.
 5. `npx prisma generate`, then deploy the backend and the frontend (the frontend's `vercel.json` gained the sitemap, robots and crawler rewrites; they point at the Render backend URL already used for `/api`).
 6. Set `APP_URL` on the backend to the public site address (used in the sitemap and share pages).
+
+## Category tidy-up
+
+The categories created from the old free-text tags (brand names, "Products", perfume notes...) can be sorted into a clean tree with `scripts/categories-tidy.js`:
+
+- **Smoking & Vape**: Disposables & Pods, E-Liquids, Salt Nic, Devices & Kits, Coils & Tanks, Batteries & Chargers, Dry Herb & Wax Vaporizers, Glass, Papers & Wraps, Lighters, Nicotine Pouches, Accessories
+- **Fragrances**: Women, Men, Unisex. Perfume tags become filters: Concentration, Fragrance family, For.
+
+Every product gets one of these. Old categories are hidden, not deleted, and their addresses send visitors on (`/categories/zippo` → Lighters, `/categories/eau-de-parfum` → Fragrances filtered by Eau de Parfum, brand-named tags → the brand page). Admins can change where a hidden category sends visitors (Admin → Categories → Show hidden). Products, prices, stock, orders and accounting aren't touched.
+
+Database change: `013_category_redirects.sql` (adds `categories.redirect_to` and the `category_tidy_runs` backup table).
+
+1. `npm run db:export` and `npm run db:verify -- snapshot before-tidy.json`
+2. `npm run db:migrate`
+3. `npm run categories:tidy` (preview only; writes `category-tidy-preview.csv` with every product's old and new category)
+4. `npm run categories:tidy -- --apply` (one transaction; keeps a full backup)
+5. `npm run db:verify -- compare before-tidy.json`: expect changes only in categories, product_categories, products (the category text list), attribute tables and `category_tidy_runs`; stock, lots, orders and the ledger unchanged.
+6. Restart the backend.
+
+To put everything back exactly as it was: `npm run categories:tidy -- --undo`.

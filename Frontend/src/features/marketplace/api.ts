@@ -7,8 +7,11 @@ const get = async <T,>(url: string): Promise<T> => {
   try {
     return (await apiClient.get(url, pub)).data as T;
   } catch (err: any) {
-    const e = new Error(err?.response?.data?.message || "Something went wrong") as Error & { status?: number };
+    const e = new Error(err?.response?.data?.message || "Something went wrong") as Error & { status?: number; redirect?: string };
     e.status = err?.response?.status;
+    // a page that moved (e.g. an old category) says where it went: only paths on this site are followed
+    const r = err?.response?.data?.redirect;
+    if (typeof r === "string" && /^\/(?!\/)/.test(r)) e.redirect = r;
     throw e;
   }
 };

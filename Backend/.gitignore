@@ -24,3 +24,5 @@ node_modules/._
 
 # local database exports (contain customer data)
 backups/
+# category tidy-up preview (scripts/categories-tidy.js)
+category-tidy-preview.csv

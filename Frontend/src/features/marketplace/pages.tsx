@@ -1,6 +1,6 @@
 // Marketplace pages: /products, /categories, /categories/:slug, /brands, /brands/:slug, /companies, and homepage sections.
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { Search, ChevronRight, Globe } from "lucide-react";
 import { marketplaceApi, CategoryNode, CompanyCardT, SearchResult, Banner } from "./api";
 import { useSeo } from "../insights/seo";
@@ -74,6 +74,7 @@ export const CategoriesPage: React.FC = () => {
 /** /categories/:slug */
 export const CategoryPage: React.FC = () => {
   const { slug = "" } = useParams();
+  const navigate = useNavigate();
   const [info, setInfo] = useState<SearchResult["category"]>(null);
   const [missing, setMissing] = useState(false);
   useEffect(() => { setInfo(null); setMissing(false); }, [slug]);
@@ -92,7 +93,12 @@ export const CategoryPage: React.FC = () => {
           )}
           <div className="mt-5">
             <CatalogBrowser
-              fetcher={(p) => marketplaceApi.category(slug, p).catch((e) => { if (e.status === 404) setMissing(true); throw e; })}
+              fetcher={(p) => marketplaceApi.category(slug, p).catch((e) => {
+                // an old (tidied-up) category: go where it moved, keeping any filters in the address
+                if (e.redirect) { navigate(e.redirect, { replace: true }); throw e; }
+                if (e.status === 404) setMissing(true);
+                throw e;
+              })}
               onResult={(r) => setInfo(r.category)}
               deps={[slug]}
             />

@@ -20,7 +20,6 @@ import FAQ from "./pages/FAQ";
 import { AccountPage } from "../features/account/pages/AccountPage";
 
 import { BrandProductsPage } from "../features/products/pages/BrandProductsPage";
-import { CategoryProductsPage } from "../features/products/pages/CategoryProductsPage";
 import { ProductDetailPage } from "../features/products/pages/ProductDetailPage";
 import { BrandList } from "../features/products/pages/BrandList";
 
@@ -103,18 +102,13 @@ const BrandProductsPageWrapper = () => {
   );
 };
 
+// Old /category/<name> links (the classic menu, bookmarks) open the category's page; tidied-up
+// categories send visitors on from there (e.g. /category/Zippo -> /brands/zippo).
 const CategoryProductsPageWrapper = () => {
   const { categoryName } = useParams();
-  const navigate = useNavigate();
-
   if (!categoryName) return null;
-
-  return (
-    <CategoryProductsPage
-      categoryName={decodeURIComponent(categoryName)}
-      onNavigate={navigate}
-    />
-  );
+  const slug = decodeURIComponent(categoryName).toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return <Navigate to={`/categories/${slug}`} replace />;
 };
 
 /** Old /search?q= links go to the new product search. */
