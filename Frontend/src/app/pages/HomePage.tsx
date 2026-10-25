@@ -7,6 +7,7 @@ import FourFeatureSection from "../components/home/FourFeatures";
 import QuickOrderModal from "../components/home/QuickOrderModal";
 import ProductCard from "../../features/products/components/ProductCard";
 import { productImage } from "../../features/products/utils/getProductImage";
+import { MarketplaceHome } from "../../features/marketplace/pages";
 
 const WhyChooseUs = lazy(() => import("../components/home/WhyChoseUS"));
 const LogoMarquee = lazy(() => import("../components/home/LogoMarquee"));
@@ -52,6 +53,10 @@ export const HomePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-white dark:bg-[#0a0a0f]">
       <HeroSection />
+
+      <div className="max-w-7xl mx-auto px-6 pt-10">
+        <MarketplaceHome />
+      </div>
 
       <section className="max-w-7xl mx-auto px-6 py-10">
         <h2 className="text-4xl font-black mb-6">Featured Products</h2>

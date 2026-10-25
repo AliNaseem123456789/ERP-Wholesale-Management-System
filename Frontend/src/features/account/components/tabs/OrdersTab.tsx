@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Package, Clock, CheckCircle2, Eye } from "lucide-react";
+import { Package, Clock, CheckCircle2, Eye, RotateCcw } from "lucide-react";
+import { useBuyAgain } from "../../hooks/useBuyAgain";
 import { useOrders } from "../../hooks/useOrders";
 import { OrderDetail } from "../OrderDetails";
 import { Order } from "../../types/order.types";
@@ -7,6 +8,7 @@ import { Order } from "../../types/order.types";
 export const OrdersTab = () => {
   const { orders, loading } = useOrders();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const { buyAgain, busy } = useBuyAgain();
 
   if (loading)
     return (
@@ -65,6 +67,8 @@ export const OrdersTab = () => {
                 key={order.id}
                 order={order}
                 onView={() => setSelectedOrder(order)}
+                onBuyAgain={() => buyAgain(order.id)}
+                busy={busy === order.id}
               />
             ))}
           </tbody>
@@ -74,7 +78,7 @@ export const OrdersTab = () => {
   );
 };
 
-const OrderRow = ({ order, onView }: { order: Order; onView: () => void }) => (
+const OrderRow = ({ order, onView, onBuyAgain, busy }: { order: Order; onView: () => void; onBuyAgain: () => void; busy: boolean }) => (
   <tr className="hover:bg-blue-50/30 transition-colors group">
     <td className="px-6 py-5 font-mono text-xs font-bold text-blue-600">
       {order.order_number || `#${order.id}`}
@@ -111,6 +115,14 @@ const OrderRow = ({ order, onView }: { order: Order; onView: () => void }) => (
           className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-900 rounded-xl text-xs font-black hover:bg-black hover:text-white transition-all"
         >
           <Eye size={14} /> VIEW
+        </button>
+        <button
+          onClick={onBuyAgain}
+          disabled={busy}
+          title="Add these items to your cart again"
+          className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-700 rounded-xl text-xs font-black hover:bg-gray-100 disabled:opacity-50"
+        >
+          <RotateCcw size={14} /> {busy ? "ADDING…" : "BUY AGAIN"}
         </button>
       </div>
     </td>

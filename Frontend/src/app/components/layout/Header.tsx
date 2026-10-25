@@ -109,7 +109,7 @@ export const Header: React.FC = () => {
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && query.trim().length >= 2) {
-                    navigate(`/search?q=${encodeURIComponent(query.trim())}`);
+                    navigate(`/products?q=${encodeURIComponent(query.trim())}`);
                   }
                 }}
                 aria-label="Search products"

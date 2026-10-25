@@ -22,6 +22,9 @@ export const SalesSettingsPage: React.FC = () => {
         invoiceNotes: s.invoiceNotes || "",
         quoteValidityDays: String(s.quoteValidityDays),
         returnWindowDays: String(s.returnWindowDays),
+        quoteFollowUpDays: String(s.quoteFollowUpDays ?? 3),
+        minMarginPercent: s.minMarginPercent == null ? "" : String(s.minMarginPercent),
+        blockBelowCost: !!s.blockBelowCost,
       }),
     ).catch((e) => toast.error(errorMessage(e)));
   }, [companyId]);
@@ -37,6 +40,8 @@ export const SalesSettingsPage: React.FC = () => {
         freeShippingOver: form!.freeShippingOver === "" ? null : Number(form!.freeShippingOver),
         quoteValidityDays: Number(form!.quoteValidityDays || 14),
         returnWindowDays: Number(form!.returnWindowDays || 0),
+        quoteFollowUpDays: Number(form!.quoteFollowUpDays || 0),
+        minMarginPercent: form!.minMarginPercent === "" ? null : Number(form!.minMarginPercent),
       } as any);
       toast.success(res.message);
     } catch (err) {
@@ -68,6 +73,12 @@ export const SalesSettingsPage: React.FC = () => {
           <h2 className="md:col-span-3 font-bold">Quotes &amp; returns</h2>
           <Field label="Quotes valid for (days)"><input disabled={!canEdit} type="number" min={1} max={365} className={inputCls} value={form.quoteValidityDays} onChange={(e) => set("quoteValidityDays", e.target.value)} /></Field>
           <Field label="Return window (days)" hint="After shipping; 0 = customers can't request returns online"><input disabled={!canEdit} type="number" min={0} max={365} className={inputCls} value={form.returnWindowDays} onChange={(e) => set("returnWindowDays", e.target.value)} /></Field>
+          <Field label="Follow up on quotes after (days)" hint="Remind the customer and your team when a sent quote has no answer; 0 = never"><input disabled={!canEdit} type="number" min={0} max={90} className={inputCls} value={form.quoteFollowUpDays} onChange={(e) => set("quoteFollowUpDays", e.target.value)} /></Field>
+          <Field label="Minimum margin on quotes (%)" hint="Warn when a quoted line earns less; empty = no check"><input disabled={!canEdit} type="number" min={0} max={100} step="0.1" className={inputCls} value={form.minMarginPercent} onChange={(e) => set("minMarginPercent", e.target.value)} /></Field>
+          <label className="flex items-start gap-2 text-sm text-gray-700 md:col-span-2 self-end pb-2">
+            <input type="checkbox" disabled={!canEdit} checked={form.blockBelowCost} onChange={(e) => set("blockBelowCost", e.target.checked)} className="mt-0.5" />
+            <span>Don't send quotes with prices below cost <span className="block text-xs text-gray-400">Pricing managers can still send them after confirming.</span></span>
+          </label>
         </Card>
         {canEdit && <div className="flex justify-end"><button disabled={saving} className={btnPrimary}>{saving ? "Saving..." : "Save settings"}</button></div>}
       </form>

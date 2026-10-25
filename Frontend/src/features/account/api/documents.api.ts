@@ -18,6 +18,15 @@ export const documentsApi = {
   acceptQuote: async (id: number, body: { shipping_address_id: number; payment_method?: string; business_name?: string }) =>
     (await apiClient.post(`/account/quotes/${id}/accept`, body)).data,
   declineQuote: async (id: number, reason?: string) => (await apiClient.post(`/account/quotes/${id}/decline`, { reason })).data,
+  counterQuote: async (id: number, body: { message?: string; lines?: { item_id: number; unit_price?: number; quantity?: number }[]; total?: number }) =>
+    (await apiClient.post(`/account/quotes/${id}/counter`, body)).data as { message: string; data: any },
+  quoteMessage: async (id: number, body: string) => (await apiClient.post(`/account/quotes/${id}/messages`, { body })).data as { message: string; data: any },
+
+  rfqs: async () => (await apiClient.get("/account/rfqs")).data.data as any[],
+  rfq: async (id: number) => (await apiClient.get(`/account/rfqs/${id}`)).data.data,
+  createRfq: async (body: Record<string, unknown>) => (await apiClient.post("/account/rfqs", body)).data as { message: string; data: { id: number; rfq_number: string } },
+  awardRfq: async (id: number, body: { quote_id: number; shipping_address_id: number; payment_method?: string }) => (await apiClient.post(`/account/rfqs/${id}/award`, body)).data as { message: string },
+  cancelRfq: async (id: number) => (await apiClient.post(`/account/rfqs/${id}/cancel`)).data as { message: string },
 
   returns: async () => (await apiClient.get("/account/returns")).data.data as any[],
   returnable: async (orderId: number) => (await apiClient.get(`/account/orders/${orderId}/returnable`)).data,
@@ -36,6 +45,7 @@ const BADGE: Record<string, string> = {
   expired: "bg-gray-200 text-gray-600", cancelled: "bg-gray-200 text-gray-600", approved: "bg-blue-100 text-blue-700",
   rejected: "bg-red-100 text-red-700", received: "bg-indigo-100 text-indigo-700", closed: "bg-green-100 text-green-700",
   applied: "bg-green-100 text-green-700", refunded: "bg-teal-100 text-teal-700",
+  countered: "bg-purple-100 text-purple-700", open: "bg-blue-100 text-blue-700", awarded: "bg-green-100 text-green-700",
 };
 export const badgeCls = (s: string) =>
   `inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide ${BADGE[s] || "bg-gray-100 text-gray-600"}`;

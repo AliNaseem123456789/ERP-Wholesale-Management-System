@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { marketplaceApi, NavItem } from "../../../features/marketplace/api";
 import { SECONDARY_NAV_DATA } from "../../data/secondaryNavbarData";
 import { useNavigate } from "react-router-dom";
 import { Menu, X } from "lucide-react";
@@ -7,6 +8,14 @@ const SecondaryNavbar: React.FC = () => {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
+  // Menu items managed by platform admins (Admin → Marketplace), shown before the classic menu.
+  const [nav, setNav] = useState<NavItem[]>([]);
+  useEffect(() => { marketplaceApi.settings().then((s) => setNav(s.nav || [])).catch(() => {}); }, []);
+  const go = (n: NavItem) => {
+    setMobileOpen(false);
+    if (n.external) window.open(n.href, "_blank", "noopener,noreferrer");
+    else navigate(n.href);
+  };
 
   const activeCategory =
     activeIndex !== null ? SECONDARY_NAV_DATA[activeIndex] : null;
@@ -34,7 +43,12 @@ const SecondaryNavbar: React.FC = () => {
         style={{ backgroundColor: "rgba(0,0,0,1)" }}
       >
         <div className="max-w-7xl mx-auto px-6 py-1 flex justify-center">
-          <ul className="flex gap-6 text-md font-semibold uppercase tracking-wide text-gray-100">
+          <ul className="flex flex-wrap justify-center gap-x-6 text-md font-semibold uppercase tracking-wide text-gray-100">
+            {nav.map((n) => (
+              <li key={n.label + n.href} className="py-3 cursor-pointer text-cyan-300 hover:text-white" onMouseEnter={() => setActiveIndex(null)} onClick={() => go(n)}>
+                {n.label}
+              </li>
+            ))}
             {SECONDARY_NAV_DATA.map((category, index) => (
               <li
                 key={category.title}
@@ -133,6 +147,9 @@ const SecondaryNavbar: React.FC = () => {
             </div>
 
             <ul className="space-y-3">
+              {nav.map((n) => (
+                <li key={n.label + n.href} onClick={() => go(n)} className="text-cyan-300 font-semibold uppercase cursor-pointer">{n.label}</li>
+              ))}
               {SECONDARY_NAV_DATA.map((category, index) => (
                 <li key={category.title}>
                   <button

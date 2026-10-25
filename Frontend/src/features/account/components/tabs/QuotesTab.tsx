@@ -4,11 +4,13 @@ import { FileSignature, Download, Loader2, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "../../../../api/apiClient";
 import { documentsApi, errorText, money, dateOnly, badgeCls } from "../../api/documents.api";
+import { QuoteNegotiation } from "../QuoteNegotiation";
 
 const STATUS_TEXT: Record<string, string> = {
   requested: "Waiting for the seller's prices",
   draft: "The seller is revising this quote",
   sent: "Ready: accept it to place the order",
+  countered: "You asked for changes; waiting for the seller",
   accepted: "Accepted",
   declined: "Declined",
   expired: "Expired",
@@ -124,7 +126,11 @@ export const QuotesTab: React.FC = () => {
                 <p className="font-black text-gray-900 text-base">Total {money(q.total_amount)}</p>
               </div>
               {q.notes && <p className="text-gray-600"><b>Seller's note:</b> {q.notes}</p>}
+              {q.lead_time_days != null && <p className="text-gray-600"><b>Delivery:</b> usually ships within {q.lead_time_days} day{q.lead_time_days === 1 ? "" : "s"} of ordering</p>}
+              {q.rfq_id && <p className="text-gray-600">Part of a request sent to several sellers. <a href="/account?tab=rfqs" className="text-blue-600 font-bold hover:underline">Compare offers</a></p>}
+              {q.version > 1 && <p className="text-xs text-gray-500">Version {q.version}</p>}
               {q.order && <p className="text-green-700 font-semibold">Became order {q.order.order_number}.</p>}
+              <QuoteNegotiation quote={q} onChanged={load} />
               {accepting === q.id ? (
                 <AcceptForm quote={q} onDone={() => { setAccepting(null); load(); }} onCancel={() => setAccepting(null)} />
               ) : (

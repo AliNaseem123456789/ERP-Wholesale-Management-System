@@ -6,6 +6,7 @@ import { useAuth } from "../../auth/context/AuthContext";
 import { useSaveCart } from "../hooks/useSaveCart";
 import { useCartActions } from "../hooks/useCartActions";
 import { fetchCart } from "../redux/cartSlice";
+import { CartSwitcher, useCarts, cartsApi } from "../components/CartSwitcher";
 import { productImage } from "../../products/utils/getProductImage";
 import { toast } from "sonner";
 import { documentsApi, errorText } from "../../account/api/documents.api";
@@ -27,7 +28,21 @@ export const CartPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useAuth();
-  const { loading } = useSelector((state: RootState) => state.cart);
+  const { loading, cartId } = useSelector((state: RootState) => state.cart);
+  const { carts, reload: reloadCarts } = useCarts();
+  const activeCart = carts.find((c) => (cartId ? c.id === cartId : c.is_default));
+  const otherCarts = carts.filter((c) => c.id !== activeCart?.id);
+  const moveLine = async (toId: string, productId?: number, flavor?: string | null) => {
+    if (!activeCart) return;
+    try {
+      const r = await cartsApi.move(activeCart.id, { to_cart_id: toId, product_id: productId, flavor: productId ? flavor || "" : undefined });
+      toast.success(r.message);
+      dispatch(fetchCart(undefined));
+      reloadCarts();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Could not move");
+    }
+  };
   const isAuthenticated = !!user;
 
   // Permission Logic
@@ -68,10 +83,11 @@ export const CartPage: React.FC = () => {
   if (items.length === 0)
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 text-center bg-gray-50">
+        {carts.length > 1 && <div className="mb-4"><CartSwitcher carts={carts} reload={reloadCarts} /></div>}
         <div className="bg-white p-12 rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center">
           <ShoppingCart className="w-20 h-20 text-gray-200 mb-6" />
           <h2 className="text-3xl font-bold mb-4 text-gray-900">
-            Your Cart is Empty
+            {carts.length > 1 && activeCart ? `“${activeCart.name}” is empty` : "Your Cart is Empty"}
           </h2>
           <p className="text-gray-500 mb-8 max-w-xs">
             Looks like you haven't added any wholesale items to your order yet.
@@ -89,12 +105,24 @@ export const CartPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4">
-        <button
-          onClick={() => navigate("/")}
-          className="flex items-center gap-2 text-blue-600 mb-6 hover:text-blue-800 transition-colors font-semibold"
-        >
-          <ArrowLeft size={18} /> Continue Shopping
-        </button>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+          <button
+            onClick={() => navigate("/")}
+            className="flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors font-semibold"
+          >
+            <ArrowLeft size={18} /> Continue Shopping
+          </button>
+          <div className="flex items-center gap-2">
+            {otherCarts.length > 0 && (
+              <select value="" onChange={(e) => e.target.value && moveLine(e.target.value)} aria-label="Move everything to another cart"
+                className="bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700">
+                <option value="">Move all to…</option>
+                {otherCarts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            )}
+            <CartSwitcher carts={carts} reload={reloadCarts} />
+          </div>
+        </div>
 
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-4">
@@ -173,12 +201,22 @@ export const CartPage: React.FC = () => {
                         </span>
                       )}
                     </div>
-                    <button
-                      onClick={() => handleRemove(item.product_id, item.flavor)}
-                      className="text-gray-300 hover:text-red-500 p-2 transition-colors self-start"
-                    >
-                      <Trash2 size={20} />
-                    </button>
+                    <div className="flex items-start gap-1">
+                      {otherCarts.length > 0 && (
+                        <select value="" onChange={(e) => e.target.value && moveLine(e.target.value, item.product_id, item.flavor)} aria-label={`Move ${item.products?.title} to another cart`}
+                          className="text-xs border border-gray-200 rounded-lg px-1.5 py-1 text-gray-500 bg-white max-w-[110px]">
+                          <option value="">Move to…</option>
+                          {otherCarts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                      )}
+                      <button
+                        onClick={() => handleRemove(item.product_id, item.flavor)}
+                        className="text-gray-300 hover:text-red-500 p-2 transition-colors"
+                        aria-label={`Remove ${item.products?.title}`}
+                      >
+                        <Trash2 size={20} />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="flex justify-between items-end mt-4">
@@ -317,6 +355,15 @@ export const CartPage: React.FC = () => {
                   )}
                   Save Order Template
                 </button>
+                {isAuthenticated && (
+                  <button
+                    onClick={() => navigate("/account?tab=rfqs&rfq=new")}
+                    className="w-full text-sm font-bold text-blue-600 hover:underline pt-1"
+                    title="Send these items to several sellers and compare their prices"
+                  >
+                    Compare prices from several sellers
+                  </button>
+                )}
               </div>
             </div>
           </div>

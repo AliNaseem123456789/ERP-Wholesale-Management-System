@@ -19,6 +19,11 @@ export const businessApi = {
   profile: async (id: string) => (await apiClient.get("/company/profile", co(id))).data.data,
   updateProfile: async (id: string, body: Record<string, unknown>) =>
     (await apiClient.patch("/company/profile", body, co(id))).data,
+  uploadBanner: async (id: string, file: File) => {
+    const form = new FormData();
+    form.append("image", file);
+    return (await apiClient.post("/company/banner", form, co(id))).data.url as string;
+  },
   uploadLogo: async (id: string, file: File) => {
     const form = new FormData();
     form.append("image", file);

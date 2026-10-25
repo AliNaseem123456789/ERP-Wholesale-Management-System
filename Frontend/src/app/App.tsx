@@ -1,9 +1,9 @@
 import React, { useEffect } from "react";
-import { Routes, Route, useNavigate, useParams } from "react-router-dom";
+import { Routes, Route, useNavigate, useParams, Navigate, useLocation } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "../app/store";
 import { useAuth } from "../features/auth/context/AuthContext";
-import { fetchCart, clearCart } from "../features/cart/redux/cartSlice";
+import { fetchCart, clearCart, setActiveCart } from "../features/cart/redux/cartSlice";
 
 import { Header } from "./components/layout/Header";
 import { Footer } from "./components/layout/Footer";
@@ -38,15 +38,16 @@ import { ResetPasswordPage } from "../features/auth/pages/ResetPasswordPage";
 import { VerifyEmailPage } from "../features/auth/pages/VerifyEmailPage";
 import { AcceptInvitePage } from "../features/auth/pages/AcceptInvitePage";
 import { VerifyEmailBanner } from "../features/auth/components/VerifyEmailBanner";
-import { CompaniesPage } from "../features/products/pages/CompaniesPage";
-import { CompanyPage } from "../features/products/pages/CompanyPage";
-import { SearchPage } from "../features/products/pages/SearchPage";
+import { ProductsPage as MarketProducts, CategoriesPage, CategoryPage, BrandsPage, BrandPage, CompaniesDirectoryPage } from "../features/marketplace/pages";
+import { StorefrontPage, CollectionPage } from "../features/marketplace/storefront";
 import { BusinessLayout } from "../features/business/pages/BusinessLayout";
 import { DashboardPage as BusinessDashboard } from "../features/business/pages/DashboardPage";
 import { OrdersPage as BusinessOrders } from "../features/business/pages/OrdersPage";
 import { ProductsPage as BusinessProducts } from "../features/business/pages/ProductsPage";
 import { ProductEditorPage } from "../features/business/pages/ProductEditorPage";
 import { CataloguePage } from "../features/business/pages/CataloguePage";
+import { CollectionsPage } from "../features/business/pages/CollectionsPage";
+import { StorefrontEditorPage } from "../features/business/pages/StorefrontEditorPage";
 import { TeamPage as BusinessTeam } from "../features/business/pages/TeamPage";
 import { SettingsPage as BusinessSettings } from "../features/business/pages/SettingsPage";
 import { ActivityPage as BusinessActivity } from "../features/business/pages/ActivityPage";
@@ -114,17 +115,29 @@ const CategoryProductsPageWrapper = () => {
   );
 };
 
+/** Old /search?q= links go to the new product search. */
+const SearchRedirect = () => {
+  const { search } = useLocation();
+  return <Navigate to={`/products${search}`} replace />;
+};
+
 function App() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const dispatch = useDispatch<AppDispatch>();
+  const lastUser = React.useRef<string | null>(null);
 
   useEffect(() => {
+    if (authLoading) return;
+    // a different person signed in on this browser: start in their own main cart
+    const uid = user ? String(user.id) : null;
+    if (lastUser.current && uid !== lastUser.current) dispatch(setActiveCart(null));
+    if (uid) lastUser.current = uid;
     if (user) {
       dispatch(fetchCart());
     } else {
       dispatch(clearCart());
     }
-  }, [user, dispatch]);
+  }, [user, authLoading, dispatch]);
   return (
     <>
       <ScrollToTop />
@@ -144,6 +157,13 @@ function App() {
             element={<CategoryProductsPageWrapper />}
           />
           <Route path="/product/:id" element={<ProductDetailPage />} />
+          <Route path="/products" element={<MarketProducts />} />
+          <Route path="/products/:id" element={<ProductDetailPage />} />
+          <Route path="/categories" element={<CategoriesPage />} />
+          <Route path="/categories/:slug" element={<CategoryPage />} />
+          <Route path="/brands" element={<BrandsPage />} />
+          <Route path="/brands/:slug" element={<BrandPage />} />
+          <Route path="/collections/:slug" element={<CollectionPage />} />
 
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegistrationPage />} />
@@ -152,9 +172,10 @@ function App() {
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/accept-invite" element={<AcceptInvitePage />} />
 
-          <Route path="/companies" element={<CompaniesPage />} />
-          <Route path="/companies/:slug" element={<CompanyPage />} />
-          <Route path="/search" element={<SearchPage />} />
+          <Route path="/companies" element={<CompaniesDirectoryPage />} />
+          <Route path="/companies/:slug" element={<StorefrontPage />} />
+          <Route path="/companies/:slug/collections/:collection" element={<CollectionPage />} />
+          <Route path="/search" element={<SearchRedirect />} />
 
           <Route
             path="/notifications"
@@ -178,6 +199,8 @@ function App() {
             <Route path="products/new" element={<ProductEditorPage />} />
             <Route path="products/:id" element={<ProductEditorPage />} />
             <Route path="catalogue" element={<CataloguePage />} />
+            <Route path="collections" element={<CollectionsPage />} />
+            <Route path="storefront" element={<StorefrontEditorPage />} />
             <Route path="team" element={<BusinessTeam />} />
             <Route path="settings" element={<BusinessSettings />} />
             <Route path="activity" element={<BusinessActivity />} />

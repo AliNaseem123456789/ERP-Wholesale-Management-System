@@ -1,9 +1,11 @@
 import React, { useState } from "react";
-import { ChevronLeft, Printer, MapPin, Building2, FileText, Undo2 } from "lucide-react";
+import { ChevronLeft, Printer, MapPin, Building2, FileText, Undo2, RotateCcw, Repeat } from "lucide-react";
 import { toast } from "sonner";
 import { Order } from "../types/order.types";
 import { documentsApi } from "../api/documents.api";
 import { RequestReturnModal } from "./tabs/ReturnsTab";
+import { RecurringEditor } from "./tabs/RecurringTab";
+import { useBuyAgain } from "../hooks/useBuyAgain";
 
 interface OrderDetailProps {
   order: Order;
@@ -12,6 +14,8 @@ interface OrderDetailProps {
 
 export const OrderDetail: React.FC<OrderDetailProps> = ({ order, onBack }) => {
   const [returning, setReturning] = useState(false);
+  const [recurring, setRecurring] = useState(false);
+  const { buyAgain, busy } = useBuyAgain();
   const money = (n: unknown) => `$${Number(n || 0).toFixed(2)}`;
   const paymentText = order.payment_method === "on_account" ? "On account (pay by the invoice due date)" : "Cash on delivery";
   const handlePrint = () => {
@@ -37,6 +41,12 @@ export const OrderDetail: React.FC<OrderDetailProps> = ({ order, onBack }) => {
               <FileText size={18} /> Invoice {inv.invoice_number}
             </button>
           ))}
+          <button onClick={() => buyAgain(order.id)} disabled={busy !== null} className="flex items-center gap-2 border border-gray-300 px-4 py-2.5 rounded-xl font-bold text-gray-800 hover:bg-gray-50 disabled:opacity-50">
+            <RotateCcw size={18} /> {busy !== null ? "Adding…" : "Buy again"}
+          </button>
+          <button onClick={() => setRecurring(true)} className="flex items-center gap-2 border border-gray-300 px-4 py-2.5 rounded-xl font-bold text-gray-800 hover:bg-gray-50">
+            <Repeat size={18} /> Make recurring
+          </button>
           {order.status === "delivered" && (
             <button onClick={() => setReturning(true)} className="flex items-center gap-2 border border-gray-300 px-4 py-2.5 rounded-xl font-bold text-gray-800 hover:bg-gray-50">
               <Undo2 size={18} /> Request a return
@@ -50,6 +60,10 @@ export const OrderDetail: React.FC<OrderDetailProps> = ({ order, onBack }) => {
           </button>
         </div>
       </div>
+      {recurring && (
+        <RecurringEditor source={{ kind: "order", id: String(order.id) }} onClose={() => setRecurring(false)}
+          onSaved={() => { setRecurring(false); toast.success("See it under Recurring orders"); }} />
+      )}
       {returning && (
         <RequestReturnModal
           orderId={order.id}

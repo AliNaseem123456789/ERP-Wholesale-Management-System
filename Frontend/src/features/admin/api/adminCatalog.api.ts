@@ -14,7 +14,29 @@ export type AdminAttribute = {
   company?: { id: number; name: string } | null; is_required?: boolean;
 };
 
+export type MarketplaceSettings = {
+  nav: { label: string; type: "category" | "brand" | "company" | "collection" | "link"; ref: string }[];
+  featured: { brand_ids: string[]; category_ids: string[]; company_ids: string[] };
+  banners: { image_url: string; image_alt?: string; title?: string; subtitle?: string; link?: string }[];
+  storefront: { themes: string[]; custom_colors: boolean; sections: string[] };
+};
+type Named = { id: number | string; name: string; slug: string };
+
 export const adminCatalogApi = {
+  marketplace: async () => (await apiClient.get("/admin/marketplace")).data as {
+    data: MarketplaceSettings; chosen: { brands: Named[]; categories: Named[]; companies: Named[] };
+    all_themes: { key: string; name: string }[]; all_sections: { type: string; label: string }[];
+  },
+  saveMarketplace: async (body: MarketplaceSettings) => (await apiClient.put("/admin/marketplace", body)).data as { message: string; data: MarketplaceSettings },
+  collections: async () => (await apiClient.get("/admin/collections")).data.data as any[],
+  collection: async (id: number) => (await apiClient.get(`/admin/collections/${id}`)).data.data as any,
+  createCollection: async (body: Record<string, unknown>) => (await apiClient.post("/admin/collections", body)).data,
+  updateCollection: async (id: number, body: Record<string, unknown>) => (await apiClient.patch(`/admin/collections/${id}`, body)).data,
+  deleteCollection: async (id: number) => (await apiClient.delete(`/admin/collections/${id}`)).data as { message: string },
+  searchProducts: async (q: string) => (await apiClient.get(`/admin/products/search?q=${encodeURIComponent(q)}`)).data.data as any[],
+  previewStorefront: async (companyId: number, source: "draft" | "published" = "published") =>
+    (await apiClient.get(`/admin/companies/${companyId}/storefront?source=${source}`)).data as { data: any; has_published: boolean; storefront_published: boolean },
+
   categories: async () => (await apiClient.get("/admin/categories")).data.data as AdminCategory[],
   createCategory: async (body: Record<string, unknown>) => (await apiClient.post("/admin/categories", body)).data,
   updateCategory: async (id: number, body: Record<string, unknown>) => (await apiClient.patch(`/admin/categories/${id}`, body)).data,

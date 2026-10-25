@@ -668,3 +668,25 @@ Database change: `Backend/prisma/sql/008_catalogue.sql` (additive only; existing
 ### Known data issues (not changed automatically)
 - 75 SKUs are used by more than one product of the same company (see Admin → Categories → Catalogue health). SKUs therefore aren't made unique in the database. New duplicates are refused for variant SKUs.
 - Some categories are really brands or catch-alls ("Products", "Coastal Clouds"). Merge or rename them in Admin → Categories.
+
+## Marketplace, storefronts, buyer tools and quotes (Phases 2–5 of the marketplace plan)
+
+Database changes: `009_marketplace.sql`, `010_buying.sql`, `011_quotes.sql` (additive only, like 008).
+
+### What changed
+- **Marketplace pages (Phase 2):** `/products` (search with filters for category, brand, supplier, details, in stock, price for signed-in buyers), `/categories` and `/categories/:slug`, `/brands` (A–Z) and `/brands/:slug` (who sells it), `/companies` (supplier directory) and `/companies/:slug` (company page with storefront, all products, collections, about & terms). `/search?q=` redirects to `/products?q=`. Old `/brand/:name` and `/category/:name` links still work. Companies fill in their public profile (tagline, banner, public email/phone, delivery and payment terms, minimum order, lead time) under Business → Settings.
+- **Storefronts and collections (Phase 3):** Business → Collections (hand-picked, ordered product lists with schedule). Business → Storefront builds the company page from predefined sections only (no HTML): hero, banners, featured products, product grid, collection, brands, categories, announcement, about, contact, offers. Themes and colours, draft → preview → publish, versions with restore, unpublish, reset. Admin → Marketplace: top menu, featured categories/brands/suppliers, homepage banners, which themes/sections companies may use, platform collections. Admin → Companies: feature a company, hide its store page, preview any storefront.
+- **Buyer tools (Phase 4):** several named carts (switch, rename, own delivery address, move lines, check out one cart); "Buy again" on orders; recurring orders (weekly / every 2 weeks / monthly, placed automatically or prepared as a cart to review, pause, skip next, run now); team-shared saved carts; back-in-stock alerts ("Notify me"); pre-orders from stock already on a purchase order (per product switch in the product editor), never more than what's incoming.
+- **Quotes (Phase 5):** requests for quotes to up to 10 sellers (chosen, or the main sellers of a category), side-by-side comparison, award one (the others are told); counter-offers with proposed prices/quantities/total, messages, quote versions; sellers see the request, margin per line and warnings, can apply a counter-offer, set delivery days; follow-up and expiry reminders; sales settings for follow-up days, minimum margin and blocking quotes below cost (pricing managers can override).
+- Background jobs (also runnable from Admin): recurring orders, stock alerts, quote reminders.
+
+### Deploying
+1. `cd Backend && npm run db:export`
+2. `npm run db:verify -- snapshot before-008.json`
+3. `npm run db:migrate` (applies 008–011 if 008 isn't applied yet; each file is its own transaction)
+4. `npm run db:verify -- compare before-008.json`: only `_app_migrations` should change (+4 rows, or +3 if 008 was already applied).
+5. `npx prisma generate`, then deploy the backend and the frontend.
+
+### Notes
+- 010 replaces the cart line uniqueness (user, product, flavour) with (cart, product, flavour). Code older than this release doesn't work against the migrated database's carts, so don't roll the backend back below it.
+- The top menu now starts with the admin-managed items (Admin → Marketplace); the old hard-coded smoke-shop menu still shows after them.

@@ -33,7 +33,7 @@ const home = async (req, res) => {
   const [cats, brands, companies, featured, newest, collections, counts] = await Promise.all([
     prisma.categories.findMany({ where: { status: "active", ...(s.featured.category_ids.length ? { id: { in: big(s.featured.category_ids) } } : { is_featured: true }) }, select: { id: true, name: true, slug: true, image_url: true } }),
     prisma.brands.findMany({ where: s.featured.brand_ids.length ? { id: { in: big(s.featured.brand_ids) } } : { is_featured: true }, select: { id: true, name: true, slug: true, logo_url: true }, take: 24 }),
-    prisma.companies.findMany({ where: { ...liveCompany, ...(s.featured.company_ids.length ? { id: { in: big(s.featured.company_ids) } } : {}) }, select: companyCard, orderBy: [{ is_featured: "desc" }, { name: "asc" }], take: 12 }),
+    prisma.companies.findMany({ where: { ...liveCompany, ...(s.featured.company_ids.length ? { id: { in: big(s.featured.company_ids) } } : {}) }, select: { ...companyCard, _count: { select: { products: { where: pw }, company_brands: true } } }, orderBy: [{ is_featured: "desc" }, { name: "asc" }], take: 12 }),
     prisma.products.findMany({ where: { ...pw, is_featured: true }, include, orderBy: { published_at: "desc" }, take: 12 }),
     prisma.products.findMany({ where: pw, include, orderBy: [{ published_at: "desc" }, { id: "desc" }], take: 12 }),
     prisma.collections.findMany({ where: { company_id: null, ...sf.liveCollection(now) }, orderBy: [{ sort_order: "asc" }, { name: "asc" }], take: 4 }),
@@ -57,7 +57,7 @@ const home = async (req, res) => {
       banners: s.banners,
       categories,
       brands: byIdsInOrder(brands, s.featured.brand_ids),
-      companies: byIdsInOrder(companies, s.featured.company_ids),
+      companies: byIdsInOrder(companies, s.featured.company_ids).map(({ _count, ...c }) => ({ ...c, product_count: _count.products, brand_count: _count.company_brands })),
       featured: featuredProducts,
       new_arrivals: newArrivals,
       collections: cols,

@@ -4,8 +4,7 @@ import {
   LayoutDashboard, ShoppingBag, Package, Users, Settings, History, Warehouse, Truck,
   Calculator, BadgeDollarSign, Building2, Clock, Boxes, ClipboardList, RefreshCcw, BarChart3,
   UserRound, Tags, FileSignature, FileText, Undo2, LineChart, SlidersHorizontal,
-  BookOpen, ListTree, Receipt, Wallet, Landmark, Scale, ScanLine, ShieldCheck, FileSpreadsheet, FileBarChart, UsersRound, CalendarCheck, Plane, SlidersHorizontal as Sliders2, IdCard, FolderTree,
-} from "lucide-react";
+  BookOpen, ListTree, Receipt, Wallet, Landmark, Scale, ScanLine, ShieldCheck, FileSpreadsheet, FileBarChart, UsersRound, CalendarCheck, Plane, SlidersHorizontal as Sliders2, IdCard, FolderTree, Layers, Store } from "lucide-react";
 import { BusinessProvider, useBusiness } from "../context/BusinessContext";
 import { Spinner } from "../components/ui";
 import { RegisterBusinessPage } from "./RegisterBusinessPage";
@@ -18,6 +17,8 @@ const NAV: { section?: string; items: NavItem[] }[] = [
       { to: "/business/orders", label: "Orders", icon: ShoppingBag, perm: "orders.view" },
       { to: "/business/products", label: "Products", icon: Package, perm: "products.view" },
       { to: "/business/catalogue", label: "Categories & brands", icon: FolderTree, perm: "products.view" },
+      { to: "/business/collections", label: "Collections", icon: Layers, perm: ["products.view", "storefront.manage"] },
+      { to: "/business/storefront", label: "Storefront", icon: Store, perm: ["storefront.manage", "company.manage"] },
     ],
   },
   {

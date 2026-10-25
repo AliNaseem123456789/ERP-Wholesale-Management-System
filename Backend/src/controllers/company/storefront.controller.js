@@ -55,10 +55,17 @@ const deleteCollection = async (req, res) => {
 
 const getStore = (companyId) => prisma.storefronts.findUnique({ where: { company_id: companyId } });
 
+// The standard layout, limited to the themes and sections the marketplace currently allows.
+const allowedDefault = async (company) => {
+  const { storefront: allow } = await getMarketplaceSettings();
+  const d = sf.defaultConfig(company);
+  return { ...d, theme: allow.themes.includes(d.theme) ? d.theme : allow.themes[0], sections: d.sections.filter((x) => allow.sections.includes(x.type)) };
+};
+
 // GET /company/storefront -> draft (or the default layout), what's published, and what may be used
 const getStorefront = async (req, res) => {
   const [store, settings] = await Promise.all([getStore(req.company.id), getMarketplaceSettings()]);
-  const draft = store?.draft?.sections ? store.draft : sf.defaultConfig(req.company);
+  const draft = store?.draft?.sections ? store.draft : await allowedDefault(req.company);
   res.json({
     data: {
       draft,
@@ -99,7 +106,7 @@ const preview = async (req, res) => {
 // POST /company/storefront/publish -> the draft becomes the public storefront (a new version)
 const publish = async (req, res) => {
   const store = await getStore(req.company.id);
-  const cfg = await sf.sanitize(store?.draft?.sections ? store.draft : sf.defaultConfig(req.company));
+  const cfg = await sf.sanitize(store?.draft?.sections ? store.draft : await allowedDefault(req.company));
   const warnings = await sf.checkReferences(prisma, req.company.id, cfg);
   const version = (store?.published_version || 0) + 1;
   await prisma.$transaction([
@@ -123,7 +130,7 @@ const unpublish = async (req, res) => {
 
 // POST /company/storefront/reset -> the draft goes back to the standard layout
 const resetDraft = async (req, res) => {
-  const cfg = sf.defaultConfig(req.company);
+  const cfg = await allowedDefault(req.company);
   await prisma.storefronts.upsert({
     where: { company_id: req.company.id },
     create: { company_id: req.company.id, draft: cfg, updated_by: BigInt(req.user.id) },

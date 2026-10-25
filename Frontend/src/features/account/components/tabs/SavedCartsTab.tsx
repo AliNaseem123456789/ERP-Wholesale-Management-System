@@ -4,10 +4,11 @@ import {
   getSavedCartById,
   restoreSavedCart,
   deleteSavedCart,
+  shareSavedCart,
 } from "../../../cart/api/cartApi";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { AppDispatch } from "../../../../app/store";
+import { AppDispatch, RootState } from "../../../../app/store";
 import { fetchCart } from "../../../cart/redux/cartSlice";
 import {
   Loader2,
@@ -20,6 +21,7 @@ import {
   Tag,
   Hash,
   Calendar,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -28,12 +30,23 @@ export const SavedCartsTab: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const [restoring, setRestoring] = useState(false);
+  const activeCartId = useSelector((s: RootState) => s.cart.cartId);
+  const toggleShare = async (t: any) => {
+    try {
+      await shareSavedCart(t.id, !t.shared_with_team);
+      toast.success(t.shared_with_team ? "No longer shared" : "Shared with your team");
+      refetch();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Could not change sharing");
+    }
+  };
 
   const handleRestore = async (id: number) => {
     setRestoring(true);
     try {
-      await restoreSavedCart(id);
-      await dispatch(fetchCart());
+      const r = await restoreSavedCart(id, activeCartId);
+      await dispatch(fetchCart(undefined));
+      if (r?.skipped?.length) toast.warning(r.message, { description: r.skipped.slice(0, 4).map((x: any) => `${x.title}: ${x.reason}`).join("\n") });
       toast.success("Items added to your cart");
       navigate("/cart");
     } catch (err: any) {
@@ -265,6 +278,8 @@ export const SavedCartsTab: React.FC = () => {
                    </td>
                   <td className="px-6 py-4 font-bold text-gray-900">
                     {template.cart_name}
+                    {template.own === false && template.owner && <span className="block text-xs font-normal text-gray-500">Shared by {template.owner.name}</span>}
+                    {template.own !== false && template.shared_with_team && <span className="block text-xs font-normal text-green-700">Shared with your team</span>}
                    </td>
                   <td className="px-6 py-4">
                     <div className="text-sm">
@@ -294,12 +309,23 @@ export const SavedCartsTab: React.FC = () => {
                       >
                         <ShoppingCart size={18} /> Restore
                       </button>
-                      <button
-                        onClick={() => handleDelete(template.id)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1 text-sm font-bold"
-                      >
-                        <Trash2 size={18} /> Delete
-                      </button>
+                      {template.own !== false && (
+                        <button
+                          onClick={() => toggleShare(template)}
+                          title="Team members (account owner and sub-accounts) can see and restore shared carts"
+                          className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-1 text-sm font-bold"
+                        >
+                          <Users size={18} /> {template.shared_with_team ? "Unshare" : "Share"}
+                        </button>
+                      )}
+                      {template.own !== false && (
+                        <button
+                          onClick={() => handleDelete(template.id)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1 text-sm font-bold"
+                        >
+                          <Trash2 size={18} /> Delete
+                        </button>
+                      )}
                     </div>
                    </td>
                  </tr>

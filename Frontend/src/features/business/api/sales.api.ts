@@ -34,6 +34,7 @@ export const openPdf = async (url: string, headers?: Record<string, string>, fil
 export type SalesSettings = {
   taxRate: number; shippingFee: number; freeShippingOver: number | null; autoInvoice: boolean; invoiceNotes: string;
   quoteValidityDays: number; allowCashOnDelivery: boolean; returnWindowDays: number;
+  quoteFollowUpDays: number; minMarginPercent: number | null; blockBelowCost: boolean;
 };
 export type CustomerGroup = { id: number; name: string; description?: string | null; discount_percent: number; price_list_id?: number | null; price_list?: { id: number; name: string } | null; customerCount?: number };
 export type PriceList = { id: number; name: string; description?: string | null; is_default: boolean; is_active: boolean; itemCount?: number; groupCount?: number };
@@ -81,7 +82,9 @@ export const salesApi = {
   quote: async (c: string, id: number | string) => (await apiClient.get(`/company/quotes/${id}`, co(c))).data.data,
   createQuote: async (c: string, body: Record<string, unknown>) => (await apiClient.post("/company/quotes", body, co(c))).data,
   updateQuote: async (c: string, id: number | string, body: Record<string, unknown>) => (await apiClient.patch(`/company/quotes/${id}`, body, co(c))).data,
-  sendQuote: async (c: string, id: number | string) => (await apiClient.post(`/company/quotes/${id}/send`, {}, co(c))).data,
+  sendQuote: async (c: string, id: number | string, body: { override_margin?: boolean } = {}) => (await apiClient.post(`/company/quotes/${id}/send`, body, co(c))).data as { message: string; warnings?: string[]; data: any },
+  quoteMessage: async (c: string, id: number | string, body: string) => (await apiClient.post(`/company/quotes/${id}/messages`, { body }, co(c))).data as { message: string; data: any },
+  applyCounter: async (c: string, id: number | string, messageId: number) => (await apiClient.post(`/company/quotes/${id}/apply-counter`, { message_id: messageId }, co(c))).data as { message: string; data: any },
   cancelQuote: async (c: string, id: number | string) => (await apiClient.post(`/company/quotes/${id}/cancel`, {}, co(c))).data,
   quotePdf: (c: string, id: number | string, number?: string) => openPdf(`/company/quotes/${id}/pdf`, co(c).headers, `${number || "quote"}.pdf`),
 

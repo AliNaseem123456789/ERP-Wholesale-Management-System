@@ -83,7 +83,7 @@ export const adminService = {
     const { data } = await apiClient.post("/admin/companies", body);
     return data;
   },
-  updateCompany: async (id: number, body: { name?: string; status?: string; commission_rate?: number }) => {
+  updateCompany: async (id: number, body: { name?: string; status?: string; commission_rate?: number; is_featured?: boolean; storefront_published?: boolean }) => {
     const { data } = await apiClient.patch(`/admin/companies/${id}`, body);
     return data;
   },

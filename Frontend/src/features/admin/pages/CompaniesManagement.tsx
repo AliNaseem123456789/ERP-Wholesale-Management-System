@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Building2, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { adminService } from "../api/admin.service";
+import { adminCatalogApi } from "../api/adminCatalog.api";
+import { StorefrontSections, CompanyHeader } from "../../marketplace/storefront";
 import { errorMessage } from "../../business/api/business.api";
 import { Card, Field, Modal, StatusBadge, Spinner, inputCls, btnPrimary, btnSecondary, dateOnly, inputBase } from "../../business/components/ui";
 
@@ -39,6 +41,27 @@ export const CompaniesManagement: React.FC = () => {
       await adminService.updateCompany(c.id, { commission_rate: Number(value) });
       toast.success("Commission saved");
       load();
+    } catch (e) {
+      toast.error(errorMessage(e));
+    }
+  };
+
+  const [preview, setPreview] = useState<{ company: any; store: any; source: "draft" | "published"; has_published: boolean } | null>(null);
+  const toggle = async (c: any, key: "is_featured" | "storefront_published") => {
+    const next = !(c[key] ?? key === "storefront_published");
+    if (key === "storefront_published" && !next && !window.confirm(`Hide ${c.name}'s store page and products from marketplace browsing? Their staff keep access and existing orders aren't affected.`)) return;
+    try {
+      await adminService.updateCompany(c.id, { [key]: next });
+      toast.success(key === "is_featured" ? (next ? "Featured on the marketplace" : "No longer featured") : (next ? "Store page visible" : "Store page hidden"));
+      load();
+    } catch (e) {
+      toast.error(errorMessage(e));
+    }
+  };
+  const openPreview = async (c: any, source: "draft" | "published" = "published") => {
+    try {
+      const r = await adminCatalogApi.previewStorefront(c.id, source);
+      setPreview({ company: c, store: r.data, source, has_published: r.has_published });
     } catch (e) {
       toast.error(errorMessage(e));
     }
@@ -119,6 +142,13 @@ export const CompaniesManagement: React.FC = () => {
                     </td>
                     <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <button onClick={() => openPreview(c)} className="text-xs font-bold text-blue-600 hover:underline mr-3">Store</button>
+                      <button onClick={() => toggle(c, "is_featured")} className={`text-xs font-bold hover:underline mr-3 ${c.is_featured ? "text-amber-600" : "text-gray-500"}`} title="Featured companies appear on the homepage and first in the directory">
+                        {c.is_featured ? "★ Featured" : "☆ Feature"}
+                      </button>
+                      <button onClick={() => toggle(c, "storefront_published")} className={`text-xs font-bold hover:underline mr-3 ${c.storefront_published === false ? "text-red-600" : "text-gray-500"}`}>
+                        {c.storefront_published === false ? "Store hidden" : "Hide store"}
+                      </button>
                       {c.status !== "active" && (
                         <button onClick={() => setCompanyStatus(c, "active")} className="text-xs font-bold text-green-700 hover:underline mr-3">
                           {c.status === "pending" ? "Approve" : "Reactivate"}
@@ -135,6 +165,24 @@ export const CompaniesManagement: React.FC = () => {
           </div>
         )}
       </Card>
+
+      {preview && (
+        <div className="fixed inset-0 z-[100] bg-black/60 flex flex-col" role="dialog" aria-modal="true" aria-label="Storefront preview">
+          <div className="bg-gray-900 text-white px-4 py-2 flex flex-wrap gap-2 items-center justify-between text-sm">
+            <span><b>{preview.company.name}</b> · {preview.source === "draft" ? "draft" : preview.has_published ? "published storefront" : "standard page (no custom storefront published)"}</span>
+            <div className="flex gap-2">
+              <button onClick={() => openPreview(preview.company, preview.source === "draft" ? "published" : "draft")} className="bg-white/10 px-3 py-1.5 rounded font-semibold">Show {preview.source === "draft" ? "published" : "draft"}</button>
+              <button onClick={() => setPreview(null)} className="bg-white/10 px-3 py-1.5 rounded font-semibold">Close</button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto bg-gray-50">
+            <div className="max-w-7xl mx-auto px-4 py-6">
+              <CompanyHeader store={preview.store} tab="home" setTab={() => {}} />
+              <StorefrontSections store={preview.store} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {creating && (
         <Modal title="New company" onClose={() => setCreating(false)}>

@@ -16,7 +16,10 @@ export interface Product {
   created_at?: string;
   company?: CompanyBrief | null;
   /** null = seller doesn't track stock (always orderable) */
-  stock_status?: "in_stock" | "out_of_stock" | null;
+  stock_status?: "in_stock" | "out_of_stock" | "preorder" | null;
+  allow_preorder?: boolean;
+  incoming_stock?: Record<string, number>;
+  expected_date?: string | null;
   /** only sent to logged-in customers */
   available?: number;
   /** available per flavour (logged-in customers, sellers that track stock) */

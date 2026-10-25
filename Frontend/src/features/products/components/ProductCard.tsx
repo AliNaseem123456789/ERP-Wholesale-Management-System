@@ -43,6 +43,11 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickOrder }) => {
             Out of stock
           </span>
         )}
+        {product.stock_status === "preorder" && (
+          <span className="absolute top-2 left-2 z-10 bg-blue-600 text-white text-[10px] font-bold uppercase px-2 py-0.5 rounded" title={(product as any).expected_date ? `Expected around ${new Date((product as any).expected_date).toLocaleDateString()}` : undefined}>
+            Pre-order
+          </span>
+        )}
         <img
           src={productImage(product)}
           alt={product.title}

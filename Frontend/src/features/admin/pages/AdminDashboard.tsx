@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Users, Package, LayoutDashboard, Settings, Building2, Tags, Mail, Gauge, FolderTree, ListChecks } from "lucide-react";
+import { Users, Package, LayoutDashboard, Settings, Building2, Tags, Mail, Gauge, FolderTree, ListChecks, Store } from "lucide-react";
 import { AdminOverview } from "./AdminOverview";
 import { UserManagement } from "./UserManagement";
 import { ProductManagement } from "./ProductManagement";
@@ -9,12 +9,14 @@ import { BrandsManagement } from "./BrandsManagement";
 import { EmailsManagement } from "./EmailsManagement";
 import { CategoriesManagement } from "./CategoriesManagement";
 import { AttributesManagement } from "./AttributesManagement";
-type AdminTab = "overview" | "companies" | "brands" | "categories" | "attributes" | "users" | "products" | "features" | "emails";
+import { MarketplaceManagement } from "./MarketplaceManagement";
+type AdminTab = "overview" | "marketplace" | "companies" | "brands" | "categories" | "attributes" | "users" | "products" | "features" | "emails";
 
 export const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
   const tabs = [
     { id: "overview", label: "Overview", icon: Gauge },
+    { id: "marketplace", label: "Marketplace", icon: Store },
     { id: "companies", label: "Companies", icon: Building2 },
     { id: "categories", label: "Categories", icon: FolderTree },
     { id: "attributes", label: "Details", icon: ListChecks },
@@ -61,6 +63,7 @@ export const AdminDashboard = () => {
       <main className="p-6">
         <div className="max-w-7xl mx-auto">
           {activeTab === "overview" && <AdminOverview />}
+          {activeTab === "marketplace" && <MarketplaceManagement />}
           {activeTab === "companies" && <CompaniesManagement />}
           {activeTab === "brands" && <BrandsManagement />}
           {activeTab === "categories" && <CategoriesManagement />}

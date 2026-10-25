@@ -15,6 +15,9 @@ import {
   FileText,
   FileSignature,
   Undo2,
+  Repeat,
+  BellRing,
+  ClipboardList,
 } from "lucide-react";
 import { useAuth } from "../../auth/context/AuthContext";
 import { OrdersTab } from "../components/tabs/OrdersTab";
@@ -28,11 +31,17 @@ import { CreditTab } from "../components/tabs/CreditTab";
 import { InvoicesTab } from "../components/tabs/InvoicesTab";
 import { QuotesTab } from "../components/tabs/QuotesTab";
 import { ReturnsTab } from "../components/tabs/ReturnsTab";
+import { RecurringTab } from "../components/tabs/RecurringTab";
+import { StockAlertsTab } from "../components/tabs/StockAlertsTab";
+import { RfqsTab } from "../components/tabs/RfqsTab";
 
 const TABS = [
   { id: "orders", label: "Orders", icon: Package },
   { id: "invoices", label: "Invoices", icon: FileText },
   { id: "quotes", label: "Quotes", icon: FileSignature },
+  { id: "rfqs", label: "Requests for quotes", icon: ClipboardList },
+  { id: "recurring", label: "Recurring orders", icon: Repeat },
+  { id: "stock-alerts", label: "Stock alerts", icon: BellRing },
   { id: "returns", label: "Returns", icon: Undo2 },
   { id: "addresses", label: "Addresses", icon: MapPin },
   { id: "details", label: "Account Details", icon: User },
@@ -94,6 +103,12 @@ export const AccountPage: React.FC = () => {
         return <QuotesTab />;
       case "returns":
         return <ReturnsTab />;
+      case "rfqs":
+        return <RfqsTab />;
+      case "recurring":
+        return <RecurringTab />;
+      case "stock-alerts":
+        return <StockAlertsTab />;
       case "addresses":
         return <AddressesTab />;
       case "details":
@@ -194,7 +209,7 @@ export const AccountPage: React.FC = () => {
         <main className="flex-1 bg-white border border-gray-200 rounded-2xl shadow-sm min-h-[600px]">
           <header className="px-8 py-6 border-b border-gray-100 flex justify-between items-center">
             <h1 className="text-xl font-bold text-gray-900 capitalize">
-              {activeTab.replace("-", " ")}
+              {TABS.find((t) => t.id === activeTab)?.label || activeTab.replace("-", " ")}
             </h1>
           </header>
 

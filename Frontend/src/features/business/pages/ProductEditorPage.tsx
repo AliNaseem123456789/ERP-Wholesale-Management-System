@@ -474,7 +474,7 @@ const ImagesSection: React.FC<{ productId: number; initial: ProductImage[]; vari
 // ---- page ------------------------------------------------------------------------------------------
 
 const emptyForm = {
-  title: "", brand: "", brand_relationship: "", sku: "", barcode: "", short_description: "", description: "", status: "draft", slug: "", is_featured: false,
+  title: "", brand: "", brand_relationship: "", sku: "", barcode: "", short_description: "", description: "", status: "draft", slug: "", is_featured: false, allow_preorder: false,
   price: "", unit: "each", min_order_qty: "1", order_multiple: "1", pack_size: "", cost_price: "", reorder_point: "", reorder_quantity: "",
   preferred_supplier_id: "", visibility: "public", compliance_category: "none", nicotine_ml: "", is_flavored: false,
 };
@@ -505,7 +505,7 @@ export const ProductEditorPage: React.FC = () => {
       setProduct(p);
       setForm({
         title: p.title, brand: p.brand, brand_relationship: "", sku: str(p.sku), barcode: str(p.barcode), short_description: str(p.short_description),
-        description: str(p.description), status: p.status, slug: str(p.slug), is_featured: !!p.is_featured, price: str(p.price), unit: p.unit || "each",
+        description: str(p.description), status: p.status, slug: str(p.slug), is_featured: !!p.is_featured, allow_preorder: !!p.allow_preorder, price: str(p.price), unit: p.unit || "each",
         min_order_qty: str(p.min_order_qty), order_multiple: str(p.order_multiple), pack_size: str(p.pack_size), cost_price: str(p.cost_price),
         reorder_point: str(p.reorder_point), reorder_quantity: str(p.reorder_quantity), preferred_supplier_id: str(p.preferred_supplier_id),
         visibility: p.visibility || "public", compliance_category: p.compliance_category || "none", nicotine_ml: str(p.nicotine_ml), is_flavored: !!p.is_flavored,
@@ -543,7 +543,7 @@ export const ProductEditorPage: React.FC = () => {
     try {
       const body: Record<string, unknown> = {
         title: form.title, brand: form.brand, sku: form.sku, barcode: form.barcode, short_description: form.short_description, description: form.description,
-        status: form.status, is_featured: form.is_featured, price: form.price === "" ? null : Number(form.price), unit: form.unit,
+        status: form.status, is_featured: form.is_featured, allow_preorder: form.allow_preorder, price: form.price === "" ? null : Number(form.price), unit: form.unit,
         min_order_qty: form.min_order_qty || 1, order_multiple: form.order_multiple || 1, pack_size: form.pack_size === "" ? null : form.pack_size,
         reorder_point: form.reorder_point, reorder_quantity: form.reorder_quantity, visibility: form.visibility,
         visible_group_ids: form.visibility === "groups" ? groupIds : [], category_ids: categoryIds,
@@ -619,6 +619,9 @@ export const ProductEditorPage: React.FC = () => {
             <Field label="Web address" hint="Made from the title when empty"><input disabled={!canEdit} className={inputCls} value={form.slug} onChange={set("slug")} placeholder="acme-eau-de-parfum" /></Field>
             <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mt-6">
               <input type="checkbox" disabled={!canEdit} checked={form.is_featured} onChange={(e) => setForm({ ...form, is_featured: e.target.checked })} /> Featured product
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-700" title="When it's out of stock, buyers can order units already on a purchase order from your supplier. They ship when the stock arrives.">
+              <input type="checkbox" disabled={!canEdit} checked={form.allow_preorder} onChange={(e) => setForm({ ...form, allow_preorder: e.target.checked })} /> Allow pre-orders from incoming stock
             </label>
           </div>
         </Section>

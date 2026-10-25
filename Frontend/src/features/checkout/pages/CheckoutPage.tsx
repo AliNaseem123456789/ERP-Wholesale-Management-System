@@ -10,11 +10,11 @@ import {
   X,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { toast } from "sonner";
 import { apiClient } from "../../../api/apiClient";
-import { clearCart } from "../../cart/redux/cartSlice";
-import { AppDispatch } from "../../../app/store";
+import { clearCart, fetchCart } from "../../cart/redux/cartSlice";
+import { AppDispatch, RootState } from "../../../app/store";
 import { useAuth } from "../../auth/context/AuthContext";
 
 export const CheckoutPage = () => {
@@ -38,6 +38,9 @@ export const CheckoutPage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useAuth();
+  // which of the buyer's carts is being checked out (null = main cart)
+  const cartId = useSelector((state: RootState) => state.cart.cartId);
+  const [cartInfo, setCartInfo] = useState<{ id: string; name: string; address_id: string | null } | null>(null);
   const cannotOrder =
     user?.role === "SUBACCOUNT" && !user?.permissions?.can_place_order;
 
@@ -47,7 +50,9 @@ export const CheckoutPage = () => {
     if (codes.length) q.set("promo", codes.join(","));
     for (const [companyId, m] of Object.entries(methods)) q.set(`pm_${companyId}`, m);
     if (addressRef.current) q.set("address_id", addressRef.current); // state rules (tobacco tax, bans) follow the delivery address
+    if (cartId) q.set("cart", cartId);
     const res = await apiClient.get(`/orders/checkout-summary?${q}`);
+    if (res.data.cart) setCartInfo({ id: String(res.data.cart.id), name: res.data.cart.name, address_id: res.data.cart.address_id ? String(res.data.cart.address_id) : null });
     setCartItems(res.data.items || []);
     setGroups(res.data.groups || []);
     setPromoErrors(res.data.promoErrors || []);
@@ -61,16 +66,18 @@ export const CheckoutPage = () => {
       total: Number(res.data.total || 0),
     });
     return res.data;
-  }, []);
+  }, [cartId]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [addrRes] = await Promise.all([apiClient.get("/address"), loadSummary([], {})]);
+        const [addrRes, summary] = await Promise.all([apiClient.get("/address"), loadSummary([], {})]);
         const addressList = addrRes.data.data || [];
         setAddresses(addressList);
+        // a cart can have its own delivery address (e.g. one cart per store location)
+        const cartAddr = summary?.cart?.address_id ? String(summary.cart.address_id) : null;
         const defaultAddr =
-          addressList.find((a: any) => a.is_default) || addressList[0];
+          addressList.find((a: any) => cartAddr && String(a.id) === cartAddr) || addressList.find((a: any) => a.is_default) || addressList[0];
         if (defaultAddr) setSelectedAddressId(String(defaultAddr.id));
       } catch (err) {
         console.error("Error loading checkout data", err);
@@ -142,6 +149,7 @@ export const CheckoutPage = () => {
     setIsPlacingOrder(true);
     try {
       await apiClient.post("/orders/checkout", {
+        cart_id: cartId || undefined,
         shipping_address_id: selectedAddressId,
         billing_address_id: selectedAddressId,
         business_name: user?.businessName || "",
@@ -149,6 +157,7 @@ export const CheckoutPage = () => {
         payment_methods: Object.fromEntries(groups.filter((g: any) => g.company).map((g: any) => [String(g.company.id), g.payment_method])),
       });
       dispatch(clearCart());
+      dispatch(fetchCart(cartId));
       toast.success(
         groups.length > 1 ? `${groups.length} orders placed, one per seller` : "Order placed successfully!",
       );
@@ -174,7 +183,10 @@ export const CheckoutPage = () => {
         <div className="p-3 bg-blue-600 rounded-2xl text-white">
           <ShoppingBag size={24} />
         </div>
-        <h1 className="text-4xl font-black text-gray-900 dark:text-white">Secure Checkout</h1>
+        <div>
+          <h1 className="text-4xl font-black text-gray-900 dark:text-white">Secure Checkout</h1>
+          {cartInfo && cartId && <p className="text-sm text-gray-500 mt-1">Checking out the cart <b>{cartInfo.name}</b></p>}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">

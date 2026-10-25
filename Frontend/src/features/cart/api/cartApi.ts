@@ -45,11 +45,17 @@ export async function deleteSavedCart(id: string | number) {
 }
 
 // Copies a saved template's items into the active cart.
-export async function restoreSavedCart(id: string | number) {
+export async function restoreSavedCart(id: string | number, cartId?: string | null) {
   try {
-    const { data } = await apiClient.post(`/cart/saved-cart-templates/${id}/restore`);
+    const { data } = await apiClient.post(`/cart/saved-cart-templates/${id}/restore`, { cart_id: cartId || undefined });
     return data;
   } catch (err) {
     throw errMsg(err, "Failed to restore template");
   }
+}
+
+/** Share a saved cart with your team (account owner and sub-accounts), or stop sharing it. */
+export async function shareSavedCart(id: string | number, shared: boolean) {
+  const { data } = await apiClient.patch(`/cart/saved-cart-templates/${id}`, { shared_with_team: shared });
+  return data;
 }

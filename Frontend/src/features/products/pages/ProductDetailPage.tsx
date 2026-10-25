@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { TriangleAlert, Plus, Minus, Lock, ArrowLeft, Info } from "lucide-react";
+import { TriangleAlert, Plus, Minus, Lock, ArrowLeft, Info, BellRing } from "lucide-react";
+import { buyingApi, buyingError } from "../../account/api/buying.api";
+import { toast } from "sonner";
 import { useProductDetail } from "../hooks/useProductDetails";
 import { useAuth } from "../../auth/context/AuthContext";
 import { AddToCartButton } from "../components/AddToCartButton";
@@ -30,6 +32,30 @@ const optionValue = (v: ProductVariant, key: string) => v.options.find((o) => o.
 const allowedQty = (q: number, min: number, step: number) => {
   const atLeast = Math.max(q, min, 1);
   return Math.ceil(atLeast / step) * step;
+};
+
+/** "Notify me when it's back": a back-in-stock alert for the signed-in buyer. */
+const NotifyMeButton: React.FC<{ productId: number | string; flavor?: string | null }> = ({ productId, flavor }) => {
+  const [state, setState] = useState<"idle" | "busy" | "done">("idle");
+  useEffect(() => setState("idle"), [productId, flavor]);
+  return (
+    <button
+      disabled={state !== "idle"}
+      onClick={async () => {
+        setState("busy");
+        try {
+          toast.success((await buyingApi.createAlert(productId, flavor)).message);
+          setState("done");
+        } catch (e) {
+          toast.error(buyingError(e));
+          setState("idle");
+        }
+      }}
+      className="w-full flex items-center justify-center gap-2 border border-gray-300 bg-white text-gray-800 py-3 rounded font-semibold hover:bg-gray-50 disabled:opacity-60"
+    >
+      <BellRing size={16} /> {state === "done" ? "We'll email you when it's back" : state === "busy" ? "Saving…" : "Notify me when it's back"}
+    </button>
+  );
 };
 
 export const ProductDetailPage: React.FC = () => {
@@ -104,6 +130,9 @@ export const ProductDetailPage: React.FC = () => {
 
   // Stock limit for what's being added: the chosen variant's stock when the seller tracks stock per variant.
   const limit = product.flavor_stock && variantKey ? product.flavor_stock[variantKey] ?? 0 : product.available;
+  // pre-orders: stock already on order from the seller's suppliers that buyers may reserve
+  const incoming = (product as any).allow_preorder ? Number((product as any).incoming_stock?.[variantKey || ""] || 0) : 0;
+  const expected = (product as any).expected_date as string | null | undefined;
   const priceSource = variant && variant.price != null ? variant : product;
   const regulated = !!(product as any).compliance_category && (product as any).compliance_category !== "none";
 
@@ -345,7 +374,7 @@ export const ProductDetailPage: React.FC = () => {
                       </button>
                       <span className="text-xl font-black min-w-8 text-center text-gray-900">{quantity}</span>
                       <button
-                        onClick={() => setQuantity(limit != null ? Math.min(Math.max(quantity, Math.floor(limit / step) * step), quantity + step) : quantity + step)}
+                        onClick={() => { const cap = limit != null ? Math.max(0, limit) + incoming : null; setQuantity(cap != null ? Math.min(Math.max(quantity, Math.floor(cap / step) * step), quantity + step) : quantity + step); }}
                         className="w-10 h-10 flex items-center justify-center bg-white border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors shadow-sm"
                         aria-label="More"
                       >
@@ -356,15 +385,24 @@ export const ProductDetailPage: React.FC = () => {
 
                   {unavailableReason ? (
                     <div className="w-full text-center bg-gray-100 text-gray-500 py-3 rounded font-semibold">{unavailableReason}</div>
-                  ) : product.stock_status === "out_of_stock" || (limit != null && limit <= 0) ? (
-                    <div className="w-full text-center bg-gray-100 text-gray-500 py-3 rounded font-semibold">
-                      {product.stock_status !== "out_of_stock" && variantKey ? `${variant?.name || variantKey} is out of stock` : "Out of stock"}
+                  ) : (product.stock_status === "out_of_stock" || (limit != null && limit <= 0)) && incoming <= 0 ? (
+                    <div className="space-y-2">
+                      <div className="w-full text-center bg-gray-100 text-gray-500 py-3 rounded font-semibold">
+                        {product.stock_status !== "out_of_stock" && variantKey ? `${variant?.name || variantKey} is out of stock` : "Out of stock"}
+                      </div>
+                      <NotifyMeButton productId={product.id} flavor={variantKey} />
                     </div>
                   ) : (
                     <>
-                      {limit != null && (
+                      {limit != null && limit > 0 && (
                         <p className={`text-sm font-semibold ${limit <= 10 ? "text-amber-700" : "text-green-700"}`}>
                           {limit} available{variantKey && product.flavor_stock ? ` in ${variant?.name || variantKey}` : ""}
+                          {incoming > 0 && <span className="text-blue-700"> · {incoming} more arriving{expected ? ` around ${new Date(expected).toLocaleDateString()}` : ""}</span>}
+                        </p>
+                      )}
+                      {(limit == null || limit <= 0) && incoming > 0 && (
+                        <p className="text-sm font-semibold text-blue-700 bg-blue-50 rounded-lg px-3 py-2">
+                          Pre-order: {incoming} on the way{expected ? `, expected around ${new Date(expected).toLocaleDateString()}` : ""}. Your order ships when it arrives.
                         </p>
                       )}
                       <AddToCartButton productId={Number(product.id)} quantity={quantity} flavor={variantKey} />
