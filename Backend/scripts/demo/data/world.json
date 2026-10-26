@@ -1,0 +1,72 @@
+{
+ "demo": {
+  "supplier": "demo@meridian-trade.example.com",
+  "buyer": "demo@corner-market.example.com",
+  "password": "DemoPass2026!"
+ },
+ "companies": {
+  "meridian": {
+   "id": "5000000",
+   "name": "Meridian Trade Co.",
+   "products": 113
+  },
+  "harbor": {
+   "id": "5000001",
+   "name": "Harbor Beauty Supply",
+   "products": 22
+  },
+  "voltedge": {
+   "id": "5000002",
+   "name": "VoltEdge Electronics",
+   "products": 15
+  },
+  "roadready": {
+   "id": "5000003",
+   "name": "RoadReady Auto Supply",
+   "products": 16
+  },
+  "urbanthread": {
+   "id": "5000004",
+   "name": "Urban Thread Wholesale",
+   "products": 20
+  },
+  "paperline": {
+   "id": "5000005",
+   "name": "Paperline Office Supply",
+   "products": 18
+  },
+  "pawpantry": {
+   "id": "5000006",
+   "name": "PawPantry Pet Wholesale",
+   "products": 14
+  },
+  "funfactory": {
+   "id": "5000007",
+   "name": "FunFactory Toys & Party",
+   "products": 15
+  },
+  "summit": {
+   "id": "5000008",
+   "name": "Summit Candy & Snack",
+   "products": 14
+  },
+  "cloudnine": {
+   "id": "5000009",
+   "name": "Cloud Nine Distribution",
+   "products": 12
+  },
+  "maisonlumen": {
+   "id": "5000010",
+   "name": "Maison Lumen Fragrances",
+   "products": 7
+  }
+ },
+ "products": 266,
+ "buyers": 45,
+ "stats": {
+  "soft": 416,
+  "orders": 2008
+ },
+ "generated_at": "2026-10-26T16:35:53.743Z",
+ "t0": "2025-10-25T00:00:00.000Z"
+}

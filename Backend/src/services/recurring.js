@@ -185,7 +185,10 @@ const runDue = async () => {
     const out = [];
     for (const { id } of due) {
       const ro = await tx.recurring_orders.findUnique({ where: { id } });
-      await tx.recurring_orders.update({ where: { id }, data: { next_run_on: nextAfter(ro.frequency, ro.day_of_month, ro.next_run_on), skip_next: false, last_run_at: new Date(), updated_at: new Date() } });
+      // run once, then jump to the next date still ahead (missed runs, e.g. after downtime, are not replayed)
+      let next = nextAfter(ro.frequency, ro.day_of_month, ro.next_run_on);
+      for (let i = 0; i < 520 && next <= dateOnly(today()); i++) next = nextAfter(ro.frequency, ro.day_of_month, next);
+      await tx.recurring_orders.update({ where: { id }, data: { next_run_on: next, skip_next: false, last_run_at: new Date(), updated_at: new Date() } });
       out.push(ro);
     }
     return out;

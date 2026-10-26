@@ -749,3 +749,22 @@ Nothing to migrate. Deploy backend and frontend; the site keeps looking as befor
 
 ### Later
 Site name / logo, footer, FAQ and About pages (the footer still has the old vape text and nicotine line).
+
+## Demo marketplace data
+
+`npm run demo:data` (in `Backend`) adds an invented but complete marketplace to show people: 10 more categories with sub-categories, 11 sellers and their storefronts, 266 products with pictures, 45 buyer businesses, and a year of activity through every module (orders, invoices, payments, quotes, RFQs, returns, reviews, purchasing, stock, accounting, HR, attendance, leave and monthly payroll). The showcase seller is **Meridian Trade Co.**, the showcase buyer **Corner Market & Deli**.
+
+The year was recorded by driving the real API with a simulated clock (`scripts/demo/generate.js`, test-only), then saved to `scripts/demo/data/demo-data.json.gz`. Loading it only inserts rows; it never changes your own data.
+
+| Command | What it does |
+|---|---|
+| `npm run demo:data` | Preview: checks the database is ready, changes nothing |
+| `npm run demo:data -- --apply` | Adds the demo in one transaction (all or nothing) |
+| `npm run demo:data -- --undo` | Removes every demo row, plus anything made on demo accounts afterwards |
+| `npm run demo:data -- --reset` | Puts the demo back as it was (e.g. after visitors used it), in one transaction |
+
+- Demo rows use ids from 5,000,000 up, so they never mix with real ones.
+- Pictures go to Supabase storage (`site-assets/demo/...`) when `SUPABASE_URL` is set; otherwise they're copied to `Frontend/public/demo`.
+- Needs all migrations (001–013) applied first; the preview says so if not.
+- Demo log-ins all use the password `DemoPass2026!`; the apply step prints the list.
+- Recurring orders that are due when the demo is loaded are moved to their next date, so nothing fires the moment it's loaded.

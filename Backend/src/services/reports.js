@@ -221,8 +221,8 @@ const periodFor = (frequency, now = new Date(), tz = "UTC") => {
   if (frequency === "weekly") return { from: hr.addDays(today, -7), to: yesterday };
   const [y, m] = today.split("-").map(Number);
   const prev = new Date(Date.UTC(y, m - 2, 1));
-  const ym = prev.toISOString().slice(0, 7);
-  return hr.monthBounds(ym);
+  const { start, end } = hr.monthBounds(prev.toISOString().slice(0, 7));
+  return { from: start, to: end };
 };
 
 // UTC instant of a local wall-clock time in a time zone.

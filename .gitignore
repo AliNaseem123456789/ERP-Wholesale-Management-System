@@ -28,3 +28,12 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Demo pictures copied here by `npm run demo:data -- --apply` when Supabase isn't set up
+Frontend/public/demo/
+
+# Safety snapshots written by the database scripts
+Backend/before-*.json
+
+# Rendered demo pictures (packed into scripts/demo/data/images.pack.gz)
+Backend/scripts/demo/images/
