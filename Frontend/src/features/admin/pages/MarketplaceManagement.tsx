@@ -11,7 +11,6 @@ import { ChipSelect, ImageField } from "../../business/components/pickers";
 import { CollectionForm, draftOf, liveLabel } from "../../business/pages/CollectionsPage";
 
 type Opt = { id: number | string; name: string; slug: string };
-const NAV_TYPES = [["link", "Page or web address"], ["category", "Category"], ["brand", "Brand"], ["company", "Supplier"], ["collection", "Platform collection"]] as const;
 
 const moveIn = <T,>(a: T[], i: number, d: number) => {
   const n = [...a]; const j = i + d;
@@ -103,9 +102,8 @@ export const MarketplaceManagement: React.FC = () => {
   const set = (patch: Partial<MarketplaceSettings>) => setS({ ...s, ...patch });
   const save = async () => {
     setSaving(true);
-    try { const r = await adminCatalogApi.saveMarketplace(s); setS(r.data); toast.success(r.message); } catch (e) { toast.error(errorMessage(e)); } finally { setSaving(false); }
+    try { const { nav, ...rest } = s; void nav; const r = await adminCatalogApi.saveMarketplace(rest); setS(r.data); toast.success(r.message); } catch (e) { toast.error(errorMessage(e)); } finally { setSaving(false); }
   };
-  const refOptions = (t: string): Opt[] => (t === "category" ? opts.categories : t === "brand" ? opts.brands : t === "company" ? opts.companies : t === "collection" ? opts.collections : []);
 
   return (
     <div className="space-y-6">
@@ -117,35 +115,7 @@ export const MarketplaceManagement: React.FC = () => {
         <button onClick={save} disabled={saving} className={btnPrimary}>{saving ? "Saving…" : "Save marketplace settings"}</button>
       </div>
 
-      <Card className="p-5">
-        <h3 className="font-bold text-gray-900">Top menu</h3>
-        <p className="text-sm text-gray-500 mb-3">Shown in the dark bar under the header, before the classic category menu. Up to 12 items.</p>
-        <div className="space-y-2">
-          {s.nav.map((n, i) => (
-            <div key={i} className="grid grid-cols-1 md:grid-cols-[1fr_180px_1fr_auto] gap-2 items-center">
-              <input className={inputCls} value={n.label} maxLength={40} placeholder="Label" aria-label="Menu label" onChange={(e) => set({ nav: s.nav.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) })} />
-              <select className={inputCls} value={n.type} aria-label="Goes to" onChange={(e) => set({ nav: s.nav.map((x, j) => (j === i ? { ...x, type: e.target.value as any, ref: "" } : x)) })}>
-                {NAV_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
-              {n.type === "link" ? (
-                <input className={inputCls} value={n.ref} placeholder="/products?featured=1 or https://…" aria-label="Address" onChange={(e) => set({ nav: s.nav.map((x, j) => (j === i ? { ...x, ref: e.target.value } : x)) })} />
-              ) : (
-                <select className={inputCls} value={n.ref} aria-label="Destination" onChange={(e) => set({ nav: s.nav.map((x, j) => (j === i ? { ...x, ref: e.target.value } : x)) })}>
-                  <option value="">Choose…</option>
-                  {refOptions(n.type).map((o) => <option key={o.id} value={o.slug}>{o.name}</option>)}
-                  {n.ref && !refOptions(n.type).some((o) => o.slug === n.ref) && <option value={n.ref}>{n.ref}</option>}
-                </select>
-              )}
-              <div className="flex gap-1">
-                <button onClick={() => set({ nav: moveIn(s.nav, i, -1) })} className="p-1.5 text-gray-400 hover:text-gray-800" aria-label="Move up"><ArrowUp size={16} /></button>
-                <button onClick={() => set({ nav: moveIn(s.nav, i, 1) })} className="p-1.5 text-gray-400 hover:text-gray-800" aria-label="Move down"><ArrowDown size={16} /></button>
-                <button onClick={() => set({ nav: s.nav.filter((_, j) => j !== i) })} className="p-1.5 text-gray-400 hover:text-red-600" aria-label="Remove"><Trash2 size={16} /></button>
-              </div>
-            </div>
-          ))}
-          {s.nav.length < 12 && <button onClick={() => set({ nav: [...s.nav, { label: "", type: "link", ref: "" }] })} className={btnSecondary}><Plus size={14} /> Add menu item</button>}
-        </div>
-      </Card>
+      <p className="text-sm text-gray-500 bg-white border border-gray-200 rounded-xl px-4 py-3">The top menu, hero, notices and homepage layout are under <b>Site</b>.</p>
 
       <Card className="p-5 space-y-4">
         <div>

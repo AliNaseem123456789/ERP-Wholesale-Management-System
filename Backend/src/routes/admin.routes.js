@@ -13,6 +13,7 @@ router.get("/settings", a.getSiteSettings);
 
 // Everything below requires an admin.
 router.use(verifyTokenFromCookie, requireAdmin);
+router.use(["/categories", "/attribute-templates"], require("../services/siteNav").onCategoryChange);
 
 router.get("/kpis", a.kpis);
 // run the background jobs now (they also run on their own schedule)
@@ -25,6 +26,21 @@ router.post("/jobs/:job", async (req, res) => {
   if (req.params.job === "quote-reminders") return res.json({ message: `${await require("../services/quoteFlow").quoteReminders()} quote reminder(s) sent` });
   res.status(404).json({ message: "Unknown job" });
 });
+// site content: menu, hero, notices, homepage, look
+const site = require("../controllers/adminSite.controller");
+router.get("/site", site.getSite);
+router.put("/site/nav", site.saveNav);
+router.post("/site/nav/preview", site.previewNav);
+router.put("/site/hero", site.saveHero);
+router.post("/site/hero/reset", site.resetHero);
+router.put("/site/notices", site.saveNotices);
+router.put("/site/appearance", site.saveAppearance);
+router.put("/site/homepage", site.saveHomepage);
+router.post("/site/homepage/publish", site.publishHomepage);
+router.post("/site/homepage/reset", site.resetHomepage);
+router.post("/site/homepage/versions/:index/restore", site.restoreHomepage);
+router.post("/site/images", upload.single("image"), site.uploadImage);
+
 // platform commission, review moderation, problem reports
 const ins = require("../controllers/insights.controller");
 router.get("/commission", ins.adminCommission);

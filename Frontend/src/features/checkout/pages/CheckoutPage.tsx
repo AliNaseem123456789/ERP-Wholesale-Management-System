@@ -16,6 +16,7 @@ import { apiClient } from "../../../api/apiClient";
 import { clearCart, fetchCart } from "../../cart/redux/cartSlice";
 import { AppDispatch, RootState } from "../../../app/store";
 import { useAuth } from "../../auth/context/AuthContext";
+import { Notices } from "../../site/widgets";
 import { useSeo } from "../../insights/seo";
 
 export const CheckoutPage = () => {
@@ -394,6 +395,7 @@ export const CheckoutPage = () => {
               </div>
             </div>
 
+            <Notices productIds={cartItems.map((i: any) => i.product_id)} where="checkout" className="mt-6" />
             {cannotOrder && (
               <p className="mt-6 text-sm font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">
                 Your account owner hasn't enabled ordering for you yet.

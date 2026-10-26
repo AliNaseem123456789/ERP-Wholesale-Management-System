@@ -13,10 +13,62 @@ const include = { companies: { select: { id: true, name: true, slug: true, logo_
 
 const navHref = (n) => ({ category: `/categories/${n.ref}`, brand: `/brands/${n.ref}`, company: `/companies/${n.ref}`, collection: `/collections/${n.ref}`, link: n.ref }[n.type]);
 
-// GET /marketplace/settings -> navigation and banners for the header / homepage
+// GET /marketplace/settings -> what every page needs: the menu, the look, the announcement bar, homepage banners
 const settings = async (req, res) => {
   const s = await getMarketplaceSettings();
-  res.json({ data: { nav: s.nav.map((n) => ({ label: n.label, href: navHref(n), external: n.type === "link" && /^https?:/.test(n.ref) })), banners: s.banners } });
+  const content = require("../services/siteContent");
+  const [nav, appearance, announcement] = await Promise.all([require("../services/siteNav").publicNav(), content.getAppearance(), content.barFor(req)]);
+  res.json({ data: { nav, banners: s.banners, appearance, announcement } });
+};
+
+// GET /marketplace/homepage -> the published homepage sections (?preview=draft for platform admins)
+const homepage = async (req, res) => {
+  const hp = require("../services/homepage");
+  const draft = req.query.preview === "draft" && req.user?.role === "ADMIN";
+  const cfg = draft ? await hp.draftConfig() : await hp.publishedConfig();
+  res.json({ data: { sections: await hp.render(req, cfg), preview: draft } });
+};
+
+// GET /marketplace/suggest?q -> search suggestions as you type: products, categories, brands, suppliers
+const suggest = async (req, res) => {
+  const q = String(req.query.q || "").trim().slice(0, 80);
+  if (q.length < 2) return res.json({ data: { products: [], categories: [], brands: [], companies: [] } });
+  const pw = publicWhere(req);
+  const like = { contains: q, mode: "insensitive" };
+  const [products, cats, brands, companies] = await Promise.all([
+    prisma.products.findMany({ where: { ...pw, OR: [{ title: like }, { brand: like }, { sku: like }] }, include, orderBy: [{ is_featured: "desc" }, { title: "asc" }], take: 6 }),
+    mk.activeCategories(),
+    prisma.brands.findMany({ where: { name: like, slug: { not: null }, products: { some: pw } }, select: { id: true, name: true, slug: true, logo_url: true }, orderBy: { name: "asc" }, take: 5 }),
+    prisma.companies.findMany({ where: { ...liveCompany, name: like }, select: { id: true, name: true, slug: true, logo_url: true, city: true }, orderBy: { name: "asc" }, take: 4 }),
+  ]);
+  const { withMainImage } = require("../services/catalog");
+  const shaped = products.map(forViewer(req));
+  await withMainImage(shaped);
+  const ql = q.toLowerCase();
+  const byId = new Map(cats.map((c) => [String(c.id), c]));
+  res.json({
+    data: {
+      products: shaped.map((p) => ({ id: p.id, slug: p.slug, title: p.title, brand: p.brand, image: p.image || null, company: p.company?.name || null })),
+      categories: cats.filter((c) => c.name.toLowerCase().includes(ql)).slice(0, 5).map((c) => ({ id: c.id, name: c.name, slug: c.slug, parent: c.parent_id ? byId.get(String(c.parent_id))?.name || null : null })),
+      brands, companies,
+    },
+  });
+};
+
+// GET /marketplace/notices?product_ids=1,2&category=slug&where=product|category|checkout -> notices to show (e.g. a nicotine warning)
+const notices = async (req, res) => {
+  const where = ["product", "category", "checkout"].includes(req.query.where) ? req.query.where : "product";
+  const catIds = [];
+  if (req.query.category) {
+    const c = (await mk.activeCategories()).find((x) => x.slug === String(req.query.category).toLowerCase());
+    if (c) catIds.push(String(c.id));
+  }
+  const pids = String(req.query.product_ids || "").split(",").filter((x) => /^\d+$/.test(x)).slice(0, 100);
+  if (pids.length) {
+    const links = await prisma.product_categories.findMany({ where: { product_id: { in: pids.map((x) => BigInt(x)) } }, select: { category_id: true } });
+    catIds.push(...links.map((l) => String(l.category_id)));
+  }
+  res.json({ data: await require("../services/siteContent").noticesForCategories([...new Set(catIds)], where) });
 };
 
 const byIdsInOrder = (rows, ids) => {
@@ -276,4 +328,4 @@ const dealCodes = async (req, res) => {
   });
 };
 
-module.exports = { track, dealCodes, storefrontPayload, settings, home, products, categories, category, brands, brand, companies, company, companyProducts, companyCollection, collection, publicCompany };
+module.exports = { homepage, suggest, notices, track, dealCodes, storefrontPayload, settings, home, products, categories, category, brands, brand, companies, company, companyProducts, companyCollection, collection, publicCompany };

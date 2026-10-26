@@ -174,7 +174,8 @@ export const CatalogBrowser: React.FC<{
 
   return (
     <div>
-      <div className="flex flex-wrap gap-2 items-center mb-4">
+      {/* on phones the search / filter / sort bar stays at the top while scrolling */}
+      <div className="flex flex-wrap gap-2 items-center mb-4 sticky top-14 z-30 -mx-4 px-4 py-2 bg-gray-50/95 backdrop-blur md:static md:mx-0 md:px-0 md:py-0 md:bg-transparent md:backdrop-blur-none">
         <form onSubmit={(e) => { e.preventDefault(); set("q", q.trim() || null); }} className="relative flex-1 min-w-[220px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
           <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={placeholder} aria-label="Search"
@@ -202,7 +203,7 @@ export const CatalogBrowser: React.FC<{
 
       <div className="grid lg:grid-cols-[230px_1fr] gap-6">
         <aside className="hidden lg:block">
-          <div className="bg-white rounded-2xl border border-gray-200 p-4 sticky top-28">{panel || <p className="text-sm text-gray-400">…</p>}</div>
+          <div className="bg-white rounded-2xl border border-gray-200 p-4 sticky top-32 max-h-[calc(100vh-9rem)] overflow-y-auto overscroll-contain">{panel || <p className="text-sm text-gray-400">…</p>}</div>
         </aside>
         <div>
           {error ? <Empty title="Couldn't load products" text={error} /> : !result ? <Loading /> : (

@@ -2,7 +2,11 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Product } from "../types/product.types"; // Use standard Product
 import { useAuth } from "../../auth/context/AuthContext";
-import { Lock } from "lucide-react";
+import { Lock, GitCompareArrows, Check } from "lucide-react";
+import { toast } from "sonner";
+import { ProductImage } from "./ProductImage";
+import { useLook } from "../../site/SiteContext";
+import { useCompare, COMPARE_MAX } from "../../site/browserLists";
 import { productImage } from "../utils/getProductImage";
 import QuickOrderModal from "../../../app/components/home/QuickOrderModal";
 import { RatingBadge, SaleBadge } from "../../insights/components";
@@ -17,6 +21,9 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickOrder }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [quickOpen, setQuickOpen] = useState(false);
+  const look = useLook();
+  const compare = useCompare();
+  const comparing = compare.has(product.id);
 
   return (
     <div className="group border rounded bg-white p-3 hover:shadow-md transition-shadow">
@@ -50,17 +57,22 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickOrder }) => {
           </span>
         )}
         {product.sale && <SaleBadge sale={product.sale} className="absolute top-2 right-2 z-10" />}
-        <img
-          src={productImage(product)}
-          alt={product.title}
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = "/placeholder-image.png";
+        <ProductImage product={product} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!compare.toggle(product.id)) toast.error(`You can compare up to ${COMPARE_MAX} products. Remove one first.`);
           }}
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-        />
+          aria-pressed={comparing}
+          title={comparing ? "Remove from compare" : "Add to compare"}
+          className={`absolute bottom-2 right-2 z-10 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold shadow transition-opacity ${comparing ? "bg-blue-600 text-white opacity-100" : "bg-white/90 text-gray-700 opacity-100 md:opacity-0 md:group-hover:opacity-100"}`}
+        >
+          {comparing ? <Check size={11} /> : <GitCompareArrows size={11} />} {comparing ? "Comparing" : "Compare"}
+        </button>
       </div>
 
-      <p className="text-xs text-cyan-500 uppercase font-bold mt-2">
+      <p className={`text-xs uppercase font-bold mt-2 ${look.cardBrand}`}>
         {product.brand}
       </p>
       <h3 className="text-sm font-bold line-clamp-1">{product.title}</h3>
@@ -78,13 +90,13 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickOrder }) => {
       <div className="grid grid-cols-2 gap-2 mt-2">
         <button
           onClick={() => navigate(`/product/${product.slug || product.id}`)}
-          className="bg-cyan-500 text-white text-xs py-1 rounded hover:bg-cyan-600 transition-colors"
+          className={`text-xs py-1 rounded transition-colors ${look.cardView}`}
         >
           View
         </button>
         <button
           onClick={() => (onQuickOrder ? onQuickOrder(product) : setQuickOpen(true))}
-          className="bg-pink-500 text-white text-xs py-1 rounded hover:bg-pink-600 transition-colors"
+          className={`text-xs py-1 rounded transition-colors ${look.cardQuick}`}
         >
           Quick Order
         </button>

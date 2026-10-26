@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Users, Package, LayoutDashboard, Settings, Building2, Tags, Mail, Gauge, FolderTree, ListChecks, Store, Percent, Star, Flag } from "lucide-react";
+import { Users, Package, LayoutDashboard, Settings, Building2, Tags, Mail, Gauge, FolderTree, ListChecks, Store, Percent, Star, Flag, LayoutTemplate } from "lucide-react";
 import { AdminOverview } from "./AdminOverview";
 import { UserManagement } from "./UserManagement";
 import { ProductManagement } from "./ProductManagement";
@@ -11,9 +11,10 @@ import { EmailsManagement } from "./EmailsManagement";
 import { CategoriesManagement } from "./CategoriesManagement";
 import { AttributesManagement } from "./AttributesManagement";
 import { MarketplaceManagement } from "./MarketplaceManagement";
+import { SiteManagement } from "./SiteManagement";
 import { CommissionManagement, ReviewsModeration, ReportsQueue } from "./TrustManagement";
 import { useSeo } from "../../insights/seo";
-type AdminTab = "overview" | "marketplace" | "commission" | "reviews" | "reports" | "companies" | "brands" | "categories" | "attributes" | "users" | "products" | "features" | "emails";
+type AdminTab = "overview" | "site" | "marketplace" | "commission" | "reviews" | "reports" | "companies" | "brands" | "categories" | "attributes" | "users" | "products" | "features" | "emails";
 
 export const AdminDashboard = () => {
   useSeo({ title: "Platform admin", noindex: true });
@@ -23,6 +24,7 @@ export const AdminDashboard = () => {
   const setActiveTab = (t: AdminTab) => { setActiveTabState(t); setParams(t === "overview" ? {} : { tab: t }, { replace: true }); };
   const tabs = [
     { id: "overview", label: "Overview", icon: Gauge },
+    { id: "site", label: "Site", icon: LayoutTemplate },
     { id: "marketplace", label: "Marketplace", icon: Store },
     { id: "companies", label: "Companies", icon: Building2 },
     { id: "commission", label: "Commission", icon: Percent },
@@ -73,6 +75,7 @@ export const AdminDashboard = () => {
       <main className="p-6">
         <div className="max-w-7xl mx-auto">
           {activeTab === "overview" && <AdminOverview />}
+          {activeTab === "site" && <SiteManagement />}
           {activeTab === "marketplace" && <MarketplaceManagement />}
           {activeTab === "companies" && <CompaniesManagement />}
           {activeTab === "commission" && <CommissionManagement />}

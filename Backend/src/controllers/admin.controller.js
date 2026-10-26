@@ -284,8 +284,9 @@ const updateFeatureSection = async (req, res) => {
   console.log("[updateFeatureSection] done key=%s image=%s link=%s", slotKey, imageUrl ?? "(none)", link || "(empty)");
   res.status(200).json({ message: "Feature updated", url: imageUrl });
 };
+// Public (the homepage reads its feature tiles here): only the feature tiles, never drafts or other settings.
 const getSiteSettings = async (req, res) => {
-  const data = await prisma.site_settings.findMany();
+  const data = await prisma.site_settings.findMany({ where: { key: { startsWith: "feature_" } } });
   res.status(200).json(data);
 };
 

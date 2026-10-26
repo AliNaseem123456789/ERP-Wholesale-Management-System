@@ -90,6 +90,7 @@ router.get("/products/:id/variants", perm("products.view", "inventory.view"), pr
 router.put("/products/:id/variants", perm("products.manage", "inventory.manage"), products.saveVariants);
 router.get("/products/:id/attributes", perm("products.view"), products.getProductAttributes);
 router.put("/products/:id/attributes", perm("products.manage"), products.saveProductAttributes);
+router.use("/categories", require("../services/siteNav").onCategoryChange);
 router.get("/categories", perm("products.view"), products.listCategories);
 router.post("/categories", perm("products.manage"), products.createCategory);
 router.get("/attributes", perm("products.view"), products.listAttributes);

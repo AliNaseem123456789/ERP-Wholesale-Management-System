@@ -412,9 +412,11 @@ const getMarketplace = async (req, res) => {
 
 // PUT /admin/marketplace { nav, featured, banners, storefront }
 const saveMarketplace = async (req, res) => {
-  const value = await mset.sanitizeSettings(req.body);
+  // the menu is edited in Admin → Site; saving these settings keeps it unless a menu is sent
+  const value = await mset.sanitizeSettings({ ...req.body, nav: req.body.nav !== undefined ? req.body.nav : (await mset.getMarketplaceSettings()).nav });
   await mset.saveMarketplaceSettings(value);
-  await audit(req, "admin.marketplace", { entity: "site_settings", changes: { nav: value.nav.length, banners: value.banners.length } });
+  await audit(req, "admin.marketplace", { entity: "site_settings", changes: { nav: value.nav ? value.nav.length : "default", banners: value.banners.length } });
+  require("../services/siteNav").clearNavCache();
   res.json({ message: "Marketplace settings saved", data: value });
 };
 

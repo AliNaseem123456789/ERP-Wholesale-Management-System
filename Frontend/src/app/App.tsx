@@ -39,6 +39,8 @@ import { AcceptInvitePage } from "../features/auth/pages/AcceptInvitePage";
 import { VerifyEmailBanner } from "../features/auth/components/VerifyEmailBanner";
 import { DealsPage, ProductsPage as MarketProducts, CategoriesPage, CategoryPage, BrandsPage, BrandPage, CompaniesDirectoryPage } from "../features/marketplace/pages";
 import { StorefrontPage, CollectionPage } from "../features/marketplace/storefront";
+import { ComparePage } from "../features/site/ComparePage";
+import { BackToTop, CompareBar } from "../features/site/widgets";
 import { BusinessLayout } from "../features/business/pages/BusinessLayout";
 import { DashboardPage as BusinessDashboard } from "../features/business/pages/DashboardPage";
 import { OrdersPage as BusinessOrders } from "../features/business/pages/OrdersPage";
@@ -161,6 +163,7 @@ function App() {
           <Route path="/brands" element={<BrandsPage />} />
           <Route path="/brands/:slug" element={<BrandPage />} />
           <Route path="/collections/:slug" element={<CollectionPage />} />
+          <Route path="/compare" element={<ComparePage />} />
 
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegistrationPage />} />
@@ -286,6 +289,10 @@ function App() {
       </main>
 
       <Footer />
+      {/* room for the phone bottom bar */}
+      <div className="h-16 md:hidden" aria-hidden="true" />
+      <BackToTop />
+      <CompareBar />
       <Toaster position="top-center" richColors />
       <FloatingChat
         botId="smoking"

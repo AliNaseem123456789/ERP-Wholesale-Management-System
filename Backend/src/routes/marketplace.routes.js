@@ -7,6 +7,9 @@ const router = express.Router();
 router.use(optionalAuth);
 router.get("/settings", m.settings);
 router.get("/home", m.home);
+router.get("/homepage", m.homepage);
+router.get("/suggest", m.suggest);
+router.get("/notices", m.notices);
 router.get("/deals/codes", m.dealCodes);
 // page views and searches for seller analytics (anonymous; repeats within 30 minutes count once)
 router.post("/track", require("express-rate-limit")({ windowMs: 60 * 1000, limit: 120, standardHeaders: "draft-7", legacyHeaders: false, message: { message: "Too many requests" } }), m.track);

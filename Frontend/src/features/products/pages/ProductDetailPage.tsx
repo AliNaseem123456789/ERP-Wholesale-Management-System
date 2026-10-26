@@ -4,6 +4,10 @@ import { TriangleAlert, Plus, Minus, Lock, ArrowLeft, Info, BellRing } from "luc
 import { buyingApi, buyingError } from "../../account/api/buying.api";
 import { track } from "../../insights/api";
 import { useSeo } from "../../insights/seo";
+import { ProductImage } from "../components/ProductImage";
+import { Notices } from "../../site/widgets";
+import { RecentlyViewed } from "../../site/HomeSections";
+import { rememberViewed, useCompare, COMPARE_MAX } from "../../site/browserLists";
 import { ReviewsSection, RatingBadge, ReportButton, SaleBadge } from "../../insights/components";
 import { toast } from "sonner";
 import { useProductDetail } from "../hooks/useProductDetails";
@@ -12,7 +16,6 @@ import { AddToCartButton } from "../components/AddToCartButton";
 import { getProductImage } from "../utils/getProductImage";
 import { ProductVariant } from "../types/product.types";
 
-const PLACEHOLDER_IMAGE = "/product-placeholder.png";
 
 type OptionGroup = { key: string; name: string; values: string[] };
 
@@ -108,7 +111,8 @@ export const ProductDetailPage: React.FC = () => {
 
   // page title / description, and a product view for the seller's analytics
   useSeo(product ? { title: `${product.title}${product.company ? ` | ${product.company.name}` : ""}`, description: (product as any).short_description || product.description || `${product.title} by ${product.brand}`, image: (product as any).image || null, path: `/product/${(product as any).slug || product.id}` } : null);
-  useEffect(() => { if (product?.id) track({ kind: "product", product_id: product.id }); }, [product?.id]);
+  useEffect(() => { if (product?.id) { track({ kind: "product", product_id: product.id }); rememberViewed(product.id); } }, [product?.id]);
+  const compare = useCompare();
 
   if (loading || authLoading) {
     return (
@@ -181,12 +185,7 @@ export const ProductDetailPage: React.FC = () => {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 grid md:grid-cols-2 gap-12">
           <div>
             <div className="aspect-square bg-gray-50 rounded-xl overflow-hidden border border-gray-100 mb-4">
-              <img
-                src={mainImage}
-                alt={gallery[imageIdx]?.alt_text || product.title}
-                onError={(e) => { (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE; }}
-                className="w-full h-full object-cover transition-all duration-500"
-              />
+              <ProductImage key={mainImage} src={mainImage} product={product} alt={gallery[imageIdx]?.alt_text || product.title} className="w-full h-full object-cover transition-all duration-500" />
             </div>
             <div className="flex gap-3 flex-wrap">
               {gallery.length
@@ -221,6 +220,15 @@ export const ProductDetailPage: React.FC = () => {
               <div className="flex flex-wrap items-center gap-3 mb-2">
                 <SaleBadge sale={(product as any).sale} />
                 {(product as any).rating && <a href="#reviews-title"><RatingBadge rating={(product as any).rating} className="text-sm" /></a>}
+                <button
+                  type="button"
+                  onClick={() => { if (!compare.toggle(product.id)) toast.error(`You can compare up to ${COMPARE_MAX} products. Remove one first.`); }}
+                  aria-pressed={compare.has(product.id)}
+                  className={`text-xs font-bold px-2.5 py-1 rounded-full border ${compare.has(product.id) ? "bg-blue-600 border-blue-600 text-white" : "border-gray-300 text-gray-600 hover:border-gray-500"}`}
+                >
+                  {compare.has(product.id) ? "✓ In compare list" : "+ Compare"}
+                </button>
+                {compare.has(product.id) && compare.ids.length > 1 && <Link to="/compare" className="text-xs font-bold text-blue-600 hover:underline">Compare {compare.ids.length} →</Link>}
               </div>
               {(product as any).sale && (
                 <p className="text-sm text-red-700 font-semibold mb-2">
@@ -443,10 +451,12 @@ export const ProductDetailPage: React.FC = () => {
             </div>
           </div>
         </div>
+        <Notices productIds={[product.id]} where="product" className="mt-6" />
         <div className="mt-10 space-y-3">
           <ReviewsSection productId={product.id} companyName={product.company?.name} title="Customer reviews" />
           <div className="text-right"><ReportButton target={{ kind: "listing", product_id: product.id }} label="Report this listing" /></div>
         </div>
+        <div className="mt-10"><RecentlyViewed exclude={product.id} /></div>
       </div>
     </div>
   );

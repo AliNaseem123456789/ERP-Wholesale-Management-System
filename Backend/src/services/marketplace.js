@@ -82,7 +82,12 @@ const buildWhere = async (req, query, { exclude = null } = {}) => {
   if (companies.length && exclude !== "company") and.push({ companies: { is: { slug: { in: companies.map((c) => c.toLowerCase()) } } } });
   if (query.featured === "1" || query.featured === "true") and.push({ is_featured: true });
   if (query.deals === "1" || query.deals === "true") and.push(dealsWhere());
-  if (query.collection) and.push({ collection_products: { some: { collection_id: BigInt(query.collection) } } });
+  if (query.collection) and.push(/^\d+$/.test(String(query.collection)) ? { collection_products: { some: { collection_id: BigInt(query.collection) } } } : { id: -1n });
+  // specific products (recently viewed, compare): ?ids=1,2,3
+  if (query.ids) {
+    const wanted = list(query.ids).filter((x) => /^\d+$/.test(x)).slice(0, 24);
+    and.push(wanted.length ? { id: { in: wanted.map((x) => BigInt(x)) } } : { id: -1n });
+  }
   if (query.in_stock === "1" || query.in_stock === "true") {
     // sellers that don't track stock are always orderable; tracked ones need stock on hand not reserved
     and.push({

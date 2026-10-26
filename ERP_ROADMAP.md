@@ -731,3 +731,21 @@ Database change: `013_category_redirects.sql` (adds `categories.redirect_to` and
 6. Restart the backend.
 
 To put everything back exactly as it was: `npm run categories:tidy -- --undo`.
+
+## Site content (menu, hero, notices, homepage, look)
+
+No database changes: everything is stored as JSON in `site_settings` (keys `marketplace.nav`, `site_hero`, `site_notices`, `site_homepage`, `site_appearance`). Edited under **Admin → Site**.
+
+### What changed
+- **Menu**: editable top menu (categories, brands, suppliers, collections, links or a plain heading), hide / reorder / drag, dropdowns (sub-categories, all categories, or hand-picked links), mega menus with top brands and an optional promo tile, preview before saving, and a phone drawer menu. Until a menu is saved it is built automatically from the categories; the old hard-coded smoke menu is gone.
+- **Hero**: slides with desktop and phone images, text, up to two buttons, audience (everyone / visitors / signed-in buyers), start and end dates; full, split or search layouts.
+- **Notices**: an announcement bar (style, scrolling, audience, dates) and per-category notices on product pages, category pages and checkout. The nicotine warning is now a category notice on Smoking & Vape instead of a site-wide ticker.
+- **Homepage builder**: sections (hero, banners, category tiles, product rows, collections, brands, suppliers, feature tiles, text, why choose us, logo strip, recently viewed), draft → preview → publish, last 10 published versions restorable. Until published, the standard layout is used.
+- **Look**: "Neon" (original) or "Clean" (neutral, light); default light/dark mode and whether buyers can switch.
+- **Buyer UI**: image placeholders, search suggestions while typing, recently viewed (kept in the browser), compare up to 4 products (`/compare`), sticky filters and a filter drawer on phones, back-to-top.
+
+### Deploying
+Nothing to migrate. Deploy backend and frontend; the site keeps looking as before (neon look, automatic menu, standard homepage) until an admin changes something.
+
+### Later
+Site name / logo, footer, FAQ and About pages (the footer still has the old vape text and nicotine line).

@@ -7,7 +7,8 @@ import { useSaveCart } from "../hooks/useSaveCart";
 import { useCartActions } from "../hooks/useCartActions";
 import { fetchCart } from "../redux/cartSlice";
 import { CartSwitcher, useCarts, cartsApi } from "../components/CartSwitcher";
-import { productImage } from "../../products/utils/getProductImage";
+import { ProductImage } from "../../products/components/ProductImage";
+import { Notices } from "../../site/widgets";
 import { toast } from "sonner";
 import { documentsApi, errorText } from "../../account/api/documents.api";
 import {
@@ -23,7 +24,6 @@ import {
 } from "lucide-react";
 import { useSeo } from "../../insights/seo";
 
-const PLACEHOLDER_IMAGE = "/product-placeholder.png";
 
 export const CartPage: React.FC = () => {
   useSeo({ title: "Cart", noindex: true });
@@ -167,15 +167,7 @@ export const CartPage: React.FC = () => {
                 className="bg-white rounded-2xl border border-gray-100 p-5 flex gap-6 shadow-sm hover:shadow-md transition-all group"
               >
                 <div className="w-24 h-24 bg-gray-50 rounded-xl overflow-hidden border border-gray-100 shrink-0">
-                  <img
-                    src={productImage({ id: item.product_id, image: (item.products as any)?.image })}
-                    alt={item.products?.title}
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).src =
-                        PLACEHOLDER_IMAGE;
-                    }}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
+                  <ProductImage product={{ id: item.product_id, image: (item.products as any)?.image, title: item.products?.title, brand: item.products?.brand }} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                 </div>
 
                 <div className="flex-1">
@@ -278,7 +270,8 @@ export const CartPage: React.FC = () => {
               </div>
             ))}
           </div>
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 space-y-4">
+            <Notices productIds={items.map((i) => i.product_id)} where="checkout" />
             <div className="bg-white border border-gray-100 rounded-3xl p-6 sticky top-24 shadow-sm">
               <h2 className="text-xl font-bold mb-6 text-gray-900">
                 Order Summary

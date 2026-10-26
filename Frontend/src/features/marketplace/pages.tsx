@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { Search, ChevronRight, Globe } from "lucide-react";
+import { Notices } from "../site/widgets";
 import { marketplaceApi, CategoryNode, CompanyCardT, SearchResult, Banner } from "./api";
 import { useSeo } from "../insights/seo";
 import { insightsApi, DealCode } from "../insights/api";
@@ -91,6 +92,7 @@ export const CategoryPage: React.FC = () => {
               {info.children.map((c) => <Link key={c.id} to={`/categories/${c.slug}`} className="inline-flex items-center gap-1 bg-white border border-gray-200 rounded-full px-3 py-1 text-sm hover:border-gray-400">{c.name} <ChevronRight size={14} /></Link>)}
             </div>
           )}
+          <Notices category={slug} where="category" className="mt-4" />
           <div className="mt-5">
             <CatalogBrowser
               fetcher={(p) => marketplaceApi.category(slug, p).catch((e) => {
@@ -283,33 +285,3 @@ export const BannerStrip: React.FC<{ banners: Banner[] }> = ({ banners }) => {
   return b.link ? (b.link.startsWith("/") ? <Link to={b.link}>{inner}</Link> : <a href={b.link} target="_blank" rel="noopener noreferrer nofollow">{inner}</a>) : inner;
 };
 
-/** Marketplace sections on the homepage (featured categories, brands, suppliers, collections, new products). */
-export const MarketplaceHome: React.FC = () => {
-  const [home, setHome] = useState<Awaited<ReturnType<typeof marketplaceApi.home>> | null>(null);
-  useEffect(() => { marketplaceApi.home().then(setHome).catch(() => {}); }, []);
-  const hasAny = useMemo(() => home && (home.categories.length || home.brands.length || home.companies.length || home.collections.length || home.featured.length), [home]);
-  if (!home || !hasAny) return null;
-  return (
-    <div className="space-y-12">
-      {home.banners.length > 0 && <BannerStrip banners={home.banners} />}
-      {home.categories.length > 0 && (
-        <section>
-          <SectionTitle onDark title="Shop by category" to="/categories" linkLabel="All categories" />
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">{home.categories.map((c) => <CategoryTile key={c.id} c={c} />)}</div>
-        </section>
-      )}
-      {home.featured.length > 0 && (
-        <section><SectionTitle onDark title="Featured products" to="/products?featured=1" /><ProductGrid products={home.featured} cols="grid-cols-2 md:grid-cols-4 lg:grid-cols-6" /></section>
-      )}
-      {home.collections.map((c) => (
-        <section key={c.id}><SectionTitle onDark title={c.name} subtitle={c.description || undefined} to={`/collections/${c.slug}`} /><ProductGrid products={c.products} cols="grid-cols-2 md:grid-cols-4" /></section>
-      ))}
-      {home.brands.length > 0 && (
-        <section><SectionTitle onDark title="Featured brands" to="/brands" linkLabel="All brands" /><div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">{home.brands.map((b) => <BrandTile key={b.id} b={b} />)}</div></section>
-      )}
-      {home.companies.length > 0 && (
-        <section><SectionTitle onDark title="Suppliers" to="/companies" linkLabel="All suppliers" /><div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">{home.companies.slice(0, 8).map((c) => <CompanyCard key={c.id} c={c} />)}</div></section>
-      )}
-    </div>
-  );
-};

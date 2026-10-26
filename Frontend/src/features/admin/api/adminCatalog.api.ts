@@ -15,7 +15,7 @@ export type AdminAttribute = {
 };
 
 export type MarketplaceSettings = {
-  nav: { label: string; type: "category" | "brand" | "company" | "collection" | "link"; ref: string }[];
+  nav?: unknown;
   featured: { brand_ids: string[]; category_ids: string[]; company_ids: string[] };
   banners: { image_url: string; image_alt?: string; title?: string; subtitle?: string; link?: string }[];
   storefront: { themes: string[]; custom_colors: boolean; sections: string[] };
