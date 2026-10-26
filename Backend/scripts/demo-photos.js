@@ -74,12 +74,31 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 class SlowDown extends Error {}
 
-/** GET as JSON; a 429 (or 403 from a rate limit) becomes SlowDown with how long to wait. */
+/** Why a request failed, in words: "fetch failed" alone hides the real reason (timeout, reset, DNS...). */
+const why = (e) => {
+  const c = e?.cause;
+  const code = c?.code || c?.errors?.[0]?.code || (e?.name === "TimeoutError" ? "timed out" : null) || c?.message || null;
+  return code ? `${e.message} (${code})` : e?.message || String(e);
+};
+
+/** GET as JSON with a timeout and up to 3 tries for network errors; a 429 becomes SlowDown with how long to wait. */
 const getJson = async (url, headers = {}) => {
-  const res = await fetch(url, { headers: { "User-Agent": UA, ...headers } });
-  if (res.status === 429) throw Object.assign(new SlowDown("rate limited"), { wait: Number(res.headers.get("retry-after")) * 1000 || 0 });
-  if (!res.ok) throw new Error(`HTTP ${res.status} from ${new URL(url).host}`);
-  return res.json();
+  let last;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    let res;
+    try {
+      res = await fetch(url, { headers: { "User-Agent": UA, ...headers }, signal: AbortSignal.timeout(20000) });
+    } catch (e) {
+      last = e;
+      await sleep(2000 * attempt);
+      continue;
+    }
+    if (res.status === 429) throw Object.assign(new SlowDown("rate limited"), { wait: Number(res.headers.get("retry-after")) * 1000 || 0 });
+    if (res.status >= 500 && attempt < 3) { last = new Error(`HTTP ${res.status}`); await sleep(2000 * attempt); continue; }
+    if (!res.ok) throw new Error(`HTTP ${res.status} from ${new URL(url).host}`);
+    return res.json();
+  }
+  throw new Error(why(last));
 };
 
 // Each source: search(query, size) -> [{ id, image (address to download), credit }]
@@ -116,7 +135,7 @@ const SOURCES = [
 /** Downloads an image; null unless it really is an image of a sensible size. */
 const fetchImage = async (url) => {
   try {
-    const res = await fetch(url, { headers: { "User-Agent": UA } });
+    const res = await fetch(url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(30000) });
     if (!res.ok || !/^image\/(jpeg|png|webp)/.test(res.headers.get("content-type") || "")) return null;
     const bytes = Buffer.from(await res.arrayBuffer());
     return bytes.length > 4000 && bytes.length < 8e6 ? bytes : null;
@@ -156,8 +175,18 @@ const download = async () => {
             // a short wait is fine; a long one means: use the other sources for now
             if (e.wait && e.wait <= 90000) { await sleep(e.wait); try { hits = await src.search(q, z); } catch { hits = null; } }
             if (!hits) { resting.set(src, Date.now() + Math.max(e.wait, 15 * 60000)); console.log(`  ${src.name} asked to slow down; using the others for now`); continue; }
-          } else { console.log(`  ${src.name}: ${e.message}`); continue; }
+          } else {
+            // network trouble: after 3 failed searches in a row, rest this source for 5 minutes, then try it again
+            src.failures = (src.failures || 0) + 1;
+            if (src.failures >= 3) {
+              resting.set(src, Date.now() + 5 * 60000);
+              src.failures = 0;
+              console.log(`  ${src.name} isn't answering (${e.message}); using the others and trying it again in 5 minutes`);
+            }
+            continue;
+          }
         }
+        src.failures = 0;
         await sleep(src.name === "Wikimedia Commons" || src.name === "Openverse" ? 1000 : 200);
         for (const h of hits.filter((x) => !used.has(x.id)).slice(0, 4)) {
           const bytes = (await fetchImage(h.image)) || (h.fallback && (await fetchImage(h.fallback)));
@@ -167,7 +196,7 @@ const download = async () => {
     }
     if (!got) {
       if (sources.every((x) => (resting.get(x) || 0) > Date.now())) {
-        console.log(`\nEvery photo service asked to slow down after ${done} photos. Run this again in 15 to 60 minutes; it continues from here.`);
+        console.log(`\nEvery photo service is busy or not answering after ${done} photos. Run this again in 15 to 60 minutes; it continues from here.`);
         process.exitCode = 1;
         break;
       }
