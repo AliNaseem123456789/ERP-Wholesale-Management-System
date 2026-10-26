@@ -12,8 +12,10 @@
     "db:migrate": "node scripts/db-migrate.js",
     "db:export": "node scripts/db-export.js",
     "db:verify": "node scripts/db-verify.js",
+    "db:ping": "node scripts/db-ping.js",
     "categories:tidy": "node scripts/categories-tidy.js",
-    "demo:data": "node scripts/demo-data.js"
+    "demo:data": "node scripts/demo-data.js",
+    "demo:photos": "node scripts/demo-photos.js"
   },
   "dependencies": {
     "@prisma/client": "^6.19.1",

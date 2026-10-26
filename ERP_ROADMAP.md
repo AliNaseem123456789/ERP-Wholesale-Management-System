@@ -768,3 +768,16 @@ The year was recorded by driving the real API with a simulated clock (`scripts/d
 - Needs all migrations (001–013) applied first; the preview says so if not.
 - Demo log-ins all use the password `DemoPass2026!`; the apply step prints the list.
 - Recurring orders that are due when the demo is loaded are moved to their next date, so nothing fires the moment it's loaded.
+
+## Speed: request timing and what makes pages slow
+
+Every API request is now printed with its time, its database queries and how many database **round trips** they took (queries that run at the same time count once): `GET /api/marketplace/homepage 200 842 ms · 14 queries in 6 round trips · db 790 ms`. The same figures go to the browser in a `Server-Timing` header, and a warning appears if synchronous code ever blocks the server for 100 ms or more. `npm run db:ping` measures the round trip to the database.
+
+Measured with a 250 ms database round trip (Karachi to Supabase us-east-1): the homepage needs 33 round trips one after another (11–20 s), a category or product list 11 (3–7 s), the menu settings 6 on a cold cache. Server time is almost all waiting for the database; the event loop is not blocked.
+
+Fixes, biggest first:
+1. Run the backend in the same region as the database (or move the database near the users). Round trips drop from ~250 ms to ~1–2 ms.
+2. Build the homepage sections in parallel instead of one after another, and cache the public homepage for ~30 s.
+3. Fewer round trips in product search (facets) and the company context check (two lookups per back-office request).
+4. Use Supabase's transaction pooler (port 6543, `?pgbouncer=true`) with a larger `connection_limit`, so parallel requests don't queue for connections.
+5. Frontend: split the 1.4 MB JavaScript bundle by page (admin and back office load only when opened); test speed with a production build, since development mode loads hundreds of separate files and React StrictMode sends every request twice.

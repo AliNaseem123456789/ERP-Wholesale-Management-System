@@ -2,10 +2,16 @@
 const { PrismaClient, Prisma } = require("@prisma/client");
 const { isProd } = require("./config");
 
+const { trackQuery } = require("./lib/requestTiming");
+
+// Every query (models and raw SQL, inside transactions too) is timed for the request that made it.
+const create = () =>
+  new PrismaClient({ log: isProd ? ["error"] : ["warn", "error"] }).$extends({
+    query: { $allOperations: ({ args, query }) => trackQuery(() => query(args)) },
+  });
+
 /** @type {PrismaClient} */
-const prisma =
-  /** @type {any} */ (global).__prisma ||
-  new PrismaClient({ log: isProd ? ["error"] : ["warn", "error"] });
+const prisma = /** @type {any} */ (global).__prisma || create();
 if (!isProd) global.__prisma = prisma;
 
 // Keep JSON responses identical to what the old Supabase client returned:

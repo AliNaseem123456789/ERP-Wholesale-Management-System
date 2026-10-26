@@ -17,6 +17,8 @@ const publicRoutes = require("./routes/public.routes");
 
 const app = express();
 app.set("trust proxy", 1);
+// response time, database queries and round trips per request (terminal + Server-Timing header)
+app.use(require("./lib/requestTiming").requestTiming);
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 
 app.use(
@@ -35,12 +37,6 @@ const jsonLarge = express.json({ limit: "6mb" });
 app.use((req, res, next) => (req.path.startsWith("/api/company/import/") ? jsonLarge : jsonSmall)(req, res, next));
 app.use(cookieParser());
 
-if (!isProd) {
-  app.use((req, res, next) => {
-    console.log(`${new Date().toLocaleTimeString()} ${req.method} ${req.originalUrl}`);
-    next();
-  });
-}
 
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
