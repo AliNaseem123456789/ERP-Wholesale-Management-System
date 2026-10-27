@@ -41,3 +41,6 @@ Backend/scripts/demo/images/
 # Real photos downloaded by `npm run demo:photos` (Pexels licence: use, but not re-sell or re-host as a collection)
 Backend/scripts/demo/photos/
 Frontend/public/demo-photos/
+
+# Speed test results (npm run loadtest:get)
+Backend/loadtest-reports/
