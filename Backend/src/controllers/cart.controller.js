@@ -19,10 +19,14 @@ const productTotal = async (cartId, productId) => {
 const fetchCartProducts = async (req, res) => {
   const cart = await carts.resolveCart(req.user.id, carts.cartIdOf(req));
   const items = await getCart(req.user.id, cart.id);
-  await withStock(req, items.map((i) => i.products).filter(Boolean));
-  await withMainImage(items.map((i) => i.products).filter(Boolean));
-  await priceCartItems(req.user.id, items);
-  const rules = await loadRules(items.map((i) => i.product_id));
+  // stock, pictures, prices and order rules only need the lines, so they are looked up at the same time
+  const products = items.map((i) => i.products).filter(Boolean);
+  const [, , , rules] = await Promise.all([
+    withStock(req, products),
+    withMainImage(products),
+    priceCartItems(req.user.id, items),
+    loadRules(items.map((i) => i.product_id)),
+  ]);
   const problems = linesProblems(rules, items.map((i) => ({ product_id: i.product_id, flavor: i.flavor, quantity: i.quantity })));
   for (const i of items) {
     const rule = rules.products.get(String(i.product_id));

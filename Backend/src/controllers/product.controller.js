@@ -122,10 +122,10 @@ const fetchProductById = async (req, res) => {
     },
   });
   if (!product) return res.status(404).json({ message: "Product not found" });
-  const [data] = await decorate(req, [forViewer(req)(product)]);
+  const [[data], specifications] = await Promise.all([decorate(req, [forViewer(req)(product)]), specificationsFor(product.id, { publicOnly: true })]);
   data.brand_info = product.brands || null;
   data.category_list = product.product_categories.map((pc) => pc.categories).filter((c) => c.status === "active").map(({ status, ...c }) => c);
-  data.specifications = await specificationsFor(product.id, { publicOnly: true });
+  data.specifications = specifications;
   res.json({ message: "Product fetched", data });
 };
 

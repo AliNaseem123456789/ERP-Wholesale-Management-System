@@ -219,9 +219,8 @@ const render = async (req, company, cfg) => {
   const base = { ...publicWhere(req), company_id: cid };
   const include = { companies: { select: { id: true, name: true, slug: true, logo_url: true } } };
   const shape = async (rows) => decorate(req, rows.map(forViewer(req)), { variants: false });
-  const out = [];
-  for (const s of cfg.sections || []) {
-    if (!s.enabled) continue;
+  // every section is looked up at the same time; the page keeps their order
+  const one = async (s) => {
     const r = { ...s };
     switch (s.type) {
       case "featured_products": {
@@ -234,8 +233,8 @@ const render = async (req, company, cfg) => {
           rows = await prisma.products.findMany({ where: { ...base, is_featured: true }, include, orderBy: { published_at: "desc" }, take: s.limit || 8 });
         }
         r.products = await shape(rows.slice(0, s.limit || 48));
-        if (!r.products.length) continue;
-        break;
+        if (!r.products.length) return null;
+        return r;
       }
       case "product_grid": {
         const where = { ...base };
@@ -246,24 +245,26 @@ const render = async (req, company, cfg) => {
         if (s.brand_id) where.brand_id = BigInt(s.brand_id);
         const orderBy = s.sort === "title" ? { title: "asc" } : s.sort === "featured" ? [{ is_featured: "desc" }, { published_at: "desc" }] : { published_at: "desc" };
         r.products = await shape(await prisma.products.findMany({ where, include, orderBy, take: s.limit || 12 }));
-        if (!r.products.length) continue;
-        break;
+        if (!r.products.length) return null;
+        return r;
       }
       case "deals": {
         // this seller's products on sale or with volume prices, plus its advertised promo codes
         const { dealsWhere } = require("./marketplace");
-        r.products = await shape(await prisma.products.findMany({ where: { AND: [base, dealsWhere(now)] }, include, orderBy: [{ sale_percent: { sort: "desc", nulls: "last" } }, { published_at: "desc" }], take: s.limit || 8 }));
-        r.promotions = await publicPromotions(cid, now);
-        if (!r.products.length && !r.promotions.length) continue;
-        break;
+        [r.products, r.promotions] = await Promise.all([
+          prisma.products.findMany({ where: { AND: [base, dealsWhere(now)] }, include, orderBy: [{ sale_percent: { sort: "desc", nulls: "last" } }, { published_at: "desc" }], take: s.limit || 8 }).then(shape),
+          publicPromotions(cid, now),
+        ]);
+        if (!r.products.length && !r.promotions.length) return null;
+        return r;
       }
       case "collection": {
         const c = await prisma.collections.findFirst({ where: { id: BigInt(s.collection_id), OR: [{ company_id: cid }, { company_id: null }], ...liveCollection(now) } });
-        if (!c) continue;
+        if (!c) return null;
         r.collection = { id: c.id, name: c.name, slug: c.slug, description: c.description, cover_image_url: c.cover_image_url };
         r.products = await collectionProducts(req, c.id, cid, s.limit || 8);
-        if (!r.products.length) continue;
-        break;
+        if (!r.products.length) return null;
+        return r;
       }
       case "featured_brands": {
         const links = await prisma.company_brands.findMany({
@@ -273,8 +274,8 @@ const render = async (req, company, cfg) => {
         });
         r.brands = links.map((l) => ({ ...l.brands, relationship: l.relationship }));
         if (s.brand_ids?.length) { const o = new Map(s.brand_ids.map((x, i) => [x, i])); r.brands.sort((a, b) => o.get(String(a.id)) - o.get(String(b.id))); }
-        if (!r.brands.length) continue;
-        break;
+        if (!r.brands.length) return null;
+        return r;
       }
       case "category_tiles": {
         let cats;
@@ -289,33 +290,34 @@ const render = async (req, company, cfg) => {
           cats.sort((a, b) => o.get(String(a.id)) - o.get(String(b.id)));
         }
         r.categories = cats;
-        if (!cats.length) continue;
-        break;
+        if (!cats.length) return null;
+        return r;
       }
       case "promo_banners":
-        if (!s.items?.length) continue;
-        break;
+        if (!s.items?.length) return null;
+        return r;
       case "hero":
         r.image_url = s.image_url || company.banner_url || "";
         r.title = s.title || company.name;
         r.subtitle = s.subtitle || company.tagline || "";
-        break;
+        return r;
       case "about":
         r.text = s.text || company.description || "";
-        if (!r.text) continue;
-        break;
+        if (!r.text) return null;
+        return r;
       case "announcement":
-        if (!s.text) continue;
-        break;
+        if (!s.text) return null;
+        return r;
       case "contact":
         r.contact = publicContact(company);
-        break;
+        return r;
       default:
-        break;
+        return r;
     }
-    out.push(r);
-  }
-  return out;
+    return r;
+  };
+  const built = await Promise.all((cfg.sections || []).filter((s) => s.enabled).map(one));
+  return built.filter(Boolean);
 };
 
 const publicContact = (c) => ({

@@ -21,6 +21,7 @@ const read = async (name) => {
 const write = async (name, value) => {
   await prisma.site_settings.upsert({ where: { key: KEYS[name] }, create: { key: KEYS[name], value, updated_at: new Date() }, update: { value, updated_at: new Date() } });
   cache.delete(name);
+  require("./homepage").clearHomepageCache(); // hero, notices and the homepage itself show at once
 };
 
 const newId = () => Math.random().toString(36).slice(2, 10);
@@ -140,7 +141,8 @@ const getNotices = async () => {
   const v = (await read("notices")) || NOTICES_DEFAULT;
   if (v.category_notices) return v;
   // nothing saved yet: the old site-wide nicotine warning, shown only with smoking products
-  const smoking = await prisma.categories.findFirst({ where: { slug: { in: ["smoking-vape", "smoking", "smoke-shop"] }, status: "active" }, orderBy: { id: "asc" }, select: { id: true } });
+  const cats = await require("./marketplace").activeCategories(); // cached category list
+  const smoking = cats.filter((c) => ["smoking-vape", "smoking", "smoke-shop"].includes(c.slug)).sort((x, y) => Number(x.id) - Number(y.id))[0];
   return { ...v, category_notices: smoking ? [{ id: "notice-smoking", category_id: String(smoking.id), ...SMOKING_WARNING }] : [] };
 };
 const barFor = async (req) => {

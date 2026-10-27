@@ -128,14 +128,33 @@ const withStock = async (req, products) => {
   return products;
 };
 
+// Which companies track stock. Product lists ask on every request and the answer rarely changes, so outside a
+// transaction it is remembered for 30 s per company (switching tracking on or off shows within 30 s).
+const trackedCache = new Map(); // company id -> { tracked, at }
 const trackedCompanyIds = async (db, companyIds) => {
   if (!companyIds.length) return new Set();
+  const cacheable = db === prisma;
+  const now = Date.now();
+  const known = new Set();
+  const ask = [];
+  for (const id of companyIds.map(String)) {
+    const hit = cacheable && trackedCache.get(id);
+    if (hit && now - hit.at < 30000) { if (hit.tracked) known.add(id); } else ask.push(id);
+  }
+  if (!ask.length) return known;
   const rows = await db.companies.findMany({
-    where: { id: { in: companyIds.map((id) => BigInt(id)) }, settings: { path: ["inventory", "tracking"], equals: true } },
+    where: { id: { in: ask.map((id) => BigInt(id)) }, settings: { path: ["inventory", "tracking"], equals: true } },
     select: { id: true },
   });
-  return new Set(rows.map((r) => String(r.id)));
+  const yes = new Set(rows.map((r) => String(r.id)));
+  for (const id of ask) {
+    if (yes.has(id)) known.add(id);
+    if (cacheable) trackedCache.set(id, { tracked: yes.has(id), at: now });
+  }
+  return known;
 };
+/** Call after a company changes its inventory settings. */
+const forgetTracked = (companyId) => trackedCache.delete(String(companyId));
 
 /**
  * Adds `variants` (public fields, option values, and for logged-in customers their price) and
@@ -199,14 +218,17 @@ const withMainImage = async (products) => {
 };
 
 // Customers only pick variants that are on sale: discontinued and archived ones are taken out of `flavors`.
-const hideInactiveVariants = async (products) => {
+const inactiveVariants = async (products) => {
   const list = products.filter((p) => p && (p.flavors || []).length);
-  if (!list.length) return;
-  const off = await prisma.product_variants.findMany({
+  if (!list.length) return [];
+  return prisma.product_variants.findMany({
     where: { product_id: { in: list.map((p) => BigInt(p.id)) }, status: { not: "active" } },
     select: { product_id: true, flavor: true },
   });
-  if (!off.length) return;
+};
+const dropInactive = (products, off) => {
+  const list = products.filter((p) => p && (p.flavors || []).length);
+  if (!off.length || !list.length) return;
   const offSet = new Set(off.map((v) => `${v.product_id}|${v.flavor}`));
   for (const p of list) {
     p.flavors = p.flavors.filter((f) => !offSet.has(`${p.id}|${f}`));
@@ -216,18 +238,23 @@ const hideInactiveVariants = async (products) => {
 
 // Stock status + the logged-in customer's own prices (group price lists, volume tiers, discounts).
 // `variants: true` also adds the variant list and image gallery (product pages).
+// The lookups don't depend on each other, so they run at the same time (one database round trip instead of five);
+// only taking out inactive options and the buyer's own prices need their results.
 const decorate = async (req, products, { variants = true } = {}) => {
-  await withStock(req, products);
-  if (variants) await withVariantsAndImages(req, products);
-  await withMainImage(products);
-  await hideInactiveVariants(products);
-  await withRatings(products);
+  const [, , , off] = await Promise.all([
+    withStock(req, products),
+    variants ? withVariantsAndImages(req, products) : null,
+    withMainImage(products),
+    inactiveVariants(products),
+    withRatings(products),
+  ]);
+  dropInactive(products, off);
   const { applyCustomerPricing } = require("./pricing");
   await applyCustomerPricing(req, products);
   return products;
 };
 
 module.exports = {
-  publicProductWhere, publicWhere, companyBrief, forViewer, withStock, withVariantsAndImages, withMainImage, decorate, trackedCompanyIds, withRatings,
+  publicProductWhere, publicWhere, companyBrief, forViewer, withStock, withVariantsAndImages, withMainImage, decorate, trackedCompanyIds, forgetTracked, withRatings,
   PUBLIC_FIELDS, PUBLIC_VARIANT_FIELDS,
 };

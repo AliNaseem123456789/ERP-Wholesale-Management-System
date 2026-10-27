@@ -137,6 +137,7 @@ const sanitizeSettings = async (input) => {
 const saveMarketplaceSettings = async (value) => {
   await prisma.site_settings.upsert({ where: { key: KEY }, create: { key: KEY, value, updated_at: new Date() }, update: { value, updated_at: new Date() } });
   cache = { at: 0, value: null };
+  require("./homepage").clearHomepageCache();
 };
 
 module.exports = { ALL_THEMES, ALL_SECTIONS, DEFAULTS, getMarketplaceSettings, sanitizeSettings, saveMarketplaceSettings, sanitizeNav, str, pathOrUrl, fail };

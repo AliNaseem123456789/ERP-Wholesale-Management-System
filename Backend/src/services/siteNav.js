@@ -42,9 +42,8 @@ const resolveNav = async (nav) => {
   const cats = await mk.activeCategories();
   const bySlug = new Map(cats.map((c) => [c.slug, c]));
   const kidsOf = (id) => cats.filter((c) => String(c.parent_id) === String(id)).sort(sortCats);
-  const out = [];
-  for (const n of nav) {
-    if (n.hidden) continue;
+  // items are resolved at the same time (each mega menu's top brands is its own lookup)
+  const one = async (n) => {
     const item = { id: n.id, label: n.label, href: hrefOf(n), external: isExternal(n), mega: !!n.mega, children: [], columns: [], brands: [], promo: n.promo || null };
     if (n.dropdown === "subcategories") {
       const c = bySlug.get(n.ref);
@@ -59,9 +58,9 @@ const resolveNav = async (nav) => {
       item.children = (n.children || []).map((c) => ({ label: c.label, href: hrefOf(c), external: isExternal(c) }));
     }
     if (n.dropdown !== "none" && !item.children.length && !item.columns.length) { item.mega = false; item.promo = null; }
-    out.push(item);
-  }
-  return out;
+    return item;
+  };
+  return Promise.all(nav.filter((n) => !n.hidden).map(one));
 };
 
 let cache = { at: 0, value: null };
@@ -75,7 +74,7 @@ const publicNav = async () => {
 };
 const clearNavCache = () => { cache = { at: 0, value: null }; };
 /** After categories change (added, renamed, moved, hidden...): menus and category lists pick it up at once. */
-const categoriesChanged = () => { mk.clearCategoryCache(); clearNavCache(); };
+const categoriesChanged = () => { mk.clearCategoryCache(); clearNavCache(); require("./homepage").clearHomepageCache(); };
 /** Express middleware: clears the caches once a changing request on categories has finished. */
 const onCategoryChange = (req, res, next) => { if (req.method !== "GET") res.on("finish", categoriesChanged); next(); };
 

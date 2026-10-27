@@ -26,7 +26,8 @@ const homepage = async (req, res) => {
   const hp = require("../services/homepage");
   const draft = req.query.preview === "draft" && req.user?.role === "ADMIN";
   const cfg = draft ? await hp.draftConfig() : await hp.publishedConfig();
-  res.json({ data: { sections: await hp.render(req, cfg), preview: draft } });
+  const sections = draft ? await hp.render(req, cfg) : await hp.renderCached(req, cfg, JSON.stringify(cfg));
+  res.json({ data: { sections, preview: draft } });
 };
 
 // GET /marketplace/suggest?q -> search suggestions as you type: products, categories, brands, suppliers
@@ -250,9 +251,11 @@ const publicCompany = (c) => ({
  * (or the default layout), the categories and brands it supplies, and its published collections.
  */
 const company = async (req, res) => {
-  const c = await loadLiveCompany(req.params.slug);
-  const store = await prisma.storefronts.findUnique({ where: { company_id: c.id } });
-  const cfg = store?.published && store.published.sections ? store.published : sf.defaultConfig(c);
+  const [c, store] = await Promise.all([
+    loadLiveCompany(req.params.slug),
+    prisma.storefronts.findFirst({ where: { companies: { slug: String(req.params.slug).toLowerCase() } } }),
+  ]);
+  const cfg = store?.company_id === c.id && store.published && store.published.sections ? store.published : sf.defaultConfig(c);
   res.json({ data: await storefrontPayload(req, c, cfg) });
 };
 
@@ -260,16 +263,19 @@ const company = async (req, res) => {
 const storefrontPayload = async (req, c, cfg) => {
   const pw = { ...publicWhere(req), company_id: c.id };
   const now = new Date();
-  const [sections, catGroups, brandLinks, cols, productCount] = await Promise.all([
+  const [sections, catGroups, brandLinks, cols, productCount, ratings, promotions, activeCats] = await Promise.all([
     sf.render(req, c, cfg),
     prisma.product_categories.groupBy({ by: ["category_id"], where: { products: pw }, _count: true }),
     prisma.company_brands.findMany({ where: { company_id: c.id, brands: { products: { some: pw } } }, include: { brands: { select: { id: true, name: true, slug: true, logo_url: true } } } }),
     prisma.collections.findMany({ where: { company_id: c.id, ...sf.liveCollection(now) }, orderBy: [{ sort_order: "asc" }, { name: "asc" }], select: { id: true, name: true, slug: true, description: true, cover_image_url: true } }),
     prisma.products.count({ where: pw }),
+    require("../services/reviews").companyRatings([c.id]),
+    sf.publicPromotions(c.id, now),
+    mk.activeCategories(),
   ]);
-  const rating = (await require("../services/reviews").companyRatings([c.id])).get(String(c.id)) || null;
-  const promotions = await sf.publicPromotions(c.id, now);
-  const catRows = await prisma.categories.findMany({ where: { id: { in: catGroups.map((g) => g.category_id) }, status: "active" }, select: { id: true, name: true, slug: true, parent_id: true } });
+  const rating = ratings.get(String(c.id)) || null;
+  const inShop = new Set(catGroups.map((g) => String(g.category_id)));
+  const catRows = activeCats.filter((r) => inShop.has(String(r.id))).map(({ id, name, slug, parent_id }) => ({ id, name, slug, parent_id }));
   return {
     ...publicCompany(c),
     product_count: productCount,

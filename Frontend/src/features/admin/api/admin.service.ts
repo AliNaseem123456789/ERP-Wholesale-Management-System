@@ -55,8 +55,9 @@ export const adminService = {
     const { data } = await apiClient.patch(`/admin/products/${id}`, payload);
     return data;
   },
-  deleteProduct: async (id: string) => {
-    await apiClient.delete(`/admin/products/${id}`);
+  deleteProduct: async (id: string): Promise<{ archived: boolean; message: string }> => {
+    const res = await apiClient.delete(`/admin/products/${id}`);
+    return res.data;
   },
   updateFeature: async (slotKey: string, link: string, file?: File) => {
     const formData = new FormData();

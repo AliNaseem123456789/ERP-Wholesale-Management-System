@@ -27,6 +27,7 @@ const updateSettings = async (req, res) => {
     where: { id: req.company.id },
     data: { settings: { ...current, inventory }, updated_at: new Date() },
   });
+  require("../../services/catalog").forgetTracked(req.company.id);
   await audit(req, "inventory.settings", { entity: "company", entityId: req.company.id, changes: inventory });
   res.json({
     message: inventory.tracking

@@ -198,36 +198,47 @@ const suppliersFor = async (req, x, settings) => {
   return rows.slice(0, x.limit).map(({ _count, ...c }) => ({ ...c, product_count: _count.products, brand_count: _count.company_brands, rating: ratings.get(String(c.id)) || null }));
 };
 
-/** Every enabled section with what it shows. Empty sections are left out (except client-side ones). */
+/** What one section shows, or null when it would be empty. */
+const renderSection = async (req, x, settings) => {
+  const r = { ...x };
+  if (x.type === "hero") { r.hero = await content.heroFor(req); return r.hero.slides.length ? r : null; }
+  if (x.type === "banners") { r.banners = settings.banners; return r.banners.length ? r : null; }
+  if (x.type === "categories") { r.categories = (await categoriesFor(x, settings)).map(({ id, name, slug, image_url }) => ({ id, name, slug, image_url })); return r.categories.length ? r : null; }
+  if (x.type === "products") { r.products = await productsFor(req, x); return r.products.length ? r : null; }
+  if (x.type === "collections") {
+    const cols = await prisma.collections.findMany({ where: { company_id: null, ...sf.liveCollection(new Date()) }, orderBy: [{ sort_order: "asc" }, { name: "asc" }], take: x.limit || 4 });
+    const lists = await Promise.all(cols.map((c) => sf.collectionProducts(req, c.id, null, 8)));
+    r.collections = cols.map((c, i) => ({ id: c.id, name: c.name, slug: c.slug, description: c.description, cover_image_url: c.cover_image_url, products: lists[i] })).filter((c) => c.products.length);
+    return r.collections.length ? r : null;
+  }
+  if (x.type === "brands") { r.brands = await brandsFor(req, x, settings); return r.brands.length ? r : null; }
+  if (x.type === "suppliers") { r.companies = await suppliersFor(req, x, settings); return r.companies.length ? r : null; }
+  if (x.type === "feature_tiles") {
+    const rows = await prisma.site_settings.findMany({ where: { key: { startsWith: "feature_" } }, orderBy: { key: "asc" } });
+    r.tiles = rows.map((t) => ({ key: t.key, image: t.value?.image || null, link: t.value?.link || "" })).filter((t) => t.image);
+    return r.tiles.length ? r : null;
+  }
+  return r; // text, features, logos, recently viewed: nothing to look up
+};
+
+/** Every enabled section with what it shows, built at the same time (in their order). Empty sections are left out. */
 const render = async (req, cfg) => {
   const settings = await getMarketplaceSettings();
-  const out = [];
-  for (const x of cfg.sections) {
-    if (!x.enabled) continue;
-    const r = { ...x };
-    if (x.type === "hero") { r.hero = await content.heroFor(req); if (!r.hero.slides.length) continue; }
-    else if (x.type === "banners") { r.banners = settings.banners; if (!r.banners.length) continue; }
-    else if (x.type === "categories") { r.categories = (await categoriesFor(x, settings)).map(({ id, name, slug, image_url }) => ({ id, name, slug, image_url })); if (!r.categories.length) continue; }
-    else if (x.type === "products") { r.products = await productsFor(req, x); if (!r.products.length) continue; }
-    else if (x.type === "collections") {
-      const cols = await prisma.collections.findMany({ where: { company_id: null, ...sf.liveCollection(new Date()) }, orderBy: [{ sort_order: "asc" }, { name: "asc" }], take: x.limit || 4 });
-      r.collections = [];
-      for (const c of cols) {
-        const products = await sf.collectionProducts(req, c.id, null, 8);
-        if (products.length) r.collections.push({ id: c.id, name: c.name, slug: c.slug, description: c.description, cover_image_url: c.cover_image_url, products });
-      }
-      if (!r.collections.length) continue;
-    } else if (x.type === "brands") { r.brands = await brandsFor(req, x, settings); if (!r.brands.length) continue; }
-    else if (x.type === "suppliers") { r.companies = await suppliersFor(req, x, settings); if (!r.companies.length) continue; }
-    else if (x.type === "feature_tiles") {
-      const rows = await prisma.site_settings.findMany({ where: { key: { startsWith: "feature_" } }, orderBy: { key: "asc" } });
-      r.tiles = rows.map((t) => ({ key: t.key, image: t.value?.image || null, link: t.value?.link || "" })).filter((t) => t.image);
-      if (!r.tiles.length) continue;
-    }
-    out.push(r);
-  }
-  return out;
+  const built = await Promise.all(cfg.sections.filter((x) => x.enabled).map((x) => renderSection(req, x, settings)));
+  return built.filter(Boolean);
 };
+
+// Visitors who aren't signed in all see the same homepage, so it is kept for 30 s (signed-in buyers get their
+// own prices and are always built fresh). A newly published layout has a different key, so it shows at once.
+let visitorCache = { at: 0, key: null, value: null };
+const renderCached = async (req, cfg, key) => {
+  if (req.user) return render(req, cfg);
+  if (visitorCache.value && visitorCache.key === key && Date.now() - visitorCache.at < 30000) return visitorCache.value;
+  const value = await render(req, cfg);
+  visitorCache = { at: Date.now(), key, value };
+  return value;
+};
+const clearHomepageCache = () => { visitorCache = { at: 0, key: null, value: null }; };
 
 // ---- storage ---------------------------------------------------------------------------------------
 const getStored = async () => (await content.read("homepage")) || { draft: null, published: null, published_at: null, versions: [] };
@@ -259,4 +270,4 @@ const restore = async (index) => {
   return cfg;
 };
 
-module.exports = { SECTIONS, ICONS, LIMITS, DEFAULT_CONFIG, sanitize, checkReferences, render, getStored, publishedConfig, draftConfig, saveDraft, publish, resetDraft, restore };
+module.exports = { SECTIONS, ICONS, LIMITS, DEFAULT_CONFIG, sanitize, checkReferences, render, renderCached, clearHomepageCache, getStored, publishedConfig, draftConfig, saveDraft, publish, resetDraft, restore };

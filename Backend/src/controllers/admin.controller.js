@@ -147,12 +147,23 @@ const getProducts = async (req, res) => {
   });
 };
 
+// Archives a product that has history (orders, stock, documents): off the marketplace and out of carts, history kept.
+const archiveInstead = async (id, reason) => {
+  await prisma.$transaction([
+    prisma.cart_items.deleteMany({ where: { product_id: id } }),
+    prisma.wishlist_items.deleteMany({ where: { product_id: id } }),
+    prisma.products.update({ where: { id }, data: { status: "archived", updated_at: new Date() } }),
+  ]);
+  return { archived: true, message: `Archived instead of deleted: it ${reason}, so its history is kept. It no longer shows on the marketplace.` };
+};
+
+// DELETE /api/admin/products/:id -> deletes a product with no history; one with history is archived instead.
 const deleteProduct = async (req, res) => {
   const id = toId(req.params.id);
+  const product = await prisma.products.findUnique({ where: { id }, select: { id: true } });
+  if (!product) throw new HttpError(404, "Product not found");
   const ordered = await prisma.order_items.count({ where: { product_id: id } });
-  if (ordered) {
-    throw new HttpError(409, "This product appears in past orders and can't be deleted. Archive it instead.");
-  }
+  if (ordered) return res.status(200).json(await archiveInstead(id, `appears in ${ordered} past order line${ordered === 1 ? "" : "s"}`));
   try {
     await prisma.$transaction([
       prisma.cart_items.deleteMany({ where: { product_id: id } }),
@@ -161,11 +172,11 @@ const deleteProduct = async (req, res) => {
     ]);
   } catch (err) {
     if (err?.code === "P2003" || /foreign key/i.test(String(err?.message))) {
-      throw new HttpError(409, "This product has stock or document history and can't be deleted. Archive it instead.");
+      return res.status(200).json(await archiveInstead(id, "has stock, quote or invoice history"));
     }
     throw err;
   }
-  res.status(200).json({ message: "Product deleted successfully" });
+  res.status(200).json({ archived: false, message: "Product deleted" });
 };
 
 // ---- storage uploads --------------------------------------------------------

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { adminService } from "../api/admin.service";
 import { toast } from "sonner";
+import { errorMessage } from "../../business/api/business.api";
 import { Package, Plus, Loader2, Search, X } from "lucide-react";
 import { ProductTable } from "../components/ProductManagement/ProductTable";
 import { ProductModal } from "../components/ProductManagement/ProductModal";
@@ -109,13 +110,13 @@ export const ProductManagement = () => {
     setCurrentPage(1);
   };
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Delete this product?")) return;
+    if (!window.confirm("Delete this product? If it has been ordered before, it is archived instead so the order history stays complete.")) return;
     try {
-      await adminService.deleteProduct(id);
-      toast.success("Product deleted");
+      const r = await adminService.deleteProduct(id);
+      toast.success(r?.message || "Product deleted");
       handleDataChange();
     } catch (err) {
-      toast.error("Delete failed");
+      toast.error(errorMessage(err, "Delete failed"));
     }
   };
   return (

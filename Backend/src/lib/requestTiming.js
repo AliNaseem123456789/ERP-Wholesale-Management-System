@@ -8,7 +8,7 @@
 // Also sent to the browser as a Server-Timing header (DevTools -> Network -> Timing).
 //   REQUEST_LOG=off      no terminal lines
 //   REQUEST_LOG_SLOW=300 only print requests slower than this many ms
-// It also watches the event loop: if synchronous work ever freezes the server for 100 ms or more, a line says so.
+// It also watches the event loop: if synchronous work freezes the server for 500 ms or more, a line says so.
 const { AsyncLocalStorage } = require("async_hooks");
 const { performance, monitorEventLoopDelay } = require("perf_hooks");
 
@@ -76,14 +76,19 @@ const requestTiming = (req, res, next) => {
   als.run(store, next);
 };
 
-// event-loop watchdog: worst delay in each 10 s window
+// event-loop watchdog: worst delay in each 10 s window. Ignored: the first 30 s (loading code), anything over
+// a minute (the computer was asleep) and short pauses under REQUEST_LOG_BLOCK_MS (default 500 ms), which on a
+// laptop are often the operating system pausing the process rather than this server.
 if (enabled) {
+  const blockMs = Number(process.env.REQUEST_LOG_BLOCK_MS) || 500;
+  const started = Date.now();
   const h = monitorEventLoopDelay({ resolution: 20 });
   h.enable();
   setInterval(() => {
     const worst = h.max / 1e6;
-    if (worst >= 100) console.log(`${new Date().toLocaleTimeString()} ${paint(1000, `event loop blocked for up to ${Math.round(worst)} ms`)} in the last 10 s (synchronous work is holding up every request)`);
     h.reset();
+    if (Date.now() - started < 30000 || worst > 60000 || worst < blockMs) return;
+    console.log(`${new Date().toLocaleTimeString()} ${paint(1000, `event loop blocked for up to ${Math.round(worst)} ms`)} in the last 10 s (something synchronous held up every request)`);
   }, 10000).unref();
 }
 

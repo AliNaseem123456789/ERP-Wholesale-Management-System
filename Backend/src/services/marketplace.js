@@ -127,15 +127,29 @@ const buildWhere = async (req, query, { exclude = null } = {}) => {
 /** Facet counts for the current result (each facet ignores its own filter so other values stay selectable). */
 const facets = async (req, query, category) => {
   const rows = await activeCategories();
-  const idsFor = async (exclude) => {
-    const { where } = await buildWhere(req, query, { exclude });
-    return (await prisma.products.findMany({ where, select: { id: true }, take: 5000 })).map((p) => p.id);
-  };
-  const [catIds, brandIds, companyIds, allIds] = await Promise.all([idsFor("category"), idsFor("brand"), idsFor("company"), idsFor(null)]);
+  // the products each facet counts (each ignores its own filter); filters that are the same are looked up once
+  const wheres = await Promise.all(["category", "brand", "company", null].map(async (exclude) => (await buildWhere(req, query, { exclude })).where));
+  const unique = new Map();
+  for (const w of wheres) { const k = JSON.stringify(w, (_, v) => (typeof v === "bigint" ? `${v}n` : v)); if (!unique.has(k)) unique.set(k, w); }
+  const keys = [...unique.keys()];
+  const found = await Promise.all([...unique.values()].map(async (w) => (await prisma.products.findMany({ where: w, select: { id: true }, take: 5000 })).map((p) => p.id)));
+  const [catIds, brandIds, companyIds, allIds] = wheres.map((w) => found[keys.indexOf(JSON.stringify(w, (_, v) => (typeof v === "bigint" ? `${v}n` : v)))]);
+
+  // everything below needs only those ids, so it is looked up in one go
+  const [links, brandGroups, companyGroups, brandRows, companyRows, vals] = await Promise.all([
+    catIds.length ? prisma.product_categories.findMany({ where: { product_id: { in: catIds } }, select: { product_id: true, category_id: true } }) : [],
+    brandIds.length ? prisma.products.groupBy({ by: ["brand_id"], where: { id: { in: brandIds }, brand_id: { not: null } }, _count: true }) : [],
+    companyIds.length ? prisma.products.groupBy({ by: ["company_id"], where: { id: { in: companyIds } }, _count: true }) : [],
+    brandIds.length ? prisma.brands.findMany({ where: { products: { some: { id: { in: brandIds } } } }, select: { id: true, name: true, slug: true } }) : [],
+    companyIds.length ? prisma.companies.findMany({ where: { products: { some: { id: { in: companyIds } } } }, select: { id: true, name: true, slug: true } }) : [],
+    allIds.length ? prisma.product_attribute_values.findMany({
+      where: { product_id: { in: allIds }, attribute_definitions: { is_filterable: true, is_public: true, company_id: null } },
+      select: { product_id: true, value_text: true, value_number: true, attribute_definitions: { select: { key: true, name: true, unit: true, sort_order: true } }, attribute_options: { select: { value: true } } },
+    }) : [],
+  ]);
 
   // categories: children of the current category (or top level), counted with their sub-categories
   const level = rows.filter((c) => String(c.parent_id || "") === String(category?.id || ""));
-  const links = catIds.length ? await prisma.product_categories.findMany({ where: { product_id: { in: catIds } }, select: { product_id: true, category_id: true } }) : [];
   const catFacet = level
     .map((c) => {
       const ids = new Set(descendants(rows, c.id).map(String));
@@ -145,14 +159,6 @@ const facets = async (req, query, category) => {
     .filter((c) => c.count > 0)
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 
-  const [brandGroups, companyGroups] = await Promise.all([
-    brandIds.length ? prisma.products.groupBy({ by: ["brand_id"], where: { id: { in: brandIds }, brand_id: { not: null } }, _count: true }) : [],
-    companyIds.length ? prisma.products.groupBy({ by: ["company_id"], where: { id: { in: companyIds } }, _count: true }) : [],
-  ]);
-  const [brandRows, companyRows] = await Promise.all([
-    prisma.brands.findMany({ where: { id: { in: brandGroups.map((g) => g.brand_id) } }, select: { id: true, name: true, slug: true } }),
-    prisma.companies.findMany({ where: { id: { in: companyGroups.map((g) => g.company_id).filter(Boolean) } }, select: { id: true, name: true, slug: true } }),
-  ]);
   const brandFacet = brandGroups
     .map((g) => ({ ...brandRows.find((b) => b.id === g.brand_id), count: g._count }))
     .filter((b) => b.slug)
@@ -166,10 +172,6 @@ const facets = async (req, query, category) => {
   // attributes: platform attributes marked filterable that have values among these products
   let attrFacet = [];
   if (allIds.length) {
-    const vals = await prisma.product_attribute_values.findMany({
-      where: { product_id: { in: allIds }, attribute_definitions: { is_filterable: true, is_public: true, company_id: null } },
-      select: { product_id: true, value_text: true, value_number: true, attribute_definitions: { select: { key: true, name: true, unit: true, sort_order: true } }, attribute_options: { select: { value: true } } },
-    });
     const byKey = new Map();
     for (const v of vals) {
       const value = v.attribute_options?.value ?? v.value_text ?? (v.value_number !== null ? String(Number(v.value_number)) : null);
@@ -196,22 +198,25 @@ const searchProducts = async (req, query, { withFacets = true, limitMax = 60 } =
   const sortKey = SORTS[query.sort] ? query.sort : "relevance";
   if ((sortKey === "price_asc" || sortKey === "price_desc") && !req?.user) query = { ...query, sort: "relevance" };
   const { where, category } = await buildWhere(req, query);
-  const [rows, total] = await Promise.all([
-    prisma.products.findMany({
-      where, orderBy: SORTS[query.sort] || SORTS.relevance, skip: (page - 1) * limit, take: limit,
-      include: { companies: { select: { id: true, name: true, slug: true, logo_url: true } } },
-    }),
-    prisma.products.count({ where }),
+  // the page of products and the filter counts don't depend on each other: look them up at the same time
+  const [[data, total], facetData, rowsCat] = await Promise.all([
+    Promise.all([
+      prisma.products.findMany({
+        where, orderBy: SORTS[query.sort] || SORTS.relevance, skip: (page - 1) * limit, take: limit,
+        include: { companies: { select: { id: true, name: true, slug: true, logo_url: true } } },
+      }).then((rows) => decorate(req, rows.map(forViewer(req)), { variants: false })),
+      prisma.products.count({ where }),
+    ]),
+    withFacets ? facets(req, query, category) : undefined,
+    activeCategories(),
   ]);
-  const data = await decorate(req, rows.map(forViewer(req)), { variants: false });
-  const rowsCat = await activeCategories();
   return {
     data,
     total,
     page,
     pages: Math.max(1, Math.ceil(total / limit)),
     category: category ? { ...category, trail: trail(rowsCat, category.id), children: rowsCat.filter((c) => String(c.parent_id) === String(category.id)).map(({ id, name, slug, image_url }) => ({ id, name, slug, image_url })) } : null,
-    facets: withFacets ? await facets(req, query, category) : undefined,
+    facets: facetData,
     sorts: Object.keys(SORTS).filter((s) => req?.user || !s.startsWith("price")),
   };
 };

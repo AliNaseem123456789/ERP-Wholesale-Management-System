@@ -65,22 +65,45 @@ const Row: React.FC<{ n: Notification; onOpen: () => void; compact?: boolean; on
   );
 };
 
+// One unread counter shared by every bell on the page (the header has one for desktop and one for phones):
+// one request at a time, refreshed every minute while the tab is visible and when the window regains focus
+// (at most every 20 s).
+const unreadStore = { value: 0, subs: new Set<(n: number) => void>(), last: 0, busy: false, timer: 0 as unknown as ReturnType<typeof setInterval> };
+const setShared = (n: number) => { unreadStore.value = n; unreadStore.subs.forEach((f) => f(n)); };
+const fetchUnread = (force = false) => {
+  if (unreadStore.busy || (!force && Date.now() - unreadStore.last < 20000)) return;
+  unreadStore.busy = true;
+  unreadStore.last = Date.now();
+  notificationsApi.count().then(setShared).catch(() => {}).finally(() => { unreadStore.busy = false; });
+};
+const onWindowFocus = () => fetchUnread();
+const useUnread = () => {
+  const [unread, setUnread] = useState(unreadStore.value);
+  useEffect(() => {
+    unreadStore.subs.add(setUnread);
+    if (unreadStore.subs.size === 1) {
+      unreadStore.timer = setInterval(() => { if (document.visibilityState === "visible") fetchUnread(true); }, 60000);
+      window.addEventListener("focus", onWindowFocus);
+    }
+    fetchUnread();
+    return () => {
+      unreadStore.subs.delete(setUnread);
+      if (!unreadStore.subs.size) { clearInterval(unreadStore.timer); window.removeEventListener("focus", onWindowFocus); }
+    };
+  }, []);
+  return unread;
+};
+
 export const NotificationBell: React.FC<{ className?: string; mobile?: boolean }> = ({ className = "", mobile }) => {
-  const [unread, setUnread] = useState(0);
+  const unread = useUnread();
+  const setUnread = setShared;
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<Notification[] | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const openNotification = useOpenNotification();
 
-  const refreshCount = useCallback(() => { notificationsApi.count().then(setUnread).catch(() => {}); }, []);
-  useEffect(() => {
-    refreshCount();
-    const t = setInterval(() => { if (document.visibilityState === "visible") refreshCount(); }, 60000);
-    const onFocus = () => refreshCount();
-    window.addEventListener("focus", onFocus);
-    return () => { clearInterval(t); window.removeEventListener("focus", onFocus); };
-  }, [refreshCount]);
+  const refreshCount = useCallback(() => fetchUnread(true), []);
   useEffect(() => {
     if (!open) return;
     notificationsApi.list({ limit: 8 }).then((r) => { setItems(r.data); setUnread(r.unread); }).catch(() => setItems([]));

@@ -775,9 +775,20 @@ Every API request is now printed with its time, its database queries and how man
 
 Measured with a 250 ms database round trip (Karachi to Supabase us-east-1): the homepage needs 33 round trips one after another (11–20 s), a category or product list 11 (3–7 s), the menu settings 6 on a cold cache. Server time is almost all waiting for the database; the event loop is not blocked.
 
-Fixes, biggest first:
-1. Run the backend in the same region as the database (or move the database near the users). Round trips drop from ~250 ms to ~1–2 ms.
-2. Build the homepage sections in parallel instead of one after another, and cache the public homepage for ~30 s.
-3. Fewer round trips in product search (facets) and the company context check (two lookups per back-office request).
-4. Use Supabase's transaction pooler (port 6543, `?pgbouncer=true`) with a larger `connection_limit`, so parallel requests don't queue for connections.
-5. Frontend: split the 1.4 MB JavaScript bundle by page (admin and back office load only when opened); test speed with a production build, since development mode loads hundreds of separate files and React StrictMode sends every request twice.
+Done (measured with a 200 ms round trip, visitor / signed-in buyer):
+
+| Page data | Before | After |
+|---|---|---|
+| Homepage | 7.9 s / 10.8 s | 2.3 s, then 5 ms for 30 s / 2.1 s |
+| Seller storefront | 8.0 s / 11.3 s | 1.5 s / 2.5 s |
+| Product list, category | 2.9 s / 3.8 s | 0.7 s / 1.5 s |
+| Product page | 2.7 s / 3.5 s | 1.2 s / 2.0 s |
+| Menu settings (warm) | 1 query | none |
+
+How: homepage and storefront sections are built at the same time; product details (stock, pictures, ratings, inactive options) are looked up together; filter counts run alongside the product page; the visitors' homepage is cached 30 s (cleared when site content, settings or categories change); which sellers track stock is cached 30 s; the menu is resolved in parallel; the header's two notification bells share one counter. Transactions may now take 30 s (Prisma's 5 s default cancelled saves over a slow connection).
+
+Still to do, biggest first:
+1. Run the backend in the same region as the database (or move the database near the users). Round trips drop from ~200 ms to ~1–2 ms.
+2. Raise the number of database connections (parallel queries now queue for them), ideally through Supabase's transaction pooler.
+3. Fewer round trips in login/refresh and the company context check (two lookups per back-office request).
+4. Frontend: split the 1.4 MB JavaScript bundle by page (admin and back office load only when opened); test speed with a production build, since development mode loads hundreds of separate files and React StrictMode sends every request twice.
