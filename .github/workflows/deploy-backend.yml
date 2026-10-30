@@ -1,0 +1,37 @@
+# Deploys the backend to the EC2 server on every push to main that changes Backend/ or deploy/.
+# No build or tests here: it connects to the server and runs deploy/deploy.sh there (pull, install,
+# database updates, pm2 reload, health check). Other branches (e.g. experiments) are never deployed.
+# Needs the repository secrets EC2_HOST, EC2_USER and EC2_SSH_KEY (printed by deploy/setup-ec2.sh).
+name: Deploy backend
+
+on:
+  push:
+    branches: [main]
+    paths: ["Backend/**", "deploy/**", ".github/workflows/deploy-backend.yml"]
+  workflow_dispatch: {} # "Run workflow" button in the Actions tab to redeploy by hand
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Run deploy on the server
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          if [ -z "$EC2_HOST" ] || [ -z "$EC2_SSH_KEY" ]; then
+            echo "Secrets EC2_HOST / EC2_USER / EC2_SSH_KEY aren't set yet (see deploy/README.md); skipping."
+            exit 0
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          # the server's key for GitHub may only run deploy/deploy.sh, whatever is asked here
+          ssh -i ~/.ssh/deploy_key -o ServerAliveInterval=30 "${EC2_USER:-ubuntu}@$EC2_HOST" deploy

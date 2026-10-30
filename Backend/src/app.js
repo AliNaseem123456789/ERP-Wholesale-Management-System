@@ -16,7 +16,9 @@ const companyRoutes = require("./routes/company.routes");
 const publicRoutes = require("./routes/public.routes");
 
 const app = express();
-app.set("trust proxy", 1);
+// How many proxies sit in front of the API (their X-Forwarded-For entries are trusted to find the visitor's address,
+// used by rate limits). Render or nginx alone: 1. Vercel's /api rewrite + nginx on the server: 2 (TRUST_PROXY=2).
+app.set("trust proxy", Number(process.env.TRUST_PROXY) || 1);
 // response time, database queries and round trips per request (terminal + Server-Timing header)
 app.use(require("./lib/requestTiming").requestTiming);
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
