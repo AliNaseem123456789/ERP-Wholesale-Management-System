@@ -1,4 +1,6 @@
 import { apiClient } from "../../../api/apiClient";
+
+export type ProductImage = { id: string | number; url: string; alt_text?: string | null; sort_order?: number };
 export const adminService = {
   getUsers: async () => {
     const { data } = await apiClient.get("/admin/users");
@@ -34,6 +36,34 @@ export const adminService = {
       },
     });
     return data.url;
+  },
+  // Product image gallery: the first image is the main one (cards, landing page, product page).
+  listProductImages: async (productId: string | number): Promise<ProductImage[]> => {
+    const { data } = await apiClient.get(`/admin/products/${productId}/images`);
+    return data.data;
+  },
+  addProductImages: async (productId: string | number, files: File[]): Promise<ProductImage[]> => {
+    let images: ProductImage[] = [];
+    // the server takes up to 6 files per request
+    for (let i = 0; i < files.length; i += 6) {
+      const formData = new FormData();
+      files.slice(i, i + 6).forEach((f) => formData.append("images", f));
+      const { data } = await apiClient.post(`/admin/products/${productId}/images`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      images = data.data;
+    }
+    return images;
+  },
+  reorderProductImages: async (productId: string | number, ids: (string | number)[]): Promise<ProductImage[]> => {
+    const { data } = await apiClient.patch(`/admin/products/${productId}/images`, {
+      images: ids.map((id) => ({ id })),
+    });
+    return data.data;
+  },
+  deleteProductImage: async (productId: string | number, imageId: string | number): Promise<ProductImage[]> => {
+    const { data } = await apiClient.delete(`/admin/products/${productId}/images/${imageId}`);
+    return data.data;
   },
   createProduct: async (productData: any) => {
     const payload = { ...productData };

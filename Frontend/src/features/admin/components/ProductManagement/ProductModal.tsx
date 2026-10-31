@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from "react";
-import { adminService } from "../../api/admin.service";
+import { adminService, type ProductImage } from "../../api/admin.service";
 import { toast } from "sonner";
 import {
   X,
-  Upload,
   Loader2,
   Save,
   Tag,
   DollarSign,
   Info,
   Briefcase,
+  Star,
+  Trash2,
+  ImagePlus,
 } from "lucide-react";
+
+const MAX_IMAGES = 12;
 export const ProductModal = ({
   isOpen,
   onClose,
@@ -18,8 +22,10 @@ export const ProductModal = ({
   initialData,
 }: any) => {
   const [loading, setLoading] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  // Gallery: saved images (first = main image) and new files that are uploaded on save.
+  const [images, setImages] = useState<ProductImage[]>([]);
+  const [newFiles, setNewFiles] = useState<{ file: File; preview: string }[]>([]);
+  const [imagesBusy, setImagesBusy] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     brand: "",
@@ -36,7 +42,6 @@ export const ProductModal = ({
         description: initialData.description || "",
         category: initialData.category || initialData.categories?.[0] || "",
       });
-      setPreview(initialData.image_url || null);
     } else {
       setFormData({
         title: "",
@@ -45,15 +50,50 @@ export const ProductModal = ({
         description: "",
         category: "",
       });
-      setPreview(null);
     }
-    setFile(null);
+    setImages([]);
+    setNewFiles([]);
+    if (initialData?.id && isOpen) {
+      adminService
+        .listProductImages(initialData.id)
+        .then(setImages)
+        .catch(() => toast.error("Couldn't load the product's images"));
+    }
   }, [initialData, isOpen]);
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-      setPreview(URL.createObjectURL(selectedFile));
+    const picked = Array.from(e.target.files || []);
+    e.target.value = "";
+    const room = MAX_IMAGES - images.length - newFiles.length;
+    if (picked.length > room) toast.error(`A product can have at most ${MAX_IMAGES} images`);
+    setNewFiles((prev) => [
+      ...prev,
+      ...picked.slice(0, Math.max(0, room)).map((file) => ({ file, preview: URL.createObjectURL(file) })),
+    ]);
+  };
+  const removeNewFile = (index: number) =>
+    setNewFiles((prev) => prev.filter((_, i) => i !== index));
+  // Saved images change right away (delete / make main); new files wait for the save button.
+  const makeMain = async (imageId: ProductImage["id"]) => {
+    setImagesBusy(true);
+    try {
+      const ids = [imageId, ...images.map((i) => i.id).filter((id) => String(id) !== String(imageId))];
+      setImages(await adminService.reorderProductImages(initialData.id, ids));
+      toast.success("Main image changed");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Couldn't change the main image");
+    } finally {
+      setImagesBusy(false);
+    }
+  };
+  const deleteImage = async (imageId: ProductImage["id"]) => {
+    if (!window.confirm("Delete this image?")) return;
+    setImagesBusy(true);
+    try {
+      setImages(await adminService.deleteProductImage(initialData.id, imageId));
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Couldn't delete the image");
+    } finally {
+      setImagesBusy(false);
     }
   };
   const handleSubmit = async (e: React.FormEvent) => {
@@ -71,18 +111,21 @@ export const ProductModal = ({
         const newProduct = await adminService.createProduct(submissionData);
         productId = newProduct.id;
       }
-      if (file && productId) {
-        const imageUrl = await adminService.uploadProductImage(file, productId);
-        await adminService.updateProduct(productId, {
-          image_url: imageUrl,
-        });
+      if (newFiles.length && productId) {
+        await adminService.addProductImages(
+          productId,
+          newFiles.map((f) => f.file),
+        );
       }
       toast.success(initialData ? "Product updated!" : "Product created!");
       onSuccess();
       onClose();
     } catch (err: any) {
       const errorMsg =
-        err.response?.data?.details || err.message || "Failed to save product";
+        err.response?.data?.details ||
+        err.response?.data?.message ||
+        err.message ||
+        "Failed to save product";
       toast.error(errorMsg);
       console.error(err);
     } finally {
@@ -180,29 +223,96 @@ export const ProductModal = ({
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">
-              Product Image
+            <label className="flex items-center justify-between text-sm font-semibold text-gray-700 mb-1">
+              <span>Product Images</span>
+              <span className="text-xs font-normal text-gray-500">
+                {images.length + newFiles.length}/{MAX_IMAGES} · the first one is the main image
+              </span>
             </label>
-            <div className="relative group h-40 w-full border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center overflow-hidden hover:border-blue-400 transition-colors bg-gray-50">
-              {preview ? (
-                <img
-                  src={preview}
-                  alt="Preview"
-                  className="w-full h-full object-contain"
-                />
-              ) : (
-                <div className="text-center">
-                  <Upload className="mx-auto text-gray-400 mb-2" size={32} />
-                  <p className="text-xs text-gray-500">Click to upload image</p>
+            <div className="grid grid-cols-4 gap-2">
+              {images.map((img, i) => (
+                <div
+                  key={img.id}
+                  className={`relative group aspect-square rounded-xl overflow-hidden border-2 bg-gray-50 ${
+                    i === 0 ? "border-blue-500" : "border-gray-200"
+                  }`}
+                >
+                  <img src={img.url} alt={img.alt_text || ""} className="w-full h-full object-contain" />
+                  {i === 0 && (
+                    <span className="absolute top-1 left-1 bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                      MAIN
+                    </span>
+                  )}
+                  <div className="absolute inset-x-0 bottom-0 flex justify-center gap-1 p-1 bg-black/50 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                    {i > 0 && (
+                      <button
+                        type="button"
+                        disabled={imagesBusy}
+                        title="Make main image"
+                        onClick={() => makeMain(img.id)}
+                        className="p-1 rounded bg-white/90 hover:bg-white text-gray-800 disabled:opacity-50"
+                      >
+                        <Star size={14} />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      disabled={imagesBusy}
+                      title="Delete image"
+                      onClick={() => deleteImage(img.id)}
+                      className="p-1 rounded bg-white/90 hover:bg-white text-red-600 disabled:opacity-50"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
+              ))}
+              {newFiles.map((f, i) => (
+                <div
+                  key={f.preview}
+                  className={`relative aspect-square rounded-xl overflow-hidden border-2 border-dashed bg-gray-50 ${
+                    !images.length && i === 0 ? "border-blue-500" : "border-green-400"
+                  }`}
+                >
+                  <img src={f.preview} alt="" className="w-full h-full object-contain" />
+                  <span className="absolute top-1 left-1 bg-green-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                    {!images.length && i === 0 ? "NEW · MAIN" : "NEW"}
+                  </span>
+                  <button
+                    type="button"
+                    title="Remove"
+                    onClick={() => removeNewFile(i)}
+                    className="absolute top-1 right-1 p-0.5 rounded-full bg-white/90 hover:bg-white text-gray-700"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+              {images.length + newFiles.length < MAX_IMAGES && (
+                <label className="relative aspect-square border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center hover:border-blue-400 transition-colors bg-gray-50 cursor-pointer">
+                  {imagesBusy ? (
+                    <Loader2 className="animate-spin text-gray-400" size={24} />
+                  ) : (
+                    <>
+                      <ImagePlus className="text-gray-400 mb-1" size={24} />
+                      <span className="text-[11px] text-gray-500">Add images</span>
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    multiple
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    onChange={handleFileChange}
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                  />
+                </label>
               )}
-              <input
-                type="file"
-                className="absolute inset-0 opacity-0 cursor-pointer"
-                onChange={handleFileChange}
-                accept="image/*"
-              />
             </div>
+            {newFiles.length > 0 && (
+              <p className="text-xs text-gray-500 mt-1">
+                {newFiles.length} new image{newFiles.length === 1 ? "" : "s"} will be uploaded when you save.
+              </p>
+            )}
           </div>
           <button
             type="submit"

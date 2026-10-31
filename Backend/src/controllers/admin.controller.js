@@ -9,6 +9,8 @@ const { queueEmail, processOutbox, verifySmtp } = require("../services/email/out
 const { audit } = require("../services/audit");
 const { getDefaultWarehouse } = require("../services/inventory");
 const inv = require("../services/inventory");
+const productImages = require("../services/productImages");
+const { withMainImage } = require("../services/catalog");
 
 const ROLES = ["USER", "ADMIN", "SUBACCOUNT"];
 
@@ -138,6 +140,7 @@ const getProducts = async (req, res) => {
     }),
     prisma.products.count({ where }),
   ]);
+  await withMainImage(products);
 
   res.status(200).json({
     products,
@@ -185,21 +188,51 @@ const requireStorage = () => {
   if (!supabaseAdmin) throw new HttpError(503, "Image storage is not configured on the server");
 };
 
+// POST /api/admin/upload (multipart "image", body productId) -> replaces the product's main image (the first
+// gallery image, which the landing page, cards and the product page show). Kept for the single-image form.
 const uploadImage = async (req, res) => {
   requireStorage();
-  const productId = toId(req.body.productId, "productId");
-  const file = req.file;
-  if (!file) throw new HttpError(400, "No file uploaded");
-  if (!file.mimetype?.startsWith("image/")) throw new HttpError(400, "Only image files are allowed");
+  const product = await findProduct(toId(req.body.productId, "productId"));
+  if (!req.file) throw new HttpError(400, "No file uploaded");
+  const url = await productImages.replaceMain(product, req.file);
+  await audit(req, "admin.product.image", { companyId: product.company_id, entity: "product", entityId: product.id });
+  res.status(200).json({ url });
+};
 
-  const filePath = `${productId}/1.webp`;
-  const { error } = await supabaseAdmin.storage
-    .from("product-images")
-    .upload(filePath, file.buffer, { contentType: file.mimetype, upsert: true });
-  if (error) throw error;
+// ---- product image gallery (any company's product) ---------------------------
+const findProduct = async (id) => {
+  const product = await prisma.products.findUnique({ where: { id } });
+  if (!product) throw new HttpError(404, "Product not found");
+  return product;
+};
 
-  const { data: { publicUrl } } = supabaseAdmin.storage.from("product-images").getPublicUrl(filePath);
-  res.status(200).json({ url: `${publicUrl}?t=${Date.now()}` });
+// GET /api/admin/products/:id/images -> the gallery in order; the first one is the main image
+const listProductImages = async (req, res) => {
+  const product = await findProduct(toId(req.params.id));
+  res.json({ data: await productImages.list(product.id) });
+};
+
+// POST /api/admin/products/:id/images  multipart "images" (up to 6 files at a time, 12 per product)
+const addProductImages = async (req, res) => {
+  requireStorage();
+  const product = await findProduct(toId(req.params.id));
+  const { added, images } = await productImages.add(product, { files: req.files || [], ...req.body });
+  await audit(req, "admin.product.images.add", { companyId: product.company_id, entity: "product", entityId: product.id, changes: { added } });
+  res.status(201).json({ data: images });
+};
+
+// PATCH /api/admin/products/:id/images { images: [{ id, alt_text? }] } -> new order (first = main image)
+const updateProductImages = async (req, res) => {
+  const product = await findProduct(toId(req.params.id));
+  res.json({ data: await productImages.update(product, req.body.images) });
+};
+
+// DELETE /api/admin/products/:id/images/:imageId
+const deleteProductImage = async (req, res) => {
+  const product = await findProduct(toId(req.params.id));
+  const data = await productImages.remove(product, toId(req.params.imageId));
+  await audit(req, "admin.product.images.delete", { companyId: product.company_id, entity: "product", entityId: product.id });
+  res.json({ data });
 };
 
 // ---- homepage feature banners (site_settings) -------------------------------
@@ -500,6 +533,10 @@ const retryEmail = async (req, res) => {
 };
 
 module.exports = {
+  listProductImages,
+  addProductImages,
+  updateProductImages,
+  deleteProductImage,
   listCompanies,
   createCompany,
   updateCompany,

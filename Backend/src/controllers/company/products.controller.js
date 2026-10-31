@@ -1,20 +1,17 @@
 // A company's own catalogue: products, variants, images, specifications, categories and brands.
-const crypto = require("crypto");
 const { Prisma } = require("@prisma/client");
 const prisma = require("../../prisma");
 const inv = require("../../services/inventory");
 const { HttpError, toId } = require("../../utils/http");
 const { productData, STATUSES } = require("../../services/productInput");
 const { audit } = require("../../services/audit");
-const { supabaseAdmin } = require("../../lib/supabaseAdmin");
 const cat = require("../../services/productCatalog");
 const attrs = require("../../services/attributes");
 const variants = require("../../services/variants");
+const images = require("../../services/productImages");
 const { num, round2 } = require("../../services/money");
 
 const TX = { timeout: 30000, maxWait: 10000 };
-const IMAGE_BUCKET = "product-images";
-const MAX_IMAGES = 12;
 
 // Kept for older callers (CSV import, admin): records that the company sells this brand.
 // A brand can be sold by any number of companies, so this never refuses.
@@ -227,103 +224,34 @@ const deleteProduct = async (req, res) => {
 
 // ---- images ------------------------------------------------------------------------------------
 
-const extFor = (mime) => ({ "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif", "image/avif": "avif" }[mime] || "img");
-
-// Files are stored under companies/<companyId>/products/<productId>/ so one company can never overwrite another's.
-const storeImage = async (companyId, productId, file) => {
-  if (!supabaseAdmin) throw new HttpError(503, "Image storage is not configured on the server");
-  if (!file?.mimetype?.startsWith("image/") || file.mimetype === "image/svg+xml") throw new HttpError(400, "Please upload a JPG, PNG, WebP or GIF image");
-  const path = `companies/${companyId}/products/${productId}/${crypto.randomUUID()}.${extFor(file.mimetype)}`;
-  const { error } = await supabaseAdmin.storage.from(IMAGE_BUCKET).upload(path, file.buffer, { contentType: file.mimetype, upsert: false });
-  if (error) throw error;
-  const { data: { publicUrl } } = supabaseAdmin.storage.from(IMAGE_BUCKET).getPublicUrl(path);
-  return { url: publicUrl, path };
-};
-
-const removeStored = async (path) => {
-  if (!supabaseAdmin || !path) return;
-  try {
-    await supabaseAdmin.storage.from(IMAGE_BUCKET).remove([path]);
-  } catch (err) {
-    console.error("image delete failed:", err.message);
-  }
-};
-
-const listImages = (productId) => prisma.product_images.findMany({ where: { product_id: productId }, orderBy: [{ sort_order: "asc" }, { id: "asc" }] });
-
 // POST /company/products/:id/image (multipart "image") -> replaces the first gallery image (older form)
 const uploadProductImage = async (req, res) => {
   const product = await findOwnProduct(req);
-  const stored = await storeImage(req.company.id, product.id, req.file);
-  await prisma.$transaction(async (tx) => {
-    const first = await tx.product_images.findFirst({ where: { product_id: product.id }, orderBy: [{ sort_order: "asc" }, { id: "asc" }] });
-    if (first) await tx.product_images.update({ where: { id: first.id }, data: { url: stored.url, storage_path: stored.path } });
-    else await tx.product_images.create({ data: { product_id: product.id, url: stored.url, storage_path: stored.path, sort_order: 0 } });
-    await cat.syncMainImage(tx, product.id);
-  });
+  const url = await images.replaceMain(product, req.file);
   await audit(req, "product.image", { entity: "product", entityId: product.id });
-  res.json({ url: stored.url });
+  res.json({ url });
 };
 
 // POST /company/products/:id/images  multipart "images" (up to 6 files), or JSON { url, alt_text?, variant_key? }
 const addImages = async (req, res) => {
   const product = await findOwnProduct(req);
-  const count = await prisma.product_images.count({ where: { product_id: product.id } });
-  const files = req.files || [];
-  const toAdd = [];
-  if (files.length) {
-    if (count + files.length > MAX_IMAGES) throw new HttpError(400, `A product can have at most ${MAX_IMAGES} images`);
-    for (const f of files) toAdd.push(await storeImage(req.company.id, product.id, f));
-  } else {
-    if (!cat.isHttpUrl(req.body.url)) throw new HttpError(400, "Upload an image or give its web address (https://...)");
-    if (count + 1 > MAX_IMAGES) throw new HttpError(400, `A product can have at most ${MAX_IMAGES} images`);
-    toAdd.push({ url: String(req.body.url).slice(0, 1000), path: null });
-  }
-  const variantKey = req.body.variant_key ? inv.resolveFlavor(product, req.body.variant_key) || null : null;
-  await prisma.$transaction(async (tx) => {
-    for (const [i, img] of toAdd.entries()) {
-      await tx.product_images.create({
-        data: { product_id: product.id, url: img.url, storage_path: img.path, alt_text: req.body.alt_text ? String(req.body.alt_text).slice(0, 255) : null, variant_key: variantKey, sort_order: count + i },
-      });
-    }
-    await cat.syncMainImage(tx, product.id);
-  });
-  await audit(req, "product.images.add", { entity: "product", entityId: product.id, changes: { added: toAdd.length } });
-  res.status(201).json({ data: await listImages(product.id) });
+  const { added, images: data } = await images.add(product, { files: req.files || [], ...req.body });
+  await audit(req, "product.images.add", { entity: "product", entityId: product.id, changes: { added } });
+  res.status(201).json({ data });
 };
 
 // PATCH /company/products/:id/images { images: [{ id, alt_text?, variant_key? }] } -> order = list order
 const updateImages = async (req, res) => {
   const product = await findOwnProduct(req);
-  const list = Array.isArray(req.body.images) ? req.body.images : [];
-  const current = await listImages(product.id);
-  const ids = new Set(current.map((i) => String(i.id)));
-  if (list.length !== current.length || list.some((i) => !ids.has(String(i.id)))) throw new HttpError(400, "Send every image of the product once, in the new order");
-  await prisma.$transaction(async (tx) => {
-    for (const [i, img] of list.entries()) {
-      const data = { sort_order: i };
-      if (img.alt_text !== undefined) data.alt_text = img.alt_text ? String(img.alt_text).slice(0, 255) : null;
-      if (img.variant_key !== undefined) data.variant_key = img.variant_key ? inv.resolveFlavor(product, img.variant_key) || null : null;
-      await tx.product_images.update({ where: { id: BigInt(img.id) }, data });
-    }
-    await cat.syncMainImage(tx, product.id);
-  });
-  res.json({ data: await listImages(product.id) });
+  res.json({ data: await images.update(product, req.body.images) });
 };
 
 // DELETE /company/products/:id/images/:imageId
 const deleteImage = async (req, res) => {
   const product = await findOwnProduct(req);
-  const img = await prisma.product_images.findFirst({ where: { id: toId(req.params.imageId), product_id: product.id } });
-  if (!img) throw new HttpError(404, "Image not found");
-  await prisma.$transaction(async (tx) => {
-    await tx.product_images.delete({ where: { id: img.id } });
-    await cat.syncMainImage(tx, product.id);
-  });
-  // only files this app stored for this company are removed from storage
-  if (img.storage_path?.startsWith(`companies/${req.company.id}/`)) await removeStored(img.storage_path);
+  const data = await images.remove(product, toId(req.params.imageId));
   await audit(req, "product.images.delete", { entity: "product", entityId: product.id });
-  res.json({ data: await listImages(product.id) });
+  res.json({ data });
 };
 
 // ---- variants ----------------------------------------------------------------------------------

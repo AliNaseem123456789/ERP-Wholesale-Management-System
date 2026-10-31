@@ -62,6 +62,10 @@ router.patch("/products/:id", a.updateProduct);
 router.delete("/products/:id", a.deleteProduct);
 
 router.post("/upload", upload.single("image"), a.uploadImage);
+router.get("/products/:id/images", a.listProductImages);
+router.post("/products/:id/images", upload.array("images", 6), a.addProductImages);
+router.patch("/products/:id/images", a.updateProductImages);
+router.delete("/products/:id/images/:imageId", a.deleteProductImage);
 
 router.get("/companies", a.listCompanies);
 router.post("/companies", a.createCompany);
