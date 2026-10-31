@@ -1,3 +1,4 @@
+import { AuthShell } from "../components/AuthCard";
 import React, { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -31,54 +32,46 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full">
-        <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-8">
-
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">
-              Wholesale Login
-            </h2>
-            <p className="text-gray-600">
-              Sign in to access wholesale pricing
-            </p>
-          </div>
-
+    <AuthShell title="Sign in" subtitle="Welcome back. Sign in to see your trade prices.">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Email Address
+              <label htmlFor="login-email" className="block text-sm font-medium text-ink mb-1.5">
+                Email address
               </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-ink-3" />
                 <input
+                  id="login-email"
                   type="email"
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full h-12 pl-11 pr-4 border border-line-strong rounded-lg bg-surface text-ink focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label htmlFor="login-password" className="block text-sm font-medium text-ink mb-1.5">
                 Password
               </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-ink-3" />
                 <input
+                  id="login-password"
                   type="password"
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full h-12 pl-11 pr-4 border border-line-strong rounded-lg bg-surface text-ink focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none"
                 />
               </div>
             </div>
 
             <div className="flex justify-end -mt-3">
-              <Link to="/forgot-password" className="text-sm text-blue-600 font-semibold hover:underline">
+              <Link to="/forgot-password" className="text-sm text-brand-text font-semibold hover:underline">
                 Forgot password?
               </Link>
             </div>
@@ -86,20 +79,18 @@ export const LoginPage: React.FC = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-400"
+              className="w-full h-12 bg-brand text-white rounded-lg font-semibold hover:bg-brand-hover disabled:opacity-60"
             >
-              {isLoading ? "Signing in..." : "Sign In"}
+              {isLoading ? "Signing in…" : "Sign in"}
             </button>
           </form>
 
-          <p className="text-center text-sm mt-6 text-gray-600">
+          <p className="text-sm mt-8 pt-6 border-t border-line text-ink-2">
             New wholesale customer?{" "}
-            <Link to="/register" className="text-blue-600 font-semibold hover:underline">
-              Create an account
+            <Link to="/register" className="text-brand-text font-semibold hover:underline">
+              Open an account
             </Link>
           </p>
-        </div>
-      </div>
-    </div>
+    </AuthShell>
   );
 };

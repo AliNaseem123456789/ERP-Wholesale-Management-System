@@ -109,7 +109,7 @@ export const MarketplaceManagement: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-black text-gray-900">Marketplace</h2>
+          <h2 className="font-display text-2xl font-extrabold text-ink">Marketplace</h2>
           <p className="text-sm text-gray-500">Menu, homepage and what suppliers can use on their store pages. Changes show within a few seconds of saving.</p>
         </div>
         <button onClick={save} disabled={saving} className={btnPrimary}>{saving ? "Saving…" : "Save marketplace settings"}</button>

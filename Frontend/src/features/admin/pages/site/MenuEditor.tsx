@@ -145,7 +145,7 @@ export const MenuEditor: React.FC<{ initial: NavConfig[]; isDefault: boolean; op
 
       {preview && (
         <div className="fixed inset-0 z-[100] bg-black/60 flex flex-col" role="dialog" aria-modal="true" aria-label="Menu preview">
-          <div className="bg-gray-900 text-white px-4 py-2 flex items-center justify-between text-sm">
+          <div className="bg-solid text-white px-4 py-2 flex items-center justify-between text-sm">
             <span><b>Preview</b>: hover or click the arrows to open dropdowns. Not saved yet.</span>
             <button onClick={() => setPreview(null)} className="bg-white/10 px-3 py-1.5 rounded font-semibold">Close</button>
           </div>

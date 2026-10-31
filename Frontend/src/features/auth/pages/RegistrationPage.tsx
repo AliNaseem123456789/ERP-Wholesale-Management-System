@@ -1,3 +1,4 @@
+import { AuthShell, inputClass, primaryButtonClass } from "../components/AuthCard";
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
@@ -45,84 +46,79 @@ export const RegistrationPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center px-4 transition-colors duration-200">
-      <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md w-full max-w-md border dark:border-gray-700">
-        <h2 className="text-2xl font-bold text-center mb-6 text-gray-900 dark:text-white">
-          Create Account
-        </h2>
+    <AuthShell title="Open a trade account" subtitle="Free for buyers. We review new accounts within one business day." wide>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <input
               name="firstName"
-              placeholder="First name"
+              placeholder="First name" aria-label="First name"
               value={formData.firstName}
               onChange={handleChange}
-              className="w-full border p-3 rounded bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 outline-none"
+              className={inputClass}
             />
             <input
               name="lastName"
-              placeholder="Last name"
+              placeholder="Last name" aria-label="Last name"
               value={formData.lastName}
               onChange={handleChange}
-              className="w-full border p-3 rounded bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 outline-none"
+              className={inputClass}
             />
           </div>
           <input
             name="businessName"
-            placeholder="Business / shop name"
+            placeholder="Business / shop name" aria-label="Business / shop name"
             value={formData.businessName}
             onChange={handleChange}
-            className="w-full border p-3 rounded bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 outline-none"
+            className={inputClass}
           />
           <input
             type="email"
             name="email"
-            placeholder="Email"
+            placeholder="Email" aria-label="Email"
             required
             value={formData.email}
             onChange={handleChange}
-            className="w-full border p-3 rounded bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 outline-none"
+            className={inputClass}
           />
 
           <input
             type="password"
             name="password"
-            placeholder="Password"
+            placeholder="Password" aria-label="Password"
             required
             value={formData.password}
             onChange={handleChange}
-            className="w-full border p-3 rounded bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 outline-none"
+            className={inputClass}
           />
 
           <input
             type="password"
-            placeholder="Confirm Password"
+            placeholder="Confirm password" aria-label="Confirm password"
             required
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full border p-3 rounded bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 outline-none"
+            className={inputClass}
           />
 
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded font-semibold disabled:bg-gray-400 dark:disabled:bg-gray-600 transition-colors"
+            className={primaryButtonClass}
           >
-            {isLoading ? "Creating Account..." : "Register"}
+            {isLoading ? "Creating your account…" : "Create account"}
           </button>
         </form>
 
-        <p className="text-center text-sm mt-4 text-gray-600 dark:text-gray-400">
+        <p className="text-sm mt-8 pt-6 border-t border-line text-ink-2">
           Already have an account?{" "}
           <button
             onClick={() => navigate("/login")}
-            className="text-blue-600 dark:text-blue-400 font-semibold hover:underline"
+            className="text-brand-text font-semibold hover:underline"
           >
-            Login
+            Sign in
           </button>
         </p>
-      </div>
-    </div>
+    </AuthShell>
   );
 };

@@ -37,7 +37,7 @@ export const ChangePasswordCard: React.FC = () => {
         <input type="password" required placeholder="Confirm new password" className={field} value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} />
       </div>
       <p className="text-xs text-gray-500">Changing your password signs you out on all other devices.</p>
-      <button disabled={saving} className="bg-gray-900 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-black disabled:opacity-50">
+      <button disabled={saving} className="bg-solid text-white px-6 py-2.5 rounded-xl font-bold hover:bg-solid-hover disabled:opacity-50">
         {saving ? "Updating..." : "Update password"}
       </button>
     </form>

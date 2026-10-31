@@ -56,7 +56,7 @@ export const OrderDetail: React.FC<OrderDetailProps> = ({ order, onBack }) => {
           <ReportButton target={{ kind: "order", order_id: order.id }} title={`Problem with order ${order.order_number || order.id}`} className="px-2 text-sm" />
           <button
             onClick={handlePrint}
-            className="flex items-center gap-2 bg-black text-white px-6 py-2.5 rounded-xl font-bold hover:bg-gray-800 transition-all shadow-sm"
+            className="flex items-center gap-2 bg-solid text-white px-6 py-2.5 rounded-xl font-bold hover:bg-solid-hover transition-all shadow-sm"
           >
             <Printer size={18} /> Print
           </button>
@@ -241,7 +241,7 @@ export const OrderDetail: React.FC<OrderDetailProps> = ({ order, onBack }) => {
                 <span className="font-mono font-bold">{money(order.excise_amount)}</span>
               </div>
             )}
-            <div className="flex justify-between items-center bg-gray-900 text-white p-6 rounded-2xl mt-4 print:bg-white print:text-black print:border-t-4 print:border-black print:rounded-none print:px-2">
+            <div className="flex justify-between items-center bg-solid text-white p-6 rounded-2xl mt-4 print:bg-white print:text-black print:border-t-4 print:border-black print:rounded-none print:px-2">
               <div>
                 <p className="text-[10px] font-black uppercase opacity-60">Order total</p>
                 <p className="text-xs font-bold opacity-80">{paymentText}</p>

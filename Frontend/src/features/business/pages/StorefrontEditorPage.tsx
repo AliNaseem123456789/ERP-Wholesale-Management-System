@@ -341,7 +341,7 @@ export const StorefrontEditorPage: React.FC = () => {
 
       {preview && (
         <div className="fixed inset-0 z-[100] bg-black/60 flex flex-col" role="dialog" aria-modal="true" aria-label="Storefront preview">
-          <div className="bg-gray-900 text-white px-4 py-2 flex items-center justify-between text-sm">
+          <div className="bg-solid text-white px-4 py-2 flex items-center justify-between text-sm">
             <span><b>Preview</b> of your draft, as a logged-out visitor would see it</span>
             <div className="flex gap-2">
               {editable && <button onClick={() => { setPreview(null); onPublish(); }} className="bg-blue-600 px-3 py-1.5 rounded font-semibold">Publish</button>}

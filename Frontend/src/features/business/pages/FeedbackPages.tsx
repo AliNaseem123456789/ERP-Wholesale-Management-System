@@ -81,8 +81,8 @@ export const SellerReviewsPage: React.FC = () => {
         actions={company?.slug && <Link to={`/companies/${company.slug}?tab=reviews`} className={btnSecondary}>Public page <ExternalLink size={14} /></Link>} />
       {data && (
         <div className="grid sm:grid-cols-3 gap-3 mb-4">
-          <Card className="p-4"><p className="text-xs font-bold uppercase text-gray-500">All reviews</p><p className="text-2xl font-black text-gray-900 flex items-center gap-2">{data.summary.average?.toFixed(1) ?? "—"} <Star size={18} className="text-amber-400 fill-amber-400" /></p><p className="text-xs text-gray-500">{data.summary.count} published</p></Card>
-          <Card className="p-4"><p className="text-xs font-bold uppercase text-gray-500">Your company</p><p className="text-2xl font-black text-gray-900">{data.supplier.average?.toFixed(1) ?? "—"}</p><p className="text-xs text-gray-500">{data.supplier.count} supplier reviews</p></Card>
+          <Card className="p-4"><p className="text-xs font-bold uppercase text-gray-500">All reviews</p><p className="font-display text-2xl font-extrabold text-ink flex items-center gap-2">{data.summary.average?.toFixed(1) ?? "—"} <Star size={18} className="text-amber-400 fill-amber-400" /></p><p className="text-xs text-gray-500">{data.summary.count} published</p></Card>
+          <Card className="p-4"><p className="text-xs font-bold uppercase text-gray-500">Your company</p><p className="font-display text-2xl font-extrabold text-ink">{data.supplier.average?.toFixed(1) ?? "—"}</p><p className="text-xs text-gray-500">{data.supplier.count} supplier reviews</p></Card>
           <Card className="p-4"><p className="text-xs font-bold uppercase text-gray-500">By stars</p>
             <div className="flex gap-2 mt-1 text-xs text-gray-600">{[5, 4, 3, 2, 1].map((n) => <span key={n}>{n}★ <b>{data.summary.distribution?.[n] || 0}</b></span>)}</div></Card>
         </div>
@@ -174,9 +174,9 @@ export const CommissionPage: React.FC = () => {
     <div>
       <PageHeader title="Platform commission" subtitle="The marketplace's commission on your delivered orders: subtotal after discounts and returns credited, excluding shipping and tax. Each order keeps the rate from when it was placed." />
       <div className="grid sm:grid-cols-3 gap-3 mb-4">
-        <Card className="p-4"><p className="text-xs font-bold uppercase text-gray-500 flex items-center gap-1"><Percent size={12} /> Current rate</p><p className="text-2xl font-black text-gray-900">{data.rate}%</p><p className="text-xs text-gray-500">Set by the marketplace</p></Card>
-        <Card className="p-4"><p className="text-xs font-bold uppercase text-gray-500">Not billed yet</p><p className="text-2xl font-black text-gray-900">{money(data.unbilled.commission_amount)}</p><p className="text-xs text-gray-500">{data.unbilled.order_count} delivered orders · {money(data.unbilled.sales_amount)} sales</p></Card>
-        <Card className="p-4"><p className="text-xs font-bold uppercase text-gray-500">Unpaid statements</p><p className="text-2xl font-black text-gray-900">{money(data.data.filter((s) => s.status === "issued").reduce((t, s) => t + s.commission_amount, 0))}</p><p className="text-xs text-gray-500">{data.data.filter((s) => s.status === "issued").length} statement(s)</p></Card>
+        <Card className="p-4"><p className="text-xs font-bold uppercase text-gray-500 flex items-center gap-1"><Percent size={12} /> Current rate</p><p className="font-display text-2xl font-extrabold text-ink">{data.rate}%</p><p className="text-xs text-gray-500">Set by the marketplace</p></Card>
+        <Card className="p-4"><p className="text-xs font-bold uppercase text-gray-500">Not billed yet</p><p className="font-display text-2xl font-extrabold text-ink">{money(data.unbilled.commission_amount)}</p><p className="text-xs text-gray-500">{data.unbilled.order_count} delivered orders · {money(data.unbilled.sales_amount)} sales</p></Card>
+        <Card className="p-4"><p className="text-xs font-bold uppercase text-gray-500">Unpaid statements</p><p className="font-display text-2xl font-extrabold text-ink">{money(data.data.filter((s) => s.status === "issued").reduce((t, s) => t + s.commission_amount, 0))}</p><p className="text-xs text-gray-500">{data.data.filter((s) => s.status === "issued").length} statement(s)</p></Card>
       </div>
       <Card>
         <p className="font-bold text-gray-900 px-5 pt-4">Statements</p>

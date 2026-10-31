@@ -89,7 +89,7 @@ export const CartPage: React.FC = () => {
         <div className="bg-white p-12 rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center">
           <ShoppingCart className="w-20 h-20 text-gray-200 mb-6" />
           <h2 className="text-3xl font-bold mb-4 text-gray-900">
-            {carts.length > 1 && activeCart ? `“${activeCart.name}” is empty` : "Your Cart is Empty"}
+            {carts.length > 1 && activeCart ? `“${activeCart.name}” is empty` : "Your cart is empty"}
           </h2>
           <p className="text-gray-500 mb-8 max-w-xs">
             Looks like you haven't added any wholesale items to your order yet.

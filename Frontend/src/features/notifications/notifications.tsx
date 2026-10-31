@@ -167,7 +167,7 @@ export const NotificationsPage: React.FC = () => {
       <div className="max-w-3xl mx-auto px-4 py-8">
         <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
           <div>
-            <h1 className="text-2xl font-black text-gray-900">Notifications</h1>
+            <h1 className="font-display text-2xl font-extrabold text-ink">Notifications</h1>
             <p className="text-sm text-gray-500">{d ? `${d.unread} unread` : ""}</p>
           </div>
           <div className="flex gap-2">
@@ -177,7 +177,7 @@ export const NotificationsPage: React.FC = () => {
         </div>
         <div className="flex gap-1 mb-3">
           {(["all", "unread"] as const).map((t) => (
-            <button key={t} onClick={() => { setTab(t); setPage(1); }} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${tab === t ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}>{t === "all" ? "All" : "Unread"}</button>
+            <button key={t} onClick={() => { setTab(t); setPage(1); }} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${tab === t ? "bg-solid text-white" : "bg-gray-100 text-gray-600"}`}>{t === "all" ? "All" : "Unread"}</button>
           ))}
         </div>
         <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">

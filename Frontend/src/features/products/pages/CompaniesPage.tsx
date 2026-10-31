@@ -17,11 +17,11 @@ export const CompaniesPage: React.FC = () => {
   }, [q]);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-[#191919] py-10">
+    <div className="min-h-screen bg-gray-50 py-10">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-black text-gray-900 dark:text-white">Wholesale suppliers</h1>
+            <h1 className="font-display text-3xl md:text-[2.15rem] font-extrabold text-ink leading-tight">Wholesale suppliers</h1>
             <p className="text-gray-500 mt-1">Browse every company selling on the marketplace.</p>
           </div>
           <div className="relative w-full sm:w-80">

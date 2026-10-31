@@ -39,14 +39,14 @@ export const AddToCartButton: React.FC<AddToCartButtonProps> = ({
     <button
       onClick={handleAdd}
       disabled={isSubmitting}
-      className={`flex items-center justify-center gap-2 w-full bg-blue-600 text-white py-3 rounded font-semibold hover:bg-blue-700 transition-colors disabled:bg-blue-400 ${className}`}
+      className={`flex items-center justify-center gap-2 w-full h-12 bg-brand text-white rounded-lg text-[15px] font-semibold hover:bg-brand-hover disabled:opacity-70 ${className}`}
     >
       {isSubmitting ? (
         <Loader2 className="animate-spin" size={20} />
       ) : (
         <ShoppingCart size={20} />
       )}
-      {isSubmitting ? "Adding..." : "Add to Cart"}
+      {isSubmitting ? "Adding…" : "Add to cart"}
     </button>
   );
 };

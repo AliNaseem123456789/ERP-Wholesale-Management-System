@@ -6,7 +6,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { HeroData, HeroButton } from "./api";
-import { useLook } from "./SiteContext";
+import { useClassicLook as useLook } from "./SiteContext";
 import { SearchBox } from "./SearchBox";
 
 const Btn: React.FC<{ b: HeroButton }> = ({ b }) => {
@@ -22,7 +22,7 @@ const Picture: React.FC<{ src: string; mobile?: string; alt?: string; className:
   </picture>
 );
 
-export const Hero: React.FC<{ hero: HeroData }> = ({ hero }) => {
+const HeroInner: React.FC<{ hero: HeroData }> = ({ hero }) => {
   const look = useLook();
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -123,3 +123,10 @@ export const Hero: React.FC<{ hero: HeroData }> = ({ hero }) => {
     </section>
   );
 };
+
+/** The original hero, kept exactly as designed (inside the "classic" colour scope). */
+export const Hero: React.FC<{ hero: HeroData }> = ({ hero }) => (
+  <div className="classic">
+    <HeroInner hero={hero} />
+  </div>
+);

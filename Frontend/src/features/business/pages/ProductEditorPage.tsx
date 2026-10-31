@@ -432,7 +432,7 @@ const ImagesSection: React.FC<{ productId: number; initial: ProductImage[]; vari
           <div key={m.id} className="border border-gray-200 rounded-xl overflow-hidden bg-white">
             <div className="aspect-square bg-gray-50 relative">
               <img src={m.url} alt={m.alt_text || ""} className="w-full h-full object-cover" />
-              {i === 0 && <span className="absolute top-2 left-2 bg-gray-900/80 text-white text-[10px] font-bold uppercase px-2 py-0.5 rounded">Main</span>}
+              {i === 0 && <span className="absolute top-2 left-2 bg-solid/80 text-white text-[10px] font-bold uppercase px-2 py-0.5 rounded">Main</span>}
             </div>
             {canEdit && (
               <div className="p-2 space-y-1.5">

@@ -121,7 +121,7 @@ export const QuoteNegotiation: React.FC<{ quote: any; onChanged: () => void }> =
             <div className="flex gap-2 mt-3">
               <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} maxLength={4000} placeholder="Write a message" aria-label="Message to the seller"
                 className="flex-1 border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-900 text-sm" />
-              <button onClick={send} disabled={busy || !text.trim()} className="px-3 py-2 rounded-lg bg-gray-900 text-white disabled:opacity-40" aria-label="Send"><Send size={15} /></button>
+              <button onClick={send} disabled={busy || !text.trim()} className="px-3 py-2 rounded-lg bg-solid text-white disabled:opacity-40" aria-label="Send"><Send size={15} /></button>
             </div>
           )}
         </div>

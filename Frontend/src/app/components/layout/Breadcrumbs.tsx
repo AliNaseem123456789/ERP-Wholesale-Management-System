@@ -10,7 +10,7 @@ export const Breadcrumbs: React.FC = () => {
   const pathParts = pathname.split('/').filter(Boolean);
 
   return (
-    <nav className="bg-white-100 dark:bg-[#11172a] px-6 py-3 text-sm text-gray-700 dark:text-gray-300 rounded-md mb-6 max-w-7xl mx-auto">
+    <nav className="bg-white-100 px-6 py-3 text-sm text-gray-700 rounded-md mb-6 max-w-7xl mx-auto">
       <ol className="flex flex-wrap items-center space-x-2">
         <li>
           <Link to="/" className="hover:underline">

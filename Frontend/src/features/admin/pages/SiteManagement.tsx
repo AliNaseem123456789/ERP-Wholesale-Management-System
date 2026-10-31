@@ -73,7 +73,7 @@ export const SiteManagement: React.FC = () => {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-2xl font-black text-gray-900">Site</h2>
+        <h2 className="font-display text-2xl font-extrabold text-ink">Site</h2>
         <p className="text-sm text-gray-500">What every visitor sees: the menu, the homepage and notices.</p>
       </div>
       <div className="flex flex-wrap gap-1 border-b border-gray-200">

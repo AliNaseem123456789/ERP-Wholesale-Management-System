@@ -19,7 +19,7 @@ const Kpi: React.FC<{ icon: React.ReactNode; label: string; value: React.ReactNo
   return (
     <Card className="p-4">
       <p className="text-xs font-bold uppercase text-gray-500 flex items-center gap-1.5">{icon} {label}</p>
-      <p className="text-2xl font-black text-gray-900 mt-1 tabular-nums">{value}</p>
+      <p className="font-display text-2xl font-extrabold text-ink mt-1 tabular-nums">{value}</p>
       <p className="text-xs text-gray-500 mt-0.5">{c ? <span className={`font-bold ${c.tone}`}>{c.text}</span> : null}{c ? " vs previous period" : hint}</p>
     </Card>
   );

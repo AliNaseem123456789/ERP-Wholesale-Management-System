@@ -123,6 +123,7 @@ function App() {
   const { user, loading: authLoading } = useAuth();
   const dispatch = useDispatch<AppDispatch>();
   const lastUser = React.useRef<string | null>(null);
+  const location = useLocation();
 
   useEffect(() => {
     if (authLoading) return;
@@ -294,14 +295,14 @@ function App() {
       <BackToTop />
       <CompareBar />
       <Toaster position="top-center" richColors />
-      <FloatingChat
+      {!location.pathname.startsWith("/business") && <FloatingChat
         botId="smoking"
         apiUrl={CHATBOT_URL}
-        title="SmokeBuddy Assistant"
-        welcomeMessage="Hello! Welcome to SmokeBuddy Wholesale. Need help with products, wholesale pricing, or orders? I'm here to help! 🔥"
-        primaryColor="#8B5CF6"
+        title="Wholesale assistant"
+        welcomeMessage="Hi! Ask me about products, wholesale pricing, minimum orders or the status of an order."
+        primaryColor="#2F4FE0"
         userId={user?.id}
-      />
+      />}
     </>
   );
 }

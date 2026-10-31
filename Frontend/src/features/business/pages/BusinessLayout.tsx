@@ -1,10 +1,10 @@
-import React from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import React, { useEffect, useRef, useState } from "react";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, ShoppingBag, Package, Users, Settings, History, Warehouse, Truck,
   Calculator, BadgeDollarSign, Building2, Clock, Boxes, ClipboardList, RefreshCcw, BarChart3,
   UserRound, Tags, FileSignature, FileText, Undo2, LineChart, SlidersHorizontal,
-  BookOpen, ListTree, Receipt, Wallet, Landmark, Scale, ScanLine, ShieldCheck, FileSpreadsheet, FileBarChart, UsersRound, CalendarCheck, Plane, SlidersHorizontal as Sliders2, IdCard, FolderTree, Layers, Store, Activity, Star, Flag, Percent } from "lucide-react";
+  BookOpen, ListTree, Receipt, Wallet, Landmark, Scale, ScanLine, ShieldCheck, FileSpreadsheet, FileBarChart, UsersRound, CalendarCheck, Plane, SlidersHorizontal as Sliders2, IdCard, FolderTree, Layers, Store, Activity, Star, Flag, Percent, Search, ChevronDown, PanelLeft, X } from "lucide-react";
 import { BusinessProvider, useBusiness } from "../context/BusinessContext";
 import { Spinner } from "../components/ui";
 import { RegisterBusinessPage } from "./RegisterBusinessPage";
@@ -92,93 +92,187 @@ const NAV: { section?: string; items: NavItem[] }[] = [
   },
 ];
 
+const SECTION_KEY = "bo.closedSections";
+const readClosed = (): string[] => { try { return JSON.parse(localStorage.getItem(SECTION_KEY) || "[]"); } catch { return []; } };
+
+/** The back-office menu: a filter box (Ctrl/⌘ K), collapsible sections, and the current company. */
+const SideNav: React.FC<{ onNavigate?: () => void; autoFocus?: boolean }> = ({ onNavigate, autoFocus }) => {
+  const { companies, companyId, company, switchCompany, can } = useBusiness();
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const [q, setQ] = useState("");
+  const [closed, setClosed] = useState<string[]>(readClosed);
+  const filter = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const on = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); filter.current?.focus(); }
+    };
+    document.addEventListener("keydown", on);
+    return () => document.removeEventListener("keydown", on);
+  }, []);
+  const toggle = (section: string) => {
+    const next = closed.includes(section) ? closed.filter((x) => x !== section) : [...closed, section];
+    setClosed(next);
+    try { localStorage.setItem(SECTION_KEY, JSON.stringify(next)); } catch { /* storage unavailable */ }
+  };
+  const term = q.trim().toLowerCase();
+  const groups = NAV.map((g) => ({
+    ...g,
+    items: g.items.filter((n) => (Array.isArray(n.perm) ? n.perm.some(can) : can(n.perm)) && (!term || n.label.toLowerCase().includes(term) || (g.section || "").toLowerCase().includes(term))),
+  })).filter((g) => g.items.length);
+  const isActive = (n: NavItem) => (n.end ? pathname === n.to : pathname === n.to || pathname.startsWith(n.to + "/"));
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="p-3 border-b border-line">
+        {companies.length > 1 ? (
+          <label className="block">
+            <span className="sr-only">Business</span>
+            <select
+              value={companyId || ""}
+              onChange={(e) => { switchCompany(e.target.value); navigate("/business"); onNavigate?.(); }}
+              className="w-full h-11 rounded-lg border border-line bg-raised px-3 text-sm font-semibold text-ink"
+            >
+              {companies.map((c) => <option key={c.companyId} value={c.companyId}>{c.name}</option>)}
+            </select>
+          </label>
+        ) : (
+          <div className="flex items-center gap-2.5 px-1 py-1">
+            <span className="w-9 h-9 rounded-lg bg-brand-soft text-brand-text grid place-items-center font-display font-extrabold shrink-0">{company?.name?.[0] || "B"}</span>
+            <span className="min-w-0">
+              <span className="block font-semibold text-ink truncate leading-tight">{company?.name}</span>
+              <span className="block text-xs text-ink-3 capitalize">{String(company?.myRole || "").toLowerCase()}</span>
+            </span>
+          </div>
+        )}
+        <div className="relative mt-3">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-3 pointer-events-none" />
+          <input
+            ref={filter}
+            autoFocus={autoFocus}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && groups[0]?.items[0]) { navigate(groups[0].items[0].to); setQ(""); onNavigate?.(); }
+              if (e.key === "Escape") { setQ(""); (e.target as HTMLInputElement).blur(); }
+            }}
+            placeholder="Jump to…"
+            aria-label="Find a page"
+            className="w-full h-9 pl-9 pr-12 rounded-lg bg-raised border border-line text-sm text-ink placeholder:text-ink-3 focus:bg-surface focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none"
+          />
+          <kbd className="hidden lg:block absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-ink-3 border border-line rounded px-1.5 py-px font-sans">Ctrl K</kbd>
+        </div>
+      </div>
+
+      <nav className="flex-1 overflow-y-auto overscroll-contain p-2" aria-label="Back office">
+        {groups.length === 0 && <p className="px-3 py-6 text-sm text-ink-3 text-center">No page matches “{q}”.</p>}
+        {groups.map((group, gi) => {
+          const open = !!term || !group.section || !closed.includes(group.section) || group.items.some(isActive);
+          return (
+            <div key={gi} className={gi ? "mt-1" : ""}>
+              {group.section && (
+                <button
+                  onClick={() => toggle(group.section!)}
+                  aria-expanded={open}
+                  className="w-full flex items-center justify-between px-3 pt-3 pb-1.5 text-xs font-semibold text-ink-3 hover:text-ink"
+                >
+                  {group.section}
+                  <ChevronDown size={14} className={`transition-transform ${open ? "" : "-rotate-90"}`} />
+                </button>
+              )}
+              {open && group.items.map((n) => (
+                <NavLink
+                  key={n.to}
+                  to={n.to}
+                  end={n.end}
+                  onClick={() => { setQ(""); onNavigate?.(); }}
+                  className={({ isActive }) =>
+                    `relative flex items-center gap-3 px-3 h-9 rounded-lg text-sm transition-colors ${
+                      isActive ? "bg-brand-soft text-ink font-semibold before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:rounded-full before:bg-brand" : "text-ink-2 hover:bg-raised hover:text-ink"
+                    }`
+                  }
+                >
+                  {({ isActive }) => <><n.icon size={17} className={isActive ? "text-brand-text" : "text-ink-3"} /> <span className="truncate">{n.label}</span></>}
+                </NavLink>
+              ))}
+            </div>
+          );
+        })}
+      </nav>
+
+      <div className="p-3 border-t border-line">
+        <Link to="/" onClick={onNavigate} className="flex items-center gap-2 px-3 h-9 rounded-lg text-sm text-ink-2 hover:bg-raised hover:text-ink">
+          <Store size={16} className="text-ink-3" /> Back to the marketplace
+        </Link>
+      </div>
+    </div>
+  );
+};
+
 const Shell: React.FC = () => {
   useSeo({ title: "Business", noindex: true });
-  const { companies, companyId, company, loading, switchCompany, can } = useBusiness();
-  const navigate = useNavigate();
+  const { companies, company, loading } = useBusiness();
+  const { pathname } = useLocation();
+  const [drawer, setDrawer] = useState(false);
+  useEffect(() => setDrawer(false), [pathname]);
+  useEffect(() => {
+    if (!drawer) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setDrawer(false);
+    document.addEventListener("keydown", esc);
+    return () => { document.body.style.overflow = prev; document.removeEventListener("keydown", esc); };
+  }, [drawer]);
 
   if (!companies.length) return <RegisterBusinessPage />;
   if (loading && !company) return <Spinner label="Loading your business..." />;
   if (!company) {
     return (
-      <div className="max-w-xl mx-auto py-20 text-center text-gray-600">
+      <div className="max-w-xl mx-auto py-20 text-center text-ink-2">
         We couldn't open this business. It may have been suspended, or your access was removed.
       </div>
     );
   }
 
+  const current = NAV.flatMap((g) => g.items).filter((n) => (n.end ? pathname === n.to : pathname === n.to || pathname.startsWith(n.to + "/"))).sort((a, b) => b.to.length - a.to.length)[0];
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-6">
-        <aside className="space-y-4 no-print">
-          <div className="bg-white border border-gray-200 rounded-2xl p-3">
-            <label className="text-[10px] font-bold uppercase text-gray-400 tracking-widest px-1">Business</label>
-            {companies.length > 1 ? (
-              <select
-                value={companyId || ""}
-                onChange={(e) => {
-                  switchCompany(e.target.value);
-                  navigate("/business");
-                }}
-                className="w-full mt-1 border border-gray-200 rounded-lg px-2 py-2 text-sm font-semibold bg-white text-gray-900"
-              >
-                {companies.map((c) => (
-                  <option key={c.companyId} value={c.companyId}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <div className="flex items-center gap-2 mt-1 px-1">
-                <Building2 size={18} className="text-blue-600" />
-                <span className="font-bold text-gray-900 truncate">{company.name}</span>
-              </div>
-            )}
-            <p className="text-xs text-gray-500 mt-2 px-1">
-              Your role: <b>{company.myRole}</b>
-            </p>
+    <div className="min-h-screen bg-page lg:grid lg:grid-cols-[264px_minmax(0,1fr)]">
+      <aside className="hidden lg:block no-print sticky top-20 h-[calc(100vh-5rem)] bg-surface border-r border-line">
+        <SideNav />
+      </aside>
+
+      {/* phone / tablet: current page + menu button */}
+      <div className="lg:hidden no-print sticky top-14 md:top-20 z-30 bg-surface/95 backdrop-blur border-b border-line px-3 h-12 flex items-center gap-2">
+        <button onClick={() => setDrawer(true)} className="inline-flex items-center gap-2 h-9 px-3 rounded-lg border border-line text-sm font-semibold text-ink" aria-label="Open the back-office menu">
+          <PanelLeft size={16} /> Menu
+        </button>
+        <span className="text-sm text-ink-3 truncate">{company.name}{current ? <> <span className="mx-1">/</span> <span className="text-ink font-medium">{current.label}</span></> : null}</span>
+      </div>
+      {drawer && (
+        <div className="lg:hidden fixed inset-0 z-[100]" role="dialog" aria-modal="true" aria-label="Back-office menu">
+          <div className="absolute inset-0 bg-night/60" onClick={() => setDrawer(false)} />
+          <div className="absolute left-0 top-0 bottom-0 w-[86%] max-w-xs bg-surface shadow-xl">
+            <button onClick={() => setDrawer(false)} className="absolute right-2 top-2 z-10 w-9 h-9 grid place-items-center rounded-lg text-ink-3 hover:bg-raised" aria-label="Close menu"><X size={18} /></button>
+            <SideNav onNavigate={() => setDrawer(false)} />
           </div>
+        </div>
+      )}
 
-          <nav className="bg-white border border-gray-200 rounded-2xl p-2">
-            {NAV.map((group, gi) => {
-              const items = group.items.filter((n) => (Array.isArray(n.perm) ? n.perm.some(can) : can(n.perm)));
-              if (!items.length) return null;
-              return (
-                <div key={gi} className={gi ? "mt-2 pt-2 border-t border-gray-100" : ""}>
-                  {group.section && <p className="px-3 pt-1 pb-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">{group.section}</p>}
-                  {items.map((n) => (
-                    <NavLink
-                      key={n.to}
-                      to={n.to}
-                      end={n.end}
-                      className={({ isActive }) =>
-                        `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                          isActive ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-gray-50"
-                        }`
-                      }
-                    >
-                      <n.icon size={18} /> {n.label}
-                    </NavLink>
-                  ))}
-                </div>
-              );
-            })}
-          </nav>
-        </aside>
-
-        <main className="min-w-0">
+      <main className="min-w-0 px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+        <div className="max-w-[1400px] mx-auto">
           {company.status === "pending" && (
-            <div className="mb-4 flex items-center gap-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-3 text-sm">
-              <Clock size={18} />
+            <div className="mb-6 flex items-start gap-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-3 text-sm">
+              <Clock size={18} className="shrink-0 mt-0.5" />
               <span>
-                <b>Waiting for approval.</b> You can set up products and your team now. Customers will see your store once the
+                <b className="font-semibold">Waiting for approval.</b> You can set up products and your team now. Customers will see your store once the
                 platform team approves it.
               </span>
             </div>
           )}
           <Outlet />
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 };

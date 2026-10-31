@@ -1,107 +1,79 @@
-/* Custom styles*/
+/* Global polish on top of the tokens in theme.css. Unlayered on purpose: these win over utilities. */
 
-/* Slick Carousel customization */
-.slick-slide {
-  padding: 0;
+/* Display type: Archivo in its expanded cut. */
+.font-display { font-stretch: 112%; letter-spacing: -0.015em; }
+
+/* Headings marked font-black stay strong without shouting. */
+h1.font-black, h2.font-black, h1.font-extrabold, h2.font-extrabold { font-weight: 780; }
+.font-black { font-weight: 750; }
+
+/* Nothing smaller than 11px. */
+.text-\[9px\], .text-\[10px\] { font-size: 11px; line-height: 1.35; }
+.text-\[11px\] { font-size: 12px; line-height: 1.4; }
+
+/* Transitions only on colour, never on layout. */
+button, a {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
+}
+input:focus, textarea:focus, select:focus {
+  transition: border-color 0.15s ease-out, box-shadow 0.15s ease-out;
 }
 
-.slick-slide > div {
-  padding: 0;
-}
-
-.slick-list {
-  overflow: hidden;
-  margin: 0 -8px;
-}
-
-.slick-slide > div {
-  padding: 0 8px;
-}
-
-.slick-dots {
-  bottom: -30px;
-}
-
-.slick-dots li button:before {
-  font-size: 10px;
-  color: #3b82f6;
-}
-
-.slick-dots li.slick-active button:before {
-  color: #1d4ed8;
-}
-
-/* Smooth transitions for specific elements only */
-button,
-a {
-  transition: all 0.2s ease-in-out;
-}
-
-/* Remove transitions from inputs for better UX */
-input,
-textarea,
-select {
-  transition: none;
-}
-
-input:focus,
-textarea:focus,
-select:focus {
-  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-}
-
-/* Focus states for accessibility */
-button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-textarea:focus-visible,
-select:focus-visible {
-  outline: 2px solid #3b82f6;
+/* Keyboard focus. */
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--brand);
   outline-offset: 2px;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
+/* Form controls follow the theme. */
+select, input, textarea { accent-color: var(--brand); }
+.dark select option { background: var(--surface); color: var(--text); }
 
-::-webkit-scrollbar-track {
-  background: #f3f4f6;
-}
+/* Scrollbars follow the theme. */
+* { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 6px; border: 2px solid var(--page); }
+::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
 
-::-webkit-scrollbar-thumb {
-  background: #9ca3af;
-  border-radius: 5px;
-}
+/* Hide the scrollbar on sideways product rows and chip rows. */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #6b7280;
-}
-
-/* Improve image loading */
-img {
-  image-rendering: -webkit-optimize-contrast;
-}
-/* Light panels get dark text even when the site is in dark theme.
-   Many pages draw white / light-grey cards without setting a text colour, which made
-   their text inherit the dark theme's light foreground (light-on-light, unreadable).
-   In the base layer, so any explicit text-* utility still wins. Elements that define
-   their own dark-mode background (dark:bg-...) are left alone. */
-@layer base {
-  .bg-white:not([class*="dark:bg-"]),
-  .bg-gray-50:not([class*="dark:bg-"]),
-  .bg-gray-100:not([class*="dark:bg-"]) {
-    color: #111827;
-  }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
 
 /* Printing: only the element marked .print-area is printed (purchase orders, pick lists, packing slips). */
 @media print {
   html, body { background: #fff !important; }
+  html.dark { color-scheme: light; }
   * { transition: none !important; animation: none !important; }
   body * { visibility: hidden !important; }
   .print-area, .print-area * { visibility: visible !important; }
   .print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0 12mm; color: #000 !important; background: #fff !important; }
   .no-print { display: none !important; }
 }
+
+/* Table headers across the back office: sentence case, readable size, quiet colour. */
+tr.uppercase:has(> th), thead.uppercase, thead .uppercase {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-3);
+}
+tr:has(> th) > th { font-weight: 500; }
+table { border-color: var(--line); }
+
+/* Inside the original "classic" pieces, undo the global polish above so they look exactly as before. */
+.classic .font-black { font-weight: 900; }
+.classic h1.font-extrabold, .classic h2.font-extrabold { font-weight: 800; }
+.classic h1.font-black, .classic h2.font-black { font-weight: 900; }
+.classic .text-\[9px\] { font-size: 9px; line-height: inherit; }
+.classic .text-\[10px\] { font-size: 10px; line-height: inherit; }
+.classic .text-\[11px\] { font-size: 11px; line-height: inherit; }
+.classic button, .classic a { transition: all 0.2s ease-in-out; }
+.classic :is(button, a, input, textarea, select):focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }

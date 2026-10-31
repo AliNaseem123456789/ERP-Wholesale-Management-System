@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { TriangleAlert, Plus, Minus, Lock, ArrowLeft, Info, BellRing } from "lucide-react";
+import { TriangleAlert, Plus, Minus, Lock, Info, BellRing, Store, Check, GitCompareArrows } from "lucide-react";
+import { Crumbs } from "../../marketplace/components";
 import { buyingApi, buyingError } from "../../account/api/buying.api";
 import { track } from "../../insights/api";
 import { useSeo } from "../../insights/seo";
@@ -57,7 +58,7 @@ const NotifyMeButton: React.FC<{ productId: number | string; flavor?: string | n
           setState("idle");
         }
       }}
-      className="w-full flex items-center justify-center gap-2 border border-gray-300 bg-white text-gray-800 py-3 rounded font-semibold hover:bg-gray-50 disabled:opacity-60"
+      className="w-full h-12 flex items-center justify-center gap-2 border border-line-strong bg-surface text-ink rounded-lg font-semibold hover:bg-raised disabled:opacity-60"
     >
       <BellRing size={16} /> {state === "done" ? "We'll email you when it's back" : state === "busy" ? "Saving…" : "Notify me when it's back"}
     </button>
@@ -116,10 +117,15 @@ export const ProductDetailPage: React.FC = () => {
 
   if (loading || authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="flex flex-col items-center gap-2">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-500 font-medium">Loading Product...</p>
+      <div className="min-h-screen bg-page">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 grid lg:grid-cols-2 gap-10" aria-busy="true" aria-label="Loading product">
+          <div className="aspect-square rounded-2xl bg-raised animate-pulse" />
+          <div className="space-y-4">
+            <div className="h-4 w-24 rounded bg-raised animate-pulse" />
+            <div className="h-10 w-4/5 rounded bg-raised animate-pulse" />
+            <div className="h-4 w-2/3 rounded bg-raised animate-pulse" />
+            <div className="h-56 rounded-2xl bg-raised animate-pulse mt-8" />
+          </div>
         </div>
       </div>
     );
@@ -127,11 +133,15 @@ export const ProductDetailPage: React.FC = () => {
 
   if (error) {
     return (
-      <div className="p-6 min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <TriangleAlert className="mx-auto text-red-500 mb-4" size={48} />
-          <p className="text-red-600 font-bold">{error}</p>
-          <button onClick={() => navigate(-1)} className="mt-4 text-blue-600 underline">Go Back</button>
+      <div className="px-6 py-24 min-h-[60vh] flex items-center justify-center bg-page">
+        <div className="text-center max-w-sm">
+          <span className="mx-auto mb-4 w-12 h-12 rounded-full bg-raised grid place-items-center text-danger"><TriangleAlert size={22} /></span>
+          <p className="font-semibold text-ink text-lg">This product couldn't be loaded</p>
+          <p className="text-sm text-ink-3 mt-1">{error}</p>
+          <div className="mt-5 flex justify-center gap-2">
+            <button onClick={() => navigate(-1)} className="h-10 px-4 rounded-lg border border-line text-ink font-semibold hover:bg-raised">Go back</button>
+            <Link to="/products" className="h-10 px-4 inline-flex items-center rounded-lg bg-brand text-white font-semibold hover:bg-brand-hover">Browse products</Link>
+          </div>
         </div>
       </div>
     );
@@ -175,25 +185,39 @@ export const ProductDetailPage: React.FC = () => {
   const unavailableReason =
     usesOptions && !variant ? "This combination isn't sold" : usesOptions && variant && variant.status !== "active" ? `${variant.name} is no longer available` : null;
 
-  return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-6xl mx-auto">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-blue-600 mb-6 hover:text-blue-800 transition-colors font-medium">
-          <ArrowLeft size={18} /> Back to Products
-        </button>
+  const unitLabel = product.unit || "unit";
+  const basePrice = priceSource.price != null ? Number(priceSource.price) : null;
+  const tiers = (priceSource.price_tiers || []).slice().sort((a, b) => a.min_quantity - b.min_quantity);
+  const activeTier = tiers.filter((t) => quantity >= t.min_quantity).pop();
+  const lineTotal = basePrice != null ? (activeTier ? Number(activeTier.price) : basePrice) * quantity : null;
+  const compliance = String((product as any).compliance_category || "");
+  const sectionTitle = "font-display text-xl font-extrabold text-ink mb-4";
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 grid md:grid-cols-2 gap-12">
-          <div>
-            <div className="aspect-square bg-gray-50 rounded-xl overflow-hidden border border-gray-100 mb-4">
-              <ProductImage key={mainImage} src={mainImage} product={product} alt={gallery[imageIdx]?.alt_text || product.title} className="w-full h-full object-cover transition-all duration-500" />
+  return (
+    <div className="min-h-screen bg-page">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <Crumbs items={[
+          { label: "Home", to: "/" },
+          ...(product.category_list?.[0] ? [{ label: product.category_list[0].name, to: `/categories/${product.category_list[0].slug}` }] : [{ label: "Products", to: "/products" }]),
+          { label: product.title },
+        ]} />
+
+        <div className="grid lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] gap-6 lg:gap-10 items-start">
+          {/* gallery */}
+          <div className="lg:sticky lg:top-24">
+            <div className="relative aspect-square bg-surface rounded-2xl overflow-hidden border border-line">
+              <ProductImage key={mainImage} src={mainImage} product={product} alt={gallery[imageIdx]?.alt_text || product.title} className="w-full h-full object-cover" />
+              {(product as any).sale && <SaleBadge sale={(product as any).sale} className="absolute top-4 left-4 text-sm" />}
             </div>
-            <div className="flex gap-3 flex-wrap">
+            <div className="no-scrollbar flex gap-2.5 mt-2 overflow-x-auto p-1 -mx-1">
               {gallery.length
                 ? gallery.map((img, i) => (
                     <button
                       key={img.id}
                       onClick={() => setImageIdx(i)}
-                      className={`w-20 h-20 border-2 rounded-lg overflow-hidden transition-all ${imageIdx === i ? "border-blue-600 scale-105 shadow-md" : "border-gray-100 opacity-70 hover:opacity-100"}`}
+                      aria-label={`Show picture ${i + 1}`}
+                      aria-current={imageIdx === i}
+                      className={`w-20 h-20 shrink-0 rounded-lg overflow-hidden bg-surface ring-2 ring-offset-2 ring-offset-page ${imageIdx === i ? "ring-brand" : "ring-transparent opacity-70 hover:opacity-100"}`}
                     >
                       <img src={img.url} alt={img.alt_text || `View ${i + 1}`} className="w-full h-full object-cover" onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }} />
                     </button>
@@ -202,71 +226,59 @@ export const ProductDetailPage: React.FC = () => {
                     <button
                       key={num}
                       onClick={() => setLegacyImageNum(num)}
-                      className={`w-20 h-20 border-2 rounded-lg overflow-hidden transition-all ${legacyImageNum === num ? "border-blue-600 scale-105 shadow-md" : "border-gray-100 opacity-70 hover:opacity-100"}`}
+                      aria-label={`Show picture ${num}`}
+                      className={`w-20 h-20 shrink-0 rounded-lg overflow-hidden bg-surface ring-2 ring-offset-2 ring-offset-page ${legacyImageNum === num ? "ring-brand" : "ring-transparent opacity-70 hover:opacity-100"}`}
                     >
                       <img src={getProductImage(product.id, num)} alt={`View ${num}`} className="w-full h-full object-cover" onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }} />
                     </button>
                   ))}
             </div>
           </div>
-          <div className="flex flex-col">
-            <div className="mb-6">
-              {product.brand_info?.slug ? (
-                <Link to={`/brands/${product.brand_info.slug}`} className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-2 inline-block hover:underline">{product.brand}</Link>
-              ) : (
-                <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-2">{product.brand}</p>
-              )}
-              <h1 className="text-4xl font-extrabold text-gray-900 mb-2 leading-tight">{product.title}</h1>
-              <div className="flex flex-wrap items-center gap-3 mb-2">
-                <SaleBadge sale={(product as any).sale} />
-                {(product as any).rating && <a href="#reviews-title"><RatingBadge rating={(product as any).rating} className="text-sm" /></a>}
-                <button
-                  type="button"
-                  onClick={() => { if (!compare.toggle(product.id)) toast.error(`You can compare up to ${COMPARE_MAX} products. Remove one first.`); }}
-                  aria-pressed={compare.has(product.id)}
-                  className={`text-xs font-bold px-2.5 py-1 rounded-full border ${compare.has(product.id) ? "bg-blue-600 border-blue-600 text-white" : "border-gray-300 text-gray-600 hover:border-gray-500"}`}
-                >
-                  {compare.has(product.id) ? "✓ In compare list" : "+ Compare"}
-                </button>
-                {compare.has(product.id) && compare.ids.length > 1 && <Link to="/compare" className="text-xs font-bold text-blue-600 hover:underline">Compare {compare.ids.length} →</Link>}
-              </div>
-              {(product as any).sale && (
-                <p className="text-sm text-red-700 font-semibold mb-2">
-                  {(product as any).sale.percent}% off{(product as any).sale.ends_at ? ` until ${new Date((product as any).sale.ends_at).toLocaleDateString()}` : ""}{!user ? ". Sign in to see your price." : ""}
-                </p>
-              )}
+
+          {/* title, options and the buy box */}
+          <div className="min-w-0">
+            {product.brand_info?.slug ? (
+              <Link to={`/brands/${product.brand_info.slug}`} className="text-sm font-semibold text-brand-text hover:underline">{product.brand}</Link>
+            ) : (
+              <p className="text-sm font-semibold text-brand-text">{product.brand}</p>
+            )}
+            <h1 className="font-display text-[1.9rem] md:text-[2.4rem] font-extrabold text-ink mt-1 leading-[1.08]">{product.title}</h1>
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3 text-sm">
+              {(product as any).rating && <a href="#reviews-title" className="hover:underline"><RatingBadge rating={(product as any).rating} className="text-sm" /></a>}
               {product.company && (
-                <button onClick={() => navigate(`/companies/${product.company!.slug}`)} className="text-sm text-gray-600 mb-3 hover:text-blue-600 hover:underline">
-                  Sold by <b>{product.company.name}</b>
+                <button onClick={() => navigate(`/companies/${product.company!.slug}`)} className="inline-flex items-center gap-1.5 text-ink-2 hover:text-ink">
+                  <Store size={15} className="text-ink-3" /> Sold by <b className="font-semibold text-ink">{product.company.name}</b>
                 </button>
               )}
-              {!!product.category_list?.length && (
-                <div className="flex flex-wrap gap-1.5 mb-4">
-                  {product.category_list.map((c) => (
-                    <Link key={c.id} to={`/categories/${c.slug}`} className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full">{c.name}</Link>
-                  ))}
-                </div>
-              )}
-              {regulated && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3">
-                  <TriangleAlert className="text-amber-600 shrink-0" size={20} />
-                  <p className="text-sm text-amber-900 leading-snug">
-                    <strong>Nicotine Warning:</strong> This product contains nicotine. Nicotine is an addictive chemical.
-                  </p>
-                </div>
-              )}
+              {variant?.sku && <span className="text-ink-3">SKU <span className="text-ink-2">{variant.sku}</span></span>}
+              <button
+                type="button"
+                onClick={() => { if (!compare.toggle(product.id)) toast.error(`You can compare up to ${COMPARE_MAX} products. Remove one first.`); }}
+                aria-pressed={compare.has(product.id)}
+                className={`inline-flex items-center gap-1.5 font-medium ${compare.has(product.id) ? "text-brand-text" : "text-ink-2 hover:text-ink"}`}
+              >
+                {compare.has(product.id) ? <Check size={15} /> : <GitCompareArrows size={15} />} {compare.has(product.id) ? "In compare list" : "Compare"}
+              </button>
+              {compare.has(product.id) && compare.ids.length > 1 && <Link to="/compare" className="font-semibold text-brand-text hover:underline">Compare {compare.ids.length} products</Link>}
             </div>
 
-            <div className="space-y-6 flex-1">
-              {product.short_description && <p className="text-gray-800 font-medium">{product.short_description}</p>}
-              {product.description && <p className="text-gray-600 leading-relaxed border-l-4 border-gray-100 pl-4 whitespace-pre-line">{product.description}</p>}
+            {product.short_description && <p className="mt-4 text-[17px] text-ink-2 leading-relaxed">{product.short_description}</p>}
 
+            {(product as any).sale && (
+              <p className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-signal-ink bg-signal/25 rounded-lg px-3 py-1.5">
+                {(product as any).sale.percent}% off{(product as any).sale.ends_at ? ` until ${new Date((product as any).sale.ends_at).toLocaleDateString()}` : ""}{!user ? ". Sign in to see your price." : ""}
+              </p>
+            )}
+
+            {/* options */}
+            <div className="mt-6 space-y-5">
               {usesOptions
                 ? groups.map((g) => (
                     <div key={g.key}>
-                      <h3 className="text-sm font-bold text-gray-900 mb-3 uppercase tracking-wide">
-                        {g.name}{selected[g.key] ? <span className="ml-2 normal-case font-semibold text-gray-500">{selected[g.key]}</span> : null}
-                      </h3>
+                      <p className="text-sm font-semibold text-ink mb-2.5">
+                        {g.name}{selected[g.key] ? <span className="ml-2 font-normal text-ink-3">{selected[g.key]}</span> : null}
+                      </p>
                       <div className="flex flex-wrap gap-2">
                         {g.values.map((value) => {
                           const state = valueState(g, value);
@@ -277,17 +289,18 @@ export const ProductDetailPage: React.FC = () => {
                             <button
                               key={value}
                               onClick={() => choose(g, value)}
+                              aria-pressed={active}
                               title={state === "discontinued" ? "No longer available" : state === "soldout" ? "Out of stock" : state === "none" ? "Not sold with the other options you chose" : undefined}
-                              className={`px-4 py-2 text-sm font-medium border rounded-lg transition-all ${
+                              className={`h-10 px-4 text-sm font-medium rounded-lg border ${
                                 active
-                                  ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-100"
+                                  ? "bg-brand-soft border-brand text-ink ring-1 ring-brand"
                                   : state === "ok"
-                                    ? "bg-white border-gray-200 text-gray-600 hover:border-gray-400"
-                                    : "bg-gray-50 border-gray-200 text-gray-400 line-through"
+                                    ? "bg-surface border-line text-ink-2 hover:border-ink-3 hover:text-ink"
+                                    : "bg-raised border-line text-ink-3 line-through decoration-ink-3/60"
                               }`}
                             >
                               {value}
-                              {left !== undefined && user && <span className="ml-1 text-xs opacity-75">({left})</span>}
+                              {left !== undefined && user && <span className="ml-1.5 text-xs text-ink-3 no-underline">{left}</span>}
                             </button>
                           );
                         })}
@@ -296,7 +309,7 @@ export const ProductDetailPage: React.FC = () => {
                   ))
                 : product.flavors && product.flavors.length > 0 && (
                     <div>
-                      <h3 className="text-sm font-bold text-gray-900 mb-3 uppercase tracking-wide">Select Flavor</h3>
+                      <p className="text-sm font-semibold text-ink mb-2.5">Flavour{legacyFlavor ? <span className="ml-2 font-normal text-ink-3">{legacyFlavor}</span> : null}</p>
                       <div className="flex flex-wrap gap-2">
                         {product.flavors.map((flavor) => {
                           const left = product.flavor_stock?.[flavor];
@@ -305,158 +318,205 @@ export const ProductDetailPage: React.FC = () => {
                             <button
                               key={flavor}
                               onClick={() => setLegacyFlavor(flavor)}
-                              className={`px-4 py-2 text-sm font-medium border rounded-lg transition-all ${
+                              aria-pressed={legacyFlavor === flavor}
+                              className={`h-10 px-4 text-sm font-medium rounded-lg border ${
                                 legacyFlavor === flavor
-                                  ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-100"
-                                  : soldOut ? "bg-gray-50 border-gray-200 text-gray-400 line-through" : "bg-white border-gray-200 text-gray-600 hover:border-gray-400"
+                                  ? "bg-brand-soft border-brand text-ink ring-1 ring-brand"
+                                  : soldOut ? "bg-raised border-line text-ink-3 line-through decoration-ink-3/60" : "bg-surface border-line text-ink-2 hover:border-ink-3 hover:text-ink"
                               }`}
                             >
                               {flavor}
-                              {left !== undefined && <span className="ml-1 text-xs opacity-75">({left})</span>}
+                              {left !== undefined && <span className="ml-1.5 text-xs text-ink-3">{left}</span>}
                             </button>
                           );
                         })}
                       </div>
                     </div>
                   )}
+            </div>
 
+            {/* buy box */}
+            <div className="mt-6 bg-surface border border-line rounded-2xl overflow-hidden">
               {(product.min_order_qty || 1) > 1 || step > 1 || product.pack_size ? (
-                <div className="flex gap-2 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-xl p-3">
-                  <Info size={18} className="text-gray-400 shrink-0 mt-0.5" />
-                  <div className="space-y-0.5">
-                    {(product.min_order_qty || 1) > 1 && <p>Minimum order: <b>{product.min_order_qty}</b>{variants.length > 1 ? " (all options together)" : ""}</p>}
-                    {step > 1 && <p>Sold in multiples of <b>{step}</b></p>}
-                    {product.pack_size ? <p>{product.pack_size} units per {product.unit || "pack"}</p> : null}
-                    {variant?.min_order_qty ? <p>Minimum for {variant.name}: <b>{variant.min_order_qty}</b></p> : null}
-                  </div>
+                <div className="flex flex-wrap gap-x-6 gap-y-1.5 px-5 py-3 bg-raised border-b border-line text-sm text-ink-2">
+                  <Info size={16} className="text-ink-3 mt-0.5 -mr-4" />
+                  {product.pack_size ? <span><b className="font-semibold text-ink">{product.pack_size}</b> units per {product.unit || "pack"}</span> : null}
+                  {(product.min_order_qty || 1) > 1 && <span>Minimum order <b className="font-semibold text-ink">{product.min_order_qty}</b>{variants.length > 1 ? " (all options together)" : ""}</span>}
+                  {step > 1 && <span>Sold in multiples of <b className="font-semibold text-ink">{step}</b></span>}
+                  {variant?.min_order_qty ? <span>Minimum for {variant.name} <b className="font-semibold text-ink">{variant.min_order_qty}</b></span> : null}
                 </div>
               ) : null}
 
-              {!!product.specifications?.length && (
-                <div>
-                  <h3 className="text-sm font-bold text-gray-900 mb-2 uppercase tracking-wide">Specifications</h3>
-                  <dl className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden">
-                    {product.specifications.filter((s) => s.value).map((s) => (
-                      <div key={s.key} className="grid grid-cols-[40%_60%] text-sm">
-                        <dt className="bg-gray-50 px-3 py-2 font-semibold text-gray-600">{s.name}</dt>
-                        <dd className="px-3 py-2 text-gray-900">{s.value}</dd>
-                      </div>
-                    ))}
-                    {variant?.sku && (
-                      <div className="grid grid-cols-[40%_60%] text-sm">
-                        <dt className="bg-gray-50 px-3 py-2 font-semibold text-gray-600">SKU</dt>
-                        <dd className="px-3 py-2 text-gray-900">{variant.sku}</dd>
+              <div className="p-5 md:p-6">
+                {user ? (
+                  <div className="space-y-5">
+                    {basePrice != null && (
+                      <div className="flex items-end justify-between gap-4">
+                        <div>
+                          <p className="text-sm text-ink-3">Your price{variant ? ` · ${variant.name}` : ""}</p>
+                          <p className="flex items-baseline gap-2 mt-0.5">
+                            <span className="font-display text-[2.4rem] leading-none font-extrabold text-ink">${basePrice.toFixed(2)}</span>
+                            <span className="text-ink-3">/ {unitLabel}</span>
+                            {priceSource.list_price != null && priceSource.list_price > basePrice && (
+                              <span className="text-ink-3 line-through">${Number(priceSource.list_price).toFixed(2)}</span>
+                            )}
+                          </p>
+                        </div>
                       </div>
                     )}
-                  </dl>
-                </div>
-              )}
-            </div>
 
-            <div className="mt-10 pt-8 border-t border-gray-100">
-              {user ? (
-                <div className="space-y-6">
-                  {priceSource.price != null && (
-                    <div className="flex items-baseline justify-between">
-                      <span className="font-bold text-gray-900 uppercase text-sm tracking-wide">Wholesale Price{variant ? <span className="ml-2 normal-case font-medium text-gray-500">{variant.name}</span> : null}</span>
-                      <span className="text-3xl font-black text-gray-900">
-                        {priceSource.list_price != null && priceSource.list_price > Number(priceSource.price) && (
-                          <span className="mr-2 text-lg font-medium text-gray-400 line-through">${Number(priceSource.list_price).toFixed(2)}</span>
+                    {tiers.length > 0 && basePrice != null && (
+                      <div className="rounded-xl border border-line overflow-hidden">
+                        <table className="w-full text-sm">
+                          <caption className="sr-only">Volume prices</caption>
+                          <thead className="bg-raised text-ink-3">
+                            <tr><th className="text-left font-medium px-4 py-2">Quantity</th><th className="text-right font-medium px-4 py-2">Price per {unitLabel}</th><th className="text-right font-medium px-4 py-2">You save</th></tr>
+                          </thead>
+                          <tbody>
+                            {tiers.map((t) => {
+                              const on = activeTier?.min_quantity === t.min_quantity;
+                              const save = basePrice > 0 ? Math.round((1 - Number(t.price) / basePrice) * 100) : 0;
+                              return (
+                                <tr key={t.min_quantity} className={`border-t border-line ${on ? "bg-brand-soft" : ""}`}>
+                                  <td className="px-4 py-2.5 text-ink font-medium">{on && <span className="inline-block w-1.5 h-1.5 rounded-full bg-brand mr-2 align-middle" />}{t.min_quantity}+</td>
+                                  <td className="px-4 py-2.5 text-right font-semibold text-ink">${Number(t.price).toFixed(2)}</td>
+                                  <td className={`px-4 py-2.5 text-right ${save > 0 ? "text-success font-medium" : "text-ink-3"}`}>{save > 0 ? `${save}%` : "–"}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                      <div className="inline-flex items-center rounded-xl border border-line bg-raised p-1">
+                        <button
+                          onClick={() => setQuantity(Math.max(allowedQty(1, minQty, step), quantity - step))}
+                          className="w-11 h-11 grid place-items-center rounded-lg text-ink hover:bg-surface"
+                          aria-label="Less"
+                        >
+                          <Minus size={18} />
+                        </button>
+                        <span className="min-w-14 text-center font-display text-xl font-bold text-ink" aria-live="polite">{quantity}</span>
+                        <button
+                          onClick={() => { const cap = limit != null ? Math.max(0, limit) + incoming : null; setQuantity(cap != null ? Math.min(Math.max(quantity, Math.floor(cap / step) * step), quantity + step) : quantity + step); }}
+                          className="w-11 h-11 grid place-items-center rounded-lg text-ink hover:bg-surface"
+                          aria-label="More"
+                        >
+                          <Plus size={18} />
+                        </button>
+                      </div>
+                      {lineTotal != null && (
+                        <p className="text-right">
+                          <span className="block text-sm text-ink-3">Line total</span>
+                          <span className="font-display text-2xl font-extrabold text-ink">${lineTotal.toFixed(2)}</span>
+                        </p>
+                      )}
+                    </div>
+
+                    {unavailableReason ? (
+                      <div className="w-full text-center bg-raised text-ink-3 py-3 rounded-lg font-semibold">{unavailableReason}</div>
+                    ) : (product.stock_status === "out_of_stock" || (limit != null && limit <= 0)) && incoming <= 0 ? (
+                      <div className="space-y-2">
+                        <div className="w-full text-center bg-raised text-ink-2 py-3 rounded-lg font-semibold">
+                          {product.stock_status !== "out_of_stock" && variantKey ? `${variant?.name || variantKey} is out of stock` : "Out of stock"}
+                        </div>
+                        <NotifyMeButton productId={product.id} flavor={variantKey} />
+                      </div>
+                    ) : (
+                      <>
+                        {limit != null && limit > 0 && (
+                          <p className={`flex items-center gap-2 text-sm font-medium ${limit <= 10 ? "text-amber-700" : "text-success"}`}>
+                            <span className={`w-2 h-2 rounded-full ${limit <= 10 ? "bg-amber-500" : "bg-success"}`} />
+                            {limit.toLocaleString()} available{variantKey && product.flavor_stock ? ` in ${variant?.name || variantKey}` : ""}
+                            {incoming > 0 && <span className="text-brand-text">, {incoming} more arriving{expected ? ` around ${new Date(expected).toLocaleDateString()}` : ""}</span>}
+                          </p>
                         )}
-                        ${Number(priceSource.price).toFixed(2)}
-                      </span>
-                    </div>
-                  )}
-                  {priceSource.price_tiers && priceSource.price_tiers.length > 0 && (
-                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-3">
-                      <p className="text-xs font-bold uppercase tracking-wide text-blue-800 mb-2">Your volume prices</p>
-                      <div className="flex flex-wrap gap-2">
-                        {priceSource.price_tiers.map((t) => (
-                          <span
-                            key={t.min_quantity}
-                            className={`px-3 py-1 rounded-lg text-sm font-bold ${
-                              quantity >= t.min_quantity && !priceSource.price_tiers!.some((o) => o.min_quantity > t.min_quantity && quantity >= o.min_quantity)
-                                ? "bg-blue-600 text-white"
-                                : "bg-white text-blue-900 border border-blue-200"
-                            }`}
-                          >
-                            {t.min_quantity}+ : ${Number(t.price).toFixed(2)}
-                          </span>
-                        ))}
+                        {(limit == null || limit <= 0) && incoming > 0 && (
+                          <p className="text-sm font-medium text-brand-text bg-brand-soft rounded-lg px-3 py-2">
+                            Pre-order: {incoming} on the way{expected ? `, expected around ${new Date(expected).toLocaleDateString()}` : ""}. Your order ships when it arrives.
+                          </p>
+                        )}
+                        <AddToCartButton productId={Number(product.id)} quantity={quantity} flavor={variantKey} />
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex items-start gap-3">
+                      <span className="w-10 h-10 rounded-lg bg-brand-soft text-brand-text grid place-items-center shrink-0"><Lock size={18} /></span>
+                      <div>
+                        <p className="font-semibold text-ink text-lg">Sign in to see trade prices</p>
+                        <p className="text-sm text-ink-2 mt-1 leading-relaxed">Prices, volume tiers and stock levels are shown to approved business accounts.</p>
                       </div>
                     </div>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-bold text-gray-900 uppercase text-sm tracking-wide">Select Quantity</h3>
-                    <div className="flex items-center gap-4 bg-gray-50 p-2 rounded-xl border border-gray-200">
-                      <button
-                        onClick={() => setQuantity(Math.max(allowedQty(1, minQty, step), quantity - step))}
-                        className="w-10 h-10 flex items-center justify-center bg-white border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors shadow-sm"
-                        aria-label="Less"
-                      >
-                        <Minus size={18} />
-                      </button>
-                      <span className="text-xl font-black min-w-8 text-center text-gray-900">{quantity}</span>
-                      <button
-                        onClick={() => { const cap = limit != null ? Math.max(0, limit) + incoming : null; setQuantity(cap != null ? Math.min(Math.max(quantity, Math.floor(cap / step) * step), quantity + step) : quantity + step); }}
-                        className="w-10 h-10 flex items-center justify-center bg-white border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors shadow-sm"
-                        aria-label="More"
-                      >
-                        <Plus size={18} />
-                      </button>
+                    <div className="grid grid-cols-2 gap-3 mt-5">
+                      <button onClick={() => navigate("/login")} className="h-12 rounded-lg bg-brand text-white font-semibold hover:bg-brand-hover">Sign in</button>
+                      <button onClick={() => navigate("/register")} className="h-12 rounded-lg border border-line-strong text-ink font-semibold hover:bg-raised">Open an account</button>
                     </div>
                   </div>
-
-                  {unavailableReason ? (
-                    <div className="w-full text-center bg-gray-100 text-gray-500 py-3 rounded font-semibold">{unavailableReason}</div>
-                  ) : (product.stock_status === "out_of_stock" || (limit != null && limit <= 0)) && incoming <= 0 ? (
-                    <div className="space-y-2">
-                      <div className="w-full text-center bg-gray-100 text-gray-500 py-3 rounded font-semibold">
-                        {product.stock_status !== "out_of_stock" && variantKey ? `${variant?.name || variantKey} is out of stock` : "Out of stock"}
-                      </div>
-                      <NotifyMeButton productId={product.id} flavor={variantKey} />
-                    </div>
-                  ) : (
-                    <>
-                      {limit != null && limit > 0 && (
-                        <p className={`text-sm font-semibold ${limit <= 10 ? "text-amber-700" : "text-green-700"}`}>
-                          {limit} available{variantKey && product.flavor_stock ? ` in ${variant?.name || variantKey}` : ""}
-                          {incoming > 0 && <span className="text-blue-700"> · {incoming} more arriving{expected ? ` around ${new Date(expected).toLocaleDateString()}` : ""}</span>}
-                        </p>
-                      )}
-                      {(limit == null || limit <= 0) && incoming > 0 && (
-                        <p className="text-sm font-semibold text-blue-700 bg-blue-50 rounded-lg px-3 py-2">
-                          Pre-order: {incoming} on the way{expected ? `, expected around ${new Date(expected).toLocaleDateString()}` : ""}. Your order ships when it arrives.
-                        </p>
-                      )}
-                      <AddToCartButton productId={Number(product.id)} quantity={quantity} flavor={variantKey} />
-                    </>
-                  )}
-                </div>
-              ) : (
-                <div className="bg-gray-900 rounded-2xl p-6 text-white shadow-xl">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="p-2 bg-blue-500/20 rounded-lg"><Lock size={20} className="text-blue-400" /></div>
-                    <span className="font-bold text-lg">Wholesale Pricing Restricted</span>
-                  </div>
-                  <p className="text-gray-400 text-sm mb-6 leading-relaxed">
-                    Access to pricing and quote requests is restricted to registered wholesale partners. Please sign in to proceed.
-                  </p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button onClick={() => navigate("/login")} className="bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-bold transition-all">Login</button>
-                    <button onClick={() => navigate("/register")} className="bg-white/10 hover:bg-white/20 text-white py-3 rounded-xl font-bold border border-white/10 transition-all">Register</button>
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
+
+            {regulated && (
+              <div className="mt-4 flex gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                <TriangleAlert className="text-amber-600 shrink-0 mt-0.5" size={18} />
+                <p className="text-sm text-amber-900 leading-snug">
+                  {/nicotine|vape|tobacco/i.test(compliance)
+                    ? <><b className="font-semibold">Contains nicotine.</b> Nicotine is an addictive chemical. Not for sale to minors.</>
+                    : <><b className="font-semibold">Age-restricted product.</b> Sold only to licensed businesses.</>}
+                </p>
+              </div>
+            )}
+            <Notices productIds={[product.id]} where="product" className="mt-4" />
           </div>
         </div>
-        <Notices productIds={[product.id]} where="product" className="mt-6" />
-        <div className="mt-10 space-y-3">
+
+        {/* details */}
+        {(product.description || product.specifications?.length || product.category_list?.length) ? (
+          <div className="mt-12 grid lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] gap-6">
+            {product.description ? (
+              <section className="bg-surface border border-line rounded-2xl p-6 md:p-8">
+                <h2 className={sectionTitle}>About this product</h2>
+                <p className="text-ink-2 leading-relaxed whitespace-pre-line max-w-[70ch]">{product.description}</p>
+                {!!product.category_list?.length && (
+                  <div className="flex flex-wrap gap-2 mt-6">
+                    {product.category_list.map((c) => (
+                      <Link key={c.id} to={`/categories/${c.slug}`} className="text-sm bg-raised border border-line hover:border-line-strong text-ink-2 px-3 py-1 rounded-full">{c.name}</Link>
+                    ))}
+                  </div>
+                )}
+              </section>
+            ) : <div />}
+            {(!!product.specifications?.length || variant?.sku) && (
+              <section className="bg-surface border border-line rounded-2xl p-6 md:p-8 self-start">
+                <h2 className={sectionTitle}>Specifications</h2>
+                <dl className="divide-y divide-line text-sm">
+                  {(product.specifications || []).filter((s) => s.value).map((s) => (
+                    <div key={s.key} className="flex justify-between gap-4 py-2.5">
+                      <dt className="text-ink-3">{s.name}</dt>
+                      <dd className="text-ink font-medium text-right">{s.value}{s.unit ? ` ${s.unit}` : ""}</dd>
+                    </div>
+                  ))}
+                  {variant?.sku && (
+                    <div className="flex justify-between gap-4 py-2.5">
+                      <dt className="text-ink-3">SKU</dt>
+                      <dd className="text-ink font-medium text-right">{variant.sku}</dd>
+                    </div>
+                  )}
+                </dl>
+              </section>
+            )}
+          </div>
+        ) : null}
+
+        <div className="mt-12 space-y-3">
           <ReviewsSection productId={product.id} companyName={product.company?.name} title="Customer reviews" />
           <div className="text-right"><ReportButton target={{ kind: "listing", product_id: product.id }} label="Report this listing" /></div>
         </div>
-        <div className="mt-10"><RecentlyViewed exclude={product.id} /></div>
+        <div className="mt-12"><RecentlyViewed exclude={product.id} /></div>
       </div>
     </div>
   );

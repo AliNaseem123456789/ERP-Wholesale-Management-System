@@ -15,7 +15,7 @@ export const SearchPage: React.FC = () => {
   }, [q]);
 
   return (
-    <div className="min-h-screen p-6 bg-white dark:bg-[#191919] text-gray-900 dark:text-gray-200">
+    <div className="min-h-screen p-6 bg-white text-gray-900">
       <div className="max-w-[1400px] mx-auto">
         <h1 className="text-2xl font-black mb-6">
           {q.length < 2 ? "Type at least 2 characters to search" : `Results for “${q}”`}

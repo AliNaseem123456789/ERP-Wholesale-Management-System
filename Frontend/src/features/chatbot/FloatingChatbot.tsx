@@ -144,7 +144,7 @@ const FloatingChat: React.FC<FloatingChatProps> = ({
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-4 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all duration-300 hover:scale-110 active:scale-95 md:bottom-6 md:right-6 md:h-14 md:w-14"
+          className="fixed bottom-20 right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-transform duration-200 hover:scale-105 active:scale-95 md:bottom-6 md:right-6 md:h-14 md:w-14"
           style={{ backgroundColor: primaryColor }}
         >
           <MessageCircle className="h-6 w-6 text-white" />

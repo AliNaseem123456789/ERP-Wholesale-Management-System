@@ -19,7 +19,7 @@ export const ProductsPage: React.FC = () => {
   return (
     <PageShell>
       <Crumbs items={[{ label: "Home", to: "/" }, { label: q ? `Search: ${q}` : "All products" }]} />
-      <h1 className="text-3xl font-black text-gray-900 mb-5">{q ? `Results for “${q}”` : "All products"}</h1>
+      <h1 className="font-display text-3xl md:text-[2.15rem] font-extrabold text-ink leading-tight mb-5">{q ? `Results for “${q}”` : "All products"}</h1>
       <CatalogBrowser fetcher={(p) => marketplaceApi.products(p)} />
     </PageShell>
   );
@@ -41,7 +41,7 @@ export const CategoriesPage: React.FC = () => {
     <PageShell>
       <Crumbs items={[{ label: "Home", to: "/" }, { label: "Categories" }]} />
       <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
-        <h1 className="text-3xl font-black text-gray-900">Categories</h1>
+        <h1 className="font-display text-3xl md:text-[2.15rem] font-extrabold text-ink leading-tight">Categories</h1>
         <div className="relative w-full sm:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
           <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a category" aria-label="Find a category"
@@ -53,9 +53,16 @@ export const CategoriesPage: React.FC = () => {
       ) : tree.length === 0 ? <Empty title="No categories yet" /> : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {tree.map((c) => (
-            <div key={c.id} className="bg-white rounded-2xl border border-gray-200 p-4">
-              <Link to={`/categories/${c.slug}`} className="flex items-center justify-between font-bold text-gray-900 hover:text-blue-600">
-                <span>{c.name}</span><span className="text-xs font-normal text-gray-400">{c.product_count}</span>
+            <div key={c.id} className="bg-surface rounded-xl border border-line p-4 hover:border-line-strong">
+              <Link to={`/categories/${c.slug}`} className="group flex items-center gap-3">
+                <span className={`w-12 h-12 rounded-lg overflow-hidden grid place-items-center shrink-0 ${c.image_url ? "bg-raised" : "bg-brand-soft"}`}>
+                  {c.image_url ? <img src={c.image_url} alt="" className="w-full h-full object-cover" /> : <span className="font-display text-xl font-extrabold text-brand-text" style={{ fontStretch: "125%" }}>{c.name[0]}</span>}
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className="block font-semibold text-ink group-hover:text-brand-text truncate">{c.name}</span>
+                  <span className="block text-[13px] text-ink-3">{c.product_count.toLocaleString()} products</span>
+                </span>
+                <ChevronRight size={16} className="text-ink-3 group-hover:text-ink" />
               </Link>
               {!!c.children?.length && (
                 <ul className="mt-2 space-y-1">
@@ -85,7 +92,7 @@ export const CategoryPage: React.FC = () => {
       {missing ? <Empty title="This category doesn't exist" action={<Link to="/categories" className="text-blue-600 font-bold">All categories</Link>} /> : (
         <>
           <Crumbs items={[{ label: "Categories", to: "/categories" }, ...(info?.trail || []).map((t, i, a) => ({ label: t.name, to: i < a.length - 1 ? `/categories/${t.slug}` : undefined }))]} />
-          <h1 className="text-3xl font-black text-gray-900">{info?.name || "…"}</h1>
+          <h1 className="font-display text-3xl md:text-[2.15rem] font-extrabold text-ink leading-tight">{info?.name || "…"}</h1>
           {info?.description && <p className="text-gray-600 mt-1 max-w-3xl">{info.description}</p>}
           {!!info?.children?.length && (
             <div className="flex flex-wrap gap-2 mt-4">
@@ -130,7 +137,7 @@ export const BrandsPage: React.FC = () => {
     <PageShell>
       <Crumbs items={[{ label: "Home", to: "/" }, { label: "Brands" }]} />
       <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
-        <h1 className="text-3xl font-black text-gray-900">Brands {data && <span className="text-base font-semibold text-gray-400">{data.total}</span>}</h1>
+        <h1 className="font-display text-3xl md:text-[2.15rem] font-extrabold text-ink leading-tight">Brands {data && <span className="text-base font-semibold text-gray-400">{data.total}</span>}</h1>
         <form onSubmit={(e) => { e.preventDefault(); set("q", q.trim()); }} className="relative w-full sm:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
           <input type="search" value={q} onChange={(e) => { setQ(e.target.value); if (!e.target.value) set("q", ""); }} placeholder="Find a brand" aria-label="Find a brand"
@@ -139,7 +146,7 @@ export const BrandsPage: React.FC = () => {
       </div>
       <div className="flex flex-wrap gap-1 mb-5">
         {LETTERS.map((l) => (
-          <button key={l || "all"} onClick={() => set("letter", l)} className={`min-w-8 px-2 py-1 rounded-md text-xs font-bold ${letter === l ? "bg-gray-900 text-white" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-100"}`}>{l || "All"}</button>
+          <button key={l || "all"} onClick={() => set("letter", l)} className={`min-w-8 px-2 py-1 rounded-md text-xs font-bold ${letter === l ? "bg-solid text-white" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-100"}`}>{l || "All"}</button>
         ))}
       </div>
       {!data ? <Loading /> : data.data.length === 0 ? <Empty title="No brands found" /> : (
@@ -168,7 +175,7 @@ export const BrandPage: React.FC = () => {
           {brand?.logo_url ? <img src={brand.logo_url} alt={`${brand.name} logo`} className="w-full h-full object-contain" /> : <span className="text-3xl font-black text-gray-300">{brand?.name?.[0]}</span>}
         </div>
         <div className="flex-1 min-w-[220px]">
-          <h1 className="text-3xl font-black text-gray-900">{brand?.name}</h1>
+          <h1 className="font-display text-3xl md:text-[2.15rem] font-extrabold text-ink leading-tight">{brand?.name}</h1>
           {brand?.description && <p className="text-gray-600 mt-1 max-w-3xl whitespace-pre-line">{brand.description}</p>}
           {brand?.website && <a href={brand.website} target="_blank" rel="noopener noreferrer nofollow" className="inline-flex items-center gap-1 text-sm text-blue-600 mt-2 hover:underline"><Globe size={14} /> {brand.website.replace(/^https?:\/\//, "")}</a>}
         </div>
@@ -211,7 +218,7 @@ export const CompaniesDirectoryPage: React.FC = () => {
   return (
     <PageShell>
       <Crumbs items={[{ label: "Home", to: "/" }, { label: "Suppliers" }]} />
-      <h1 className="text-3xl font-black text-gray-900 mb-1">Suppliers</h1>
+      <h1 className="font-display text-3xl md:text-[2.15rem] font-extrabold text-ink leading-tight mb-1">Suppliers</h1>
       <p className="text-gray-500 mb-5">Approved wholesale companies on the marketplace. Order from several in one cart.</p>
       <div className="flex flex-wrap gap-2 mb-5">
         <form onSubmit={(e) => { e.preventDefault(); set("q", q.trim()); }} className="relative flex-1 min-w-[220px]">
@@ -242,7 +249,7 @@ export const DealsPage: React.FC = () => {
   return (
     <PageShell>
       <Crumbs items={[{ label: "Home", to: "/" }, { label: "Deals" }]} />
-      <h1 className="text-3xl font-black text-gray-900 mb-1">Deals</h1>
+      <h1 className="font-display text-3xl md:text-[2.15rem] font-extrabold text-ink leading-tight mb-1">Deals</h1>
       <p className="text-gray-500 mb-6">Sales, volume prices and promo codes from suppliers. Prices show once you sign in.</p>
       {!!codes?.length && (
         <section className="mb-8">
@@ -267,12 +274,12 @@ export const BannerStrip: React.FC<{ banners: Banner[] }> = ({ banners }) => {
   if (!banners.length) return null;
   const b = banners[i % banners.length];
   const inner = (
-    <div className="relative aspect-[16/6] sm:aspect-[16/5] rounded-2xl overflow-hidden bg-gray-900">
+    <div className="relative aspect-[16/7] sm:aspect-[16/5] rounded-2xl overflow-hidden bg-night">
       <img src={b.image_url} alt={b.image_alt || b.title || ""} className="absolute inset-0 w-full h-full object-cover" />
       {(b.title || b.subtitle) && (
-        <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent flex flex-col justify-center p-6 sm:p-10 text-white max-w-xl">
-          {b.title && <p className="text-2xl sm:text-4xl font-black">{b.title}</p>}
-          {b.subtitle && <p className="mt-2 text-white/90">{b.subtitle}</p>}
+        <div className="absolute inset-0 bg-gradient-to-r from-night/80 via-night/40 to-transparent flex flex-col justify-center p-6 sm:p-10 text-white">
+          {b.title && <p className="font-display text-2xl sm:text-4xl font-extrabold max-w-xl leading-tight">{b.title}</p>}
+          {b.subtitle && <p className="mt-2 text-white/80 max-w-xl">{b.subtitle}</p>}
         </div>
       )}
       {banners.length > 1 && (

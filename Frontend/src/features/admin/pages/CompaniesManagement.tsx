@@ -168,7 +168,7 @@ export const CompaniesManagement: React.FC = () => {
 
       {preview && (
         <div className="fixed inset-0 z-[100] bg-black/60 flex flex-col" role="dialog" aria-modal="true" aria-label="Storefront preview">
-          <div className="bg-gray-900 text-white px-4 py-2 flex flex-wrap gap-2 items-center justify-between text-sm">
+          <div className="bg-solid text-white px-4 py-2 flex flex-wrap gap-2 items-center justify-between text-sm">
             <span><b>{preview.company.name}</b> · {preview.source === "draft" ? "draft" : preview.has_published ? "published storefront" : "standard page (no custom storefront published)"}</span>
             <div className="flex gap-2">
               <button onClick={() => openPreview(preview.company, preview.source === "draft" ? "published" : "draft")} className="bg-white/10 px-3 py-1.5 rounded font-semibold">Show {preview.source === "draft" ? "published" : "draft"}</button>

@@ -20,6 +20,7 @@ import {
   ClipboardList,
   Star,
   Flag,
+  ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "../../auth/context/AuthContext";
 import { OrdersTab } from "../components/tabs/OrdersTab";
@@ -50,12 +51,12 @@ const TABS = [
   { id: "reports", label: "Reported problems", icon: Flag },
   { id: "returns", label: "Returns", icon: Undo2 },
   { id: "addresses", label: "Addresses", icon: MapPin },
-  { id: "details", label: "Account Details", icon: User },
+  { id: "details", label: "Account details", icon: User },
   { id: "subaccounts", label: "Subaccounts", icon: Users },
-  { id: "saved-carts", label: "Saved Carts", icon: ShoppingBag },
-  { id: "payments", label: "Payment History", icon: CreditCard },
-  { id: "credit", label: "Total Credit", icon: Wallet },
-  { id: "PACT", label: "PACT", icon: Wallet },
+  { id: "saved-carts", label: "Saved carts", icon: ShoppingBag },
+  { id: "payments", label: "Payment history", icon: CreditCard },
+  { id: "credit", label: "Credit", icon: Wallet },
+  { id: "PACT", label: "PACT compliance", icon: ShieldCheck },
 ];
 
 export const AccountPage: React.FC = () => {
@@ -155,83 +156,111 @@ export const AccountPage: React.FC = () => {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <div className="max-w-7xl mx-auto w-full px-4 py-10 flex flex-col md:flex-row gap-8">
-        <aside className="w-full md:w-72 shrink-0">
-          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-            <div className="p-6 border-b border-gray-100 bg-gray-50/50">
-              <div className="flex items-center gap-2 mb-1">
-                <h2 className="font-bold text-gray-900">My Account</h2>
-                {user?.role === "SUBACCOUNT" && (
-                  <span className="text-[10px] bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-                    Subaccount
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-gray-500 truncate">{user?.email}</p>
-            </div>
+  const GROUPS: { title: string; ids: string[] }[] = [
+    { title: "Buying", ids: ["orders", "quotes", "rfqs", "recurring", "saved-carts", "stock-alerts"] },
+    { title: "Money", ids: ["invoices", "payments", "credit"] },
+    { title: "After the sale", ids: ["returns", "reviews", "reports"] },
+    { title: "Account", ids: ["details", "addresses", "subaccounts", "PACT"] },
+  ];
+  const current = TABS.find((t) => t.id === activeTab);
+  const initials = ((user?.firstName?.[0] || user?.email?.[0] || "?") + (user?.lastName?.[0] || "")).toUpperCase();
 
-            <nav className="p-2">
-              {filteredTabs.map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.id;
+  return (
+    <div className="min-h-screen bg-page flex flex-col">
+      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 py-6 md:py-10">
+        <div className="flex items-center gap-4 mb-6 md:mb-8">
+          <span className="w-12 h-12 rounded-full bg-brand-soft text-brand-text grid place-items-center font-display font-extrabold">{initials}</span>
+          <div className="min-w-0">
+            <h1 className="font-display text-2xl md:text-[1.9rem] font-extrabold text-ink leading-tight truncate">
+              {user?.businessName || [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "My account"}
+            </h1>
+            <p className="text-sm text-ink-3 truncate flex items-center gap-2">
+              {user?.email}
+              {user?.role === "SUBACCOUNT" && <span className="text-xs bg-raised border border-line text-ink-2 px-1.5 py-px rounded">Subaccount</span>}
+            </p>
+          </div>
+        </div>
+
+        {/* phones: tabs as a sideways row */}
+        <nav className="md:hidden no-scrollbar -mx-4 px-4 flex gap-2 overflow-x-auto pb-4" aria-label="Account sections">
+          {filteredTabs.map((tab) => (
+            <button key={tab.id} onClick={() => setSearchParams({ tab: tab.id })} aria-current={activeTab === tab.id ? "page" : undefined}
+              className={`shrink-0 h-9 px-3.5 rounded-full text-sm font-medium border ${activeTab === tab.id ? "bg-solid text-white border-transparent" : "bg-surface text-ink-2 border-line"}`}>
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+
+        <div className="flex flex-col md:flex-row gap-6 lg:gap-8">
+          <aside className="hidden md:block w-64 shrink-0">
+            <nav className="sticky top-32 space-y-5" aria-label="Account sections">
+              {GROUPS.map((g) => {
+                const tabs = filteredTabs.filter((t) => g.ids.includes(t.id));
+                if (!tabs.length) return null;
                 return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setSearchParams({ tab: tab.id })}
-                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
-                      isActive
-                        ? "bg-blue-600 text-white shadow-md shadow-blue-100"
-                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Icon size={18} />
-                      {tab.label}
-                    </div>
-                    {isActive && <ChevronRight size={14} />}
-                  </button>
+                  <div key={g.title}>
+                    <p className="px-3 mb-1.5 text-xs font-semibold text-ink-3">{g.title}</p>
+                    {tabs.map((tab) => {
+                      const Icon = tab.icon;
+                      const isActive = activeTab === tab.id;
+                      return (
+                        <button
+                          key={tab.id}
+                          onClick={() => setSearchParams({ tab: tab.id })}
+                          aria-current={isActive ? "page" : undefined}
+                          className={`relative w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm ${
+                            isActive ? "bg-surface text-ink font-semibold border border-line shadow-sm" : "text-ink-2 hover:bg-surface hover:text-ink border border-transparent"
+                          }`}
+                        >
+                          <Icon size={17} className={isActive ? "text-brand-text" : "text-ink-3"} />
+                          {tab.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 );
               })}
 
-              <hr className="my-2 border-gray-100" />
-
-              {/* ✅ NEW: Logout from All Devices Button */}
-              <button
-                onClick={() => setShowLogoutAllConfirm(true)}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-amber-600 hover:bg-amber-50 transition-all"
-              >
-                <LogOut size={18} />
-                Logout from all devices
-              </button>
-
-              <button
-                onClick={logout}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-50 transition-all"
-              >
-                <LogOut size={18} />
-                Logout (this device)
-              </button>
+              <div className="border-t border-line pt-4 space-y-0.5">
+                <button
+                  onClick={() => setShowLogoutAllConfirm(true)}
+                  className="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm text-ink-2 hover:bg-surface hover:text-ink"
+                >
+                  <LogOut size={17} className="text-ink-3" />
+                  Sign out of all devices
+                </button>
+                <button
+                  onClick={logout}
+                  className="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm text-red-600 hover:bg-red-50"
+                >
+                  <LogOut size={17} />
+                  Sign out
+                </button>
+              </div>
             </nav>
-          </div>
-        </aside>
+          </aside>
 
-        <main className="flex-1 bg-white border border-gray-200 rounded-2xl shadow-sm min-h-[600px]">
-          <header className="px-8 py-6 border-b border-gray-100 flex justify-between items-center">
-            <h1 className="text-xl font-bold text-gray-900 capitalize">
-              {TABS.find((t) => t.id === activeTab)?.label || activeTab.replace("-", " ")}
-            </h1>
-          </header>
+          <main className="flex-1 min-w-0 bg-surface border border-line rounded-2xl min-h-[600px]">
+            <header className="px-5 md:px-8 py-5 border-b border-line">
+              <h2 className="font-display text-xl font-extrabold text-ink">
+                {current?.label || activeTab.replace("-", " ")}
+              </h2>
+            </header>
 
-          <div className="p-8">{renderTabContent()}</div>
-        </main>
+            <div className="p-5 md:p-8">{renderTabContent()}</div>
+          </main>
+        </div>
+
+        <div className="md:hidden mt-6 grid grid-cols-2 gap-2">
+          <button onClick={() => setShowLogoutAllConfirm(true)} className="h-11 rounded-lg border border-line bg-surface text-sm font-medium text-ink-2">Sign out everywhere</button>
+          <button onClick={logout} className="h-11 rounded-lg border border-red-200 bg-surface text-sm font-medium text-red-600">Sign out</button>
+        </div>
       </div>
 
       {/* ✅ NEW: Logout All Devices Confirmation Modal */}
       {showLogoutAllConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl max-w-md w-full mx-4 p-6 shadow-2xl">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-night/60 backdrop-blur-[2px]">
+          <div className="bg-surface border border-line rounded-2xl max-w-md w-full mx-4 p-6 shadow-xl">
             <div className="flex items-center gap-3 mb-4">
               <div className="bg-amber-100 p-2 rounded-full">
                 <AlertCircle className="text-amber-600 w-6 h-6" />

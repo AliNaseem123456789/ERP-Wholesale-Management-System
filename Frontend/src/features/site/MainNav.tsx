@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ChevronDown, ChevronRight, X } from "lucide-react";
 import { NavItem, NavLink } from "./api";
-import { useLook, useSite } from "./SiteContext";
+import { useClassicLook as useLook, useSite } from "./SiteContext";
 import { SearchBox } from "./SearchBox";
 
 const Href: React.FC<{ l: NavLink; className?: string; onClick?: () => void; children?: React.ReactNode }> = ({ l, className, onClick, children }) => {

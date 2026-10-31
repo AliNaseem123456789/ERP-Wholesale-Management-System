@@ -69,7 +69,7 @@ const QuickOrderModal: React.FC<QuickOrderModalProps> = ({
 
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
-      <div className="w-full max-w-2xl bg-white dark:bg-[#1a1a24] rounded-xl shadow-2xl overflow-hidden">
+      <div className="w-full max-w-2xl bg-white rounded-xl shadow-2xl overflow-hidden">
         <div className="bg-[#003366] text-white px-6 py-4 flex justify-between">
           <h2 className="font-black uppercase">Wholesale Quick Order</h2>
           <button onClick={onClose}>

@@ -25,8 +25,8 @@ export const Stars: React.FC<{ value: number; size?: number; className?: string 
 /** "★ 4.3 (12)" — compact rating for cards. */
 export const RatingBadge: React.FC<{ rating?: { average: number | null; count: number } | null; className?: string }> = ({ rating, className = "" }) =>
   rating && rating.count > 0 && rating.average !== null ? (
-    <span className={`inline-flex items-center gap-1 text-xs text-gray-600 ${className}`}>
-      <Star size={12} className="text-amber-400 fill-amber-400" /> <b className="text-gray-800">{rating.average.toFixed(1)}</b> ({rating.count})
+    <span className={`inline-flex items-center gap-1 text-[13px] text-ink-3 ${className}`}>
+      <Star size={13} className="text-amber-400 fill-amber-400" /> <b className="text-ink font-semibold">{rating.average.toFixed(1)}</b> <span>({rating.count})</span>
     </span>
   ) : null;
 
@@ -116,7 +116,7 @@ const WriteReview: React.FC<{ productId?: number | string; companyId?: number | 
   if (state === "loading") return null;
   if (state === "done") return <p className="text-sm text-gray-500">You've reviewed this. Edit it under <Link to="/account?tab=reviews" className="text-blue-600 font-semibold">My account → Reviews</Link>.</p>;
   if (state === "no") return <p className="text-sm text-gray-500">Only buyers with a delivered order can review{productId ? " this product" : " this supplier"}.</p>;
-  if (!open) return <button onClick={() => setOpen(true)} className="px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold">Write a review</button>;
+  if (!open) return <button onClick={() => setOpen(true)} className="px-4 py-2 rounded-lg bg-solid text-white text-sm font-bold">Write a review</button>;
   return (
     <form onSubmit={submit} className="space-y-3 bg-gray-50 border border-gray-200 rounded-xl p-4 max-w-xl">
       <StarInput value={rating} onChange={setRating} />
@@ -245,4 +245,4 @@ export const ReportButton: React.FC<{ target: ReportTarget; label?: string; titl
 
 export type Sale = { percent: number; label?: string | null; ends_at?: string | null; price?: number };
 export const SaleBadge: React.FC<{ sale?: Sale | null; className?: string }> = ({ sale, className = "" }) =>
-  sale ? <span className={`bg-red-600 text-white text-[10px] font-black uppercase px-2 py-0.5 rounded ${className}`} title={sale.ends_at ? `Ends ${new Date(sale.ends_at).toLocaleDateString()}` : undefined}>−{sale.percent}%{sale.label ? ` · ${sale.label}` : ""}</span> : null;
+  sale ? <span className={`inline-flex items-center bg-signal text-signal-ink text-xs font-bold px-2 py-0.5 rounded-md ${className}`} title={sale.ends_at ? `Ends ${new Date(sale.ends_at).toLocaleDateString()}` : undefined}>−{sale.percent}%{sale.label ? <span className="font-semibold ml-1">{sale.label}</span> : null}</span> : null;

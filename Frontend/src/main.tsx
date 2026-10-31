@@ -6,6 +6,12 @@ import { store } from "./app/store"; // Import your configured store
 import App from "./app/App";
 import { AuthProvider } from "./features/auth/context/AuthContext";
 import { SiteProvider } from "./features/site/SiteContext";
+import "@fontsource-variable/archivo/wdth.css";
+import "@fontsource/ibm-plex-sans/400.css";
+import "@fontsource/ibm-plex-sans/500.css";
+import "@fontsource/ibm-plex-sans/600.css";
+import "@fontsource/ibm-plex-sans/700.css";
+import "@fontsource/ibm-plex-sans/400-italic.css";
 import "./styles/index.css";
 
 createRoot(document.getElementById("root")!).render(

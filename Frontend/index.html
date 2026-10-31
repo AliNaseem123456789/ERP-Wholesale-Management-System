@@ -8,6 +8,17 @@
       <meta name="description" content="B2B wholesale marketplace: buy from approved suppliers, compare offers and order in bulk." />
       <meta property="og:site_name" content="ERP Wholesale" />
       <meta property="og:type" content="website" />
+      <meta name="theme-color" content="#0F1B2D" />
+      <script>
+        // Apply the last light / dark mode before the page paints (no flash while the site settings load).
+        (function () {
+          try {
+            var m = localStorage.getItem("themeChoice") || localStorage.getItem("themeMode");
+            if (!m) m = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+            if (m === "dark") document.documentElement.classList.add("dark");
+          } catch (e) {}
+        })();
+      </script>
     </head>
 
     <body>
@@ -15,4 +26,3 @@
       <script type="module" src="/src/main.tsx"></script>
     </body>
   </html>
-  

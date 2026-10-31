@@ -33,7 +33,7 @@ export const RegisterBusinessPage: React.FC = () => {
     <div className="max-w-2xl mx-auto px-4 py-12">
       <div className="text-center mb-8">
         <Building2 className="mx-auto text-blue-600 mb-3" size={40} />
-        <h1 className="text-3xl font-black text-gray-900">Sell on the marketplace</h1>
+        <h1 className="font-display text-3xl md:text-[2.15rem] font-extrabold text-ink leading-tight">Sell on the marketplace</h1>
         <p className="text-gray-500 mt-2">
           Register your wholesale business to list products, receive orders and manage your team. If you were invited by a
           company, open the link in your invitation email instead.

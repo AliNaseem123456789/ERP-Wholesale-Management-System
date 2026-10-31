@@ -170,7 +170,7 @@ export const PurchaseOrderDetailPage: React.FC = () => {
         <div className="flex flex-wrap justify-between gap-6 mb-6">
           <div>
             <p className="text-xs font-bold uppercase text-gray-400 tracking-widest">Purchase order</p>
-            <h1 className="text-3xl font-black text-gray-900">{po.po_number}</h1>
+            <h1 className="font-display text-3xl md:text-[2.15rem] font-extrabold text-ink leading-tight">{po.po_number}</h1>
             <div className="mt-2 flex items-center gap-2 text-sm"><StatusBadge status={po.status} /><span className="text-gray-500">Ordered {dateOnly(po.order_date)}{po.expected_date ? ` · expected ${dateOnly(po.expected_date)}` : ""}</span></div>
             {po.supplier_reference && <p className="text-sm text-gray-500 mt-1">Supplier ref: {po.supplier_reference}</p>}
           </div>

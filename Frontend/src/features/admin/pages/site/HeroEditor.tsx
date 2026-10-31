@@ -142,7 +142,7 @@ export const HeroEditor: React.FC<{ initial: HeroConfig; onSaved: () => void }> 
 
       {preview && previewData && (
         <div className="fixed inset-0 z-[100] bg-black/70 flex flex-col" role="dialog" aria-modal="true" aria-label="Hero preview">
-          <div className="bg-gray-900 text-white px-4 py-2 flex flex-wrap gap-2 items-center justify-between text-sm">
+          <div className="bg-solid text-white px-4 py-2 flex flex-wrap gap-2 items-center justify-between text-sm">
             <span><b>Preview</b> as {preview === "buyer" ? "a signed-in buyer" : "a visitor"}, today. Not saved yet.</span>
             <div className="flex gap-2">
               <button onClick={() => setPreview(preview === "buyer" ? "visitor" : "buyer")} className="bg-white/10 px-3 py-1.5 rounded font-semibold">Show as {preview === "buyer" ? "visitor" : "buyer"}</button>

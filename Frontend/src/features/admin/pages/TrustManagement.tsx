@@ -49,7 +49,7 @@ export const CommissionManagement: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-black text-gray-900">Commission</h2>
+        <h2 className="font-display text-2xl font-extrabold text-ink">Commission</h2>
         <p className="text-sm text-gray-500">Each order keeps the company's rate from when it was placed (set the rate in Companies). Statements bill delivered orders: subtotal after discounts and credited returns, without shipping or tax. Buyers pay sellers directly, so statements are what each seller owes the platform.</p>
       </div>
       <Card>
@@ -138,7 +138,7 @@ export const ReviewsModeration: React.FC = () => {
   };
   return (
     <div className="space-y-4">
-      <div><h2 className="text-2xl font-black text-gray-900">Reviews</h2><p className="text-sm text-gray-500">Only buyers with a delivered order can review. Hide reviews that break the rules (fake, abusive, personal details, off-topic); hidden reviews don't count in ratings.</p></div>
+      <div><h2 className="font-display text-2xl font-extrabold text-ink">Reviews</h2><p className="text-sm text-gray-500">Only buyers with a delivered order can review. Hide reviews that break the rules (fake, abusive, personal details, off-topic); hidden reviews don't count in ratings.</p></div>
       <div className="flex flex-wrap gap-3 items-center">
         <FilterTabs value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={[{ value: "", label: "All" }, { value: "published", label: "Published" }, { value: "hidden", label: "Hidden" }]} />
         <select className={`${inputBase} w-auto`} value={rating} onChange={(e) => { setRating(e.target.value); setPage(1); }} aria-label="Stars"><option value="">Any rating</option>{[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n} stars</option>)}</select>
@@ -185,7 +185,7 @@ export const ReportsQueue: React.FC = () => {
   };
   return (
     <div className="space-y-4">
-      <div><h2 className="text-2xl font-black text-gray-900">Problem reports</h2><p className="text-sm text-gray-500">Reported listings, orders, sellers and reviews. Sellers see reports about them (without who reported, except for their own orders) and can answer.</p></div>
+      <div><h2 className="font-display text-2xl font-extrabold text-ink">Problem reports</h2><p className="text-sm text-gray-500">Reported listings, orders, sellers and reviews. Sellers see reports about them (without who reported, except for their own orders) and can answer.</p></div>
       <div className="flex flex-wrap gap-3 items-center">
         <FilterTabs value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={[{ value: "open", label: "Open", count: data?.counts.open }, { value: "in_review", label: "In review", count: data?.counts.in_review }, { value: "resolved", label: "Resolved" }, { value: "dismissed", label: "Dismissed" }, { value: "", label: "All" }]} />
         <select className={`${inputBase} w-auto`} value={kind} onChange={(e) => { setKind(e.target.value); setPage(1); }} aria-label="Kind"><option value="">Everything</option>{Object.entries(KIND).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>

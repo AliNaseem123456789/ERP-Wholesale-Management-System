@@ -23,7 +23,7 @@ export const PromoCodes: React.FC<{ codes: DealCode[]; showCompany?: boolean }> 
             {showCompany && c.company && c.ends_at ? " · " : ""}{c.ends_at ? `Ends ${new Date(c.ends_at).toLocaleDateString()}` : ""}
           </p>
         </div>
-        <button onClick={() => { navigator.clipboard?.writeText(c.code).catch(() => {}); }} title="Copy the code" className="font-mono font-black text-sm px-3 py-2 rounded-lg bg-gray-900 text-white">{c.code}</button>
+        <button onClick={() => { navigator.clipboard?.writeText(c.code).catch(() => {}); }} title="Copy the code" className="font-mono font-black text-sm px-3 py-2 rounded-lg bg-solid text-white">{c.code}</button>
       </div>
     ))}
   </div>
@@ -187,7 +187,7 @@ const SectionView: React.FC<{ s: Section; slug: string }> = ({ s, slug }) => {
       return (
         <div className={`bg-white border border-gray-200 p-6 ${s.layout === "split" && s.image_url ? "grid md:grid-cols-2 gap-6 items-center" : ""}`} style={radius}>
           <div>
-            <h2 className="text-2xl font-black text-gray-900 mb-2">{s.title || "About us"}</h2>
+            <h2 className="font-display text-2xl font-extrabold text-ink mb-2">{s.title || "About us"}</h2>
             {s.subtitle && <p className="text-gray-500 mb-2">{s.subtitle}</p>}
             <p className="text-gray-700 whitespace-pre-line leading-relaxed">{s.text}</p>
           </div>
@@ -197,7 +197,7 @@ const SectionView: React.FC<{ s: Section; slug: string }> = ({ s, slug }) => {
     case "contact":
       return s.contact ? (
         <div className="bg-white border border-gray-200 p-6" style={radius}>
-          <h2 className="text-2xl font-black text-gray-900 mb-4">{s.title || "Contact & terms"}</h2>
+          <h2 className="font-display text-2xl font-extrabold text-ink mb-4">{s.title || "Contact & terms"}</h2>
           <ContactCard contact={s.contact} />
         </div>
       ) : null;
@@ -231,7 +231,7 @@ export const CompanyHeader: React.FC<{ store: Storefront; tab: string; setTab: (
         {store.logo_url ? <img src={store.logo_url} alt={`${store.name} logo`} className="w-full h-full object-contain" /> : <span className="text-3xl font-black text-gray-300">{store.name[0]}</span>}
       </div>
       <div className="flex-1 min-w-[200px] pt-9">
-        <h1 className="text-2xl font-black text-gray-900">{store.name}</h1>
+        <h1 className="font-display text-2xl font-extrabold text-ink">{store.name}</h1>
         <p className="text-sm text-gray-500">{store.tagline || [store.city, store.state].filter(Boolean).join(", ")}</p>
         {store.rating && store.rating.count > 0 && store.rating.average !== null && (
           <button onClick={() => setTab("reviews")} className="mt-1 flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900"><Stars value={store.rating.average} /> <b>{store.rating.average.toFixed(1)}</b> ({store.rating.count} reviews)</button>
@@ -333,7 +333,7 @@ export const CollectionPage: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 py-6">
         <Crumbs items={data.company ? [{ label: "Suppliers", to: "/companies" }, { label: data.company.name, to: `/companies/${data.company.slug}` }, { label: data.collection.name }] : [{ label: "Home", to: "/" }, { label: data.collection.name }]} />
         {data.collection.cover_image_url && <img src={data.collection.cover_image_url} alt="" className="w-full max-h-64 object-cover rounded-2xl mb-6" />}
-        <h1 className="text-3xl font-black text-gray-900">{data.collection.name}</h1>
+        <h1 className="font-display text-3xl md:text-[2.15rem] font-extrabold text-ink leading-tight">{data.collection.name}</h1>
         {data.collection.description && <p className="text-gray-600 mt-1 mb-6 max-w-3xl">{data.collection.description}</p>}
         {data.products.length ? <div className="mt-6"><ProductGrid products={data.products} /></div> : <Empty title="No products here right now" />}
       </div>

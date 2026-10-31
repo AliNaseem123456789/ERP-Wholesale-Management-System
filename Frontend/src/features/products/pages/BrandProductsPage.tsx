@@ -34,7 +34,7 @@ export const BrandProductsPage: React.FC<BrandProductsPageProps> = ({
     );
 
   return (
-    <div className="min-h-screen p-6 bg-white dark:bg-[#191919] text-gray-900 dark:text-gray-200">
+    <div className="min-h-screen p-6 bg-white text-gray-900">
       <button
         onClick={() => onNavigate("/")}
         className="text-cyan-400 hover:text-cyan-300 mb-6 flex items-center gap-2 transition-colors"

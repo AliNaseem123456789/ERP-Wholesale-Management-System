@@ -1,70 +1,83 @@
 // Shared marketplace building blocks: product grid with filters, pagination, company and brand cards.
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ChevronLeft, ChevronRight, SlidersHorizontal, X, Search, Loader2, MapPin, PackageSearch } from "lucide-react";
-import { RatingBadge } from "../insights/components";
+import { Link, useSearchParams } from "react-router-dom";
+import { ChevronLeft, ChevronRight, SlidersHorizontal, X, Search, Loader2, MapPin, PackageSearch, BadgeCheck } from "lucide-react";
 import { track } from "../insights/api";
 import ProductCard from "../products/components/ProductCard";
 import { Product } from "../products/types/product.types";
 import { SearchResult, SORT_LABELS, CompanyCardT, Facets } from "./api";
 
 export const PageShell: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = "" }) => (
-  <div className={`min-h-screen bg-gray-50 ${className}`}>
-    <div className="max-w-7xl mx-auto px-4 py-6 sm:py-8">{children}</div>
+  <div className={`min-h-screen bg-page ${className}`}>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">{children}</div>
   </div>
 );
 
 export const Crumbs: React.FC<{ items: { label: string; to?: string }[] }> = ({ items }) => (
-  <nav aria-label="Breadcrumb" className="text-xs text-gray-500 mb-3 flex flex-wrap items-center gap-1">
+  <nav aria-label="Breadcrumb" className="text-[13px] text-ink-3 mb-4 flex flex-wrap items-center gap-1.5">
     {items.map((c, i) => (
       <React.Fragment key={i}>
-        {i > 0 && <span className="text-gray-300">/</span>}
-        {c.to ? <Link to={c.to} className="hover:text-blue-600 hover:underline">{c.label}</Link> : <span className="text-gray-700 font-semibold">{c.label}</span>}
+        {i > 0 && <ChevronRight size={13} className="text-ink-3/60" aria-hidden="true" />}
+        {c.to ? <Link to={c.to} className="hover:text-ink">{c.label}</Link> : <span className="text-ink font-medium" aria-current="page">{c.label}</span>}
       </React.Fragment>
     ))}
   </nav>
 );
 
 export const Loading: React.FC<{ label?: string }> = ({ label = "Loading…" }) => (
-  <div className="flex items-center justify-center gap-2 py-20 text-gray-500"><Loader2 className="animate-spin text-blue-600" size={22} /> {label}</div>
+  <div className="flex items-center justify-center gap-2 py-20 text-ink-3"><Loader2 className="animate-spin text-brand" size={20} /> {label}</div>
 );
 
 export const Empty: React.FC<{ title: string; text?: string; action?: React.ReactNode }> = ({ title, text, action }) => (
-  <div className="bg-white rounded-2xl border border-gray-200 py-16 px-6 text-center">
-    <PackageSearch className="mx-auto text-gray-300 mb-3" size={40} />
-    <p className="font-bold text-gray-900">{title}</p>
-    {text && <p className="text-sm text-gray-500 mt-1">{text}</p>}
+  <div className="bg-surface rounded-xl border border-dashed border-line-strong py-16 px-6 text-center">
+    <span className="mx-auto mb-4 w-12 h-12 rounded-full bg-raised grid place-items-center text-ink-3"><PackageSearch size={22} /></span>
+    <p className="font-semibold text-ink">{title}</p>
+    {text && <p className="text-sm text-ink-3 mt-1">{text}</p>}
     {action && <div className="mt-4">{action}</div>}
   </div>
 );
 
-export const ProductGrid: React.FC<{ products: Product[]; cols?: string }> = ({ products, cols = "grid-cols-2 md:grid-cols-3 lg:grid-cols-4" }) => (
+export const ProductGrid: React.FC<{ products: Product[]; cols?: string }> = ({ products, cols = "grid-cols-2 md:grid-cols-3 xl:grid-cols-4" }) => (
   <div className={`grid ${cols} gap-3 sm:gap-4`}>
     {products.map((p) => <ProductCard key={p.id} product={p} />)}
   </div>
 );
 
+const pageList = (page: number, pages: number): (number | "…")[] => {
+  const out: (number | "…")[] = [];
+  const add = (x: number | "…") => out[out.length - 1] !== x && out.push(x);
+  for (let p = 1; p <= pages; p++) {
+    if (p === 1 || p === pages || Math.abs(p - page) <= 1) add(p);
+    else add("…");
+  }
+  return out;
+};
+
 export const Pager: React.FC<{ page: number; pages: number; onChange: (p: number) => void }> = ({ page, pages, onChange }) =>
   pages > 1 ? (
-    <div className="flex items-center justify-center gap-3 mt-8">
-      <button disabled={page <= 1} onClick={() => onChange(page - 1)} className="p-2 rounded-lg bg-white border border-gray-200 disabled:opacity-30" aria-label="Previous page"><ChevronLeft size={18} /></button>
-      <span className="text-sm text-gray-600">Page <b>{page}</b> of {pages}</span>
-      <button disabled={page >= pages} onClick={() => onChange(page + 1)} className="p-2 rounded-lg bg-white border border-gray-200 disabled:opacity-30" aria-label="Next page"><ChevronRight size={18} /></button>
-    </div>
+    <nav className="flex items-center justify-center gap-1 mt-10" aria-label="Pages">
+      <button disabled={page <= 1} onClick={() => onChange(page - 1)} className="h-10 px-3 inline-flex items-center gap-1 rounded-lg text-sm font-medium text-ink-2 hover:bg-surface hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent" aria-label="Previous page"><ChevronLeft size={17} /><span className="hidden sm:inline">Previous</span></button>
+      {pageList(page, pages).map((p, i) =>
+        p === "…" ? <span key={`e${i}`} className="w-8 text-center text-ink-3">…</span> : (
+          <button key={p} onClick={() => onChange(p)} aria-current={p === page ? "page" : undefined}
+            className={`min-w-10 h-10 px-2 rounded-lg text-sm font-semibold ${p === page ? "bg-solid text-white" : "text-ink-2 hover:bg-surface hover:text-ink"} ${Math.abs(p - page) > 1 && p !== 1 && p !== pages ? "hidden sm:block" : ""}`}>{p}</button>
+        ))}
+      <button disabled={page >= pages} onClick={() => onChange(page + 1)} className="h-10 px-3 inline-flex items-center gap-1 rounded-lg text-sm font-medium text-ink-2 hover:bg-surface hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent" aria-label="Next page"><span className="hidden sm:inline">Next</span><ChevronRight size={17} /></button>
+    </nav>
   ) : null;
 
 const FacetGroup: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <div className="border-b border-gray-100 pb-4 mb-4 last:border-0">
-    <p className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">{title}</p>
-    <div className="space-y-1 max-h-64 overflow-y-auto pr-1">{children}</div>
+  <div className="border-b border-line pb-4 mb-4 last:border-0 last:mb-0 last:pb-0">
+    <p className="text-sm font-semibold text-ink mb-2.5">{title}</p>
+    <div className="space-y-0.5 max-h-64 overflow-y-auto pr-1 -mx-1">{children}</div>
   </div>
 );
 
 const Check: React.FC<{ checked: boolean; onChange: () => void; label: string; count?: number }> = ({ checked, onChange, label, count }) => (
-  <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:text-gray-900">
-    <input type="checkbox" checked={checked} onChange={onChange} className="rounded" />
+  <label className={`flex items-center gap-2.5 text-sm cursor-pointer rounded-md px-1 py-1 hover:bg-raised ${checked ? "text-ink font-medium" : "text-ink-2"}`}>
+    <input type="checkbox" checked={checked} onChange={onChange} className="w-4 h-4 rounded border-line-strong" />
     <span className="flex-1 truncate">{label}</span>
-    {count !== undefined && <span className="text-xs text-gray-400">{count}</span>}
+    {count !== undefined && <span className="text-xs text-ink-3">{count}</span>}
   </label>
 );
 
@@ -82,8 +95,8 @@ const FacetPanel: React.FC<{ facets: Facets; hide: string[]; params: URLSearchPa
       {!hide.includes("category") && facets.categories.length > 0 && (
         <FacetGroup title="Category">
           {facets.categories.map((c) => (
-            <Link key={c.id} to={categoryLink(c.slug)} className="flex justify-between text-sm text-gray-700 hover:text-blue-600 py-0.5">
-              <span className="truncate">{c.name}</span><span className="text-xs text-gray-400">{c.count}</span>
+            <Link key={c.id} to={categoryLink(c.slug)} className="flex justify-between gap-2 text-sm text-ink-2 hover:text-ink hover:bg-raised rounded-md px-1 py-1">
+              <span className="truncate">{c.name}</span><span className="text-xs text-ink-3">{c.count}</span>
             </Link>
           ))}
         </FacetGroup>
@@ -175,17 +188,17 @@ export const CatalogBrowser: React.FC<{
   return (
     <div>
       {/* on phones the search / filter / sort bar stays at the top while scrolling */}
-      <div className="flex flex-wrap gap-2 items-center mb-4 sticky top-14 z-30 -mx-4 px-4 py-2 bg-gray-50/95 backdrop-blur md:static md:mx-0 md:px-0 md:py-0 md:bg-transparent md:backdrop-blur-none">
+      <div className="flex flex-wrap gap-2 items-center mb-4 sticky top-14 z-30 -mx-4 px-4 py-2 bg-page/95 backdrop-blur md:static md:mx-0 md:px-0 md:py-0 md:bg-transparent md:backdrop-blur-none">
         <form onSubmit={(e) => { e.preventDefault(); set("q", q.trim() || null); }} className="relative flex-1 min-w-[220px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-3" size={16} />
           <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={placeholder} aria-label="Search"
-            className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+            className="w-full h-11 pl-10 pr-3 rounded-lg border border-line bg-surface text-ink text-sm placeholder:text-ink-3 focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none" />
         </form>
-        <button onClick={() => setShowFilters(true)} className="lg:hidden inline-flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700">
+        <button onClick={() => setShowFilters(true)} className="lg:hidden inline-flex items-center gap-2 h-11 px-3.5 rounded-lg border border-line bg-surface text-sm font-semibold text-ink">
           <SlidersHorizontal size={16} /> Filters{active.length ? ` (${active.length})` : ""}
         </button>
         <select value={params.get("sort") || "relevance"} onChange={(e) => set("sort", e.target.value === "relevance" ? null : e.target.value)} aria-label="Sort"
-          className="px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-700">
+          className="h-11 px-3 rounded-lg border border-line bg-surface text-sm text-ink font-medium">
           {(result?.sorts || ["relevance", "newest", "title", "featured"]).map((s) => <option key={s} value={s}>{SORT_LABELS[s] || s}</option>)}
         </select>
       </div>
@@ -193,22 +206,22 @@ export const CatalogBrowser: React.FC<{
       {active.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-4">
           {active.map((a) => (
-            <button key={a.key} onClick={() => set(a.key, null)} className="inline-flex items-center gap-1 bg-blue-50 text-blue-800 border border-blue-100 rounded-full px-3 py-1 text-xs font-semibold">
+            <button key={a.key} onClick={() => set(a.key, null)} className="inline-flex items-center gap-1.5 bg-surface text-ink border border-line-strong hover:border-ink-3 rounded-full pl-3 pr-2 py-1 text-[13px] font-medium" aria-label={`Remove filter ${a.label}`}>
               {a.label} <X size={12} />
             </button>
           ))}
-          <button onClick={() => { const n = new URLSearchParams(); if (params.get("q")) n.set("q", params.get("q")!); setParams(n); }} className="text-xs text-gray-500 hover:underline">Clear all</button>
+          <button onClick={() => { const n = new URLSearchParams(); if (params.get("q")) n.set("q", params.get("q")!); setParams(n); }} className="text-[13px] font-medium text-brand-text hover:underline px-2">Clear all</button>
         </div>
       )}
 
-      <div className="grid lg:grid-cols-[230px_1fr] gap-6">
+      <div className="grid lg:grid-cols-[248px_1fr] gap-6 xl:gap-8">
         <aside className="hidden lg:block">
-          <div className="bg-white rounded-2xl border border-gray-200 p-4 sticky top-32 max-h-[calc(100vh-9rem)] overflow-y-auto overscroll-contain">{panel || <p className="text-sm text-gray-400">…</p>}</div>
+          <div className="bg-surface rounded-xl border border-line p-4 sticky top-32 max-h-[calc(100vh-9rem)] overflow-y-auto overscroll-contain">{panel || <div className="space-y-3">{[0, 1, 2, 3, 4].map((i) => <div key={i} className="h-4 rounded bg-raised animate-pulse" />)}</div>}</div>
         </aside>
         <div>
-          {error ? <Empty title="Couldn't load products" text={error} /> : !result ? <Loading /> : (
+          {error ? <Empty title="Couldn't load products" text={error} /> : !result ? <GridSkeleton /> : (
             <>
-              <p className={`text-sm text-gray-500 mb-3 ${busy ? "opacity-50" : ""}`}>{result.total} product{result.total === 1 ? "" : "s"}</p>
+              <p className={`text-sm text-ink-3 mb-3 ${busy ? "opacity-50" : ""}`}><b className="text-ink font-semibold">{result.total.toLocaleString()}</b> product{result.total === 1 ? "" : "s"}</p>
               {result.data.length === 0 ? (
                 <Empty title="No products match" text="Try fewer filters or another search." />
               ) : (
@@ -221,9 +234,9 @@ export const CatalogBrowser: React.FC<{
       </div>
 
       {showFilters && (
-        <div className="fixed inset-0 z-[90] bg-black/40 lg:hidden" onClick={() => setShowFilters(false)}>
-          <div className="absolute right-0 top-0 bottom-0 w-80 max-w-[85%] bg-white p-4 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-4"><p className="font-bold text-gray-900">Filters</p><button onClick={() => setShowFilters(false)} aria-label="Close"><X size={20} /></button></div>
+        <div className="fixed inset-0 z-[90] bg-night/60 lg:hidden" onClick={() => setShowFilters(false)}>
+          <div className="absolute right-0 top-0 bottom-0 w-80 max-w-[88%] bg-surface p-4 overflow-y-auto shadow-xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Filters">
+            <div className="flex justify-between items-center mb-4"><p className="font-display font-bold text-lg text-ink">Filters</p><button onClick={() => setShowFilters(false)} aria-label="Close filters" className="p-2 -mr-2 text-ink-2"><X size={20} /></button></div>
             {panel}
           </div>
         </div>
@@ -232,60 +245,85 @@ export const CatalogBrowser: React.FC<{
   );
 };
 
-export const CompanyCard: React.FC<{ c: CompanyCardT }> = ({ c }) => {
-  const navigate = useNavigate();
-  return (
-    <button onClick={() => navigate(`/companies/${c.slug}`)} className="text-left bg-white rounded-2xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow flex flex-col">
-      <div className="h-20 bg-gradient-to-r from-slate-800 to-slate-600 relative">
-        {c.banner_url && <img src={c.banner_url} alt="" className="absolute inset-0 w-full h-full object-cover" />}
+export const CompanyCard: React.FC<{ c: CompanyCardT }> = ({ c }) => (
+  <Link to={`/companies/${c.slug}`} className="group text-left bg-surface rounded-xl border border-line overflow-hidden hover:border-line-strong hover:shadow-md flex flex-col">
+    <div className="h-20 relative bg-night overflow-hidden">
+      {c.banner_url ? <img src={c.banner_url} alt="" className="absolute inset-0 w-full h-full object-cover" /> : (
+        <div className="absolute inset-0 opacity-50" style={{ backgroundImage: "repeating-linear-gradient(135deg, transparent 0 14px, rgb(255 255 255 / .06) 14px 15px)" }} aria-hidden="true" />
+      )}
+    </div>
+    <div className="px-4 pb-4 flex-1 flex flex-col">
+      <div className="-mt-7 mb-3 w-14 h-14 rounded-lg bg-[#fff] ring-4 ring-surface shadow-sm grid place-items-center overflow-hidden relative">
+        {c.logo_url ? <img src={c.logo_url} alt="" className="w-full h-full object-contain p-1" /> : <span className="font-display text-xl font-extrabold text-[#0F1B2D]">{c.name[0]}</span>}
       </div>
-      <div className="p-4 pt-0 flex-1 flex flex-col">
-        <div className="-mt-7 mb-2 w-14 h-14 rounded-xl bg-white border border-gray-200 shadow-sm flex items-center justify-center overflow-hidden relative">
-          {c.logo_url ? <img src={c.logo_url} alt="" className="w-full h-full object-contain" /> : <span className="text-xl font-black text-gray-400">{c.name[0]}</span>}
+      <p className="font-semibold text-ink flex items-center gap-1.5 group-hover:text-brand-text">
+        <span className="truncate">{c.name}</span>
+        {c.is_featured && <BadgeCheck size={16} className="text-brand shrink-0" aria-label="Featured supplier" />}
+      </p>
+      {c.tagline && <p className="text-sm text-ink-2 mt-1 line-clamp-2">{c.tagline}</p>}
+      {(c.city || c.state) && <p className="text-[13px] text-ink-3 mt-2 flex items-center gap-1"><MapPin size={13} /> {[c.city, c.state].filter(Boolean).join(", ")}</p>}
+      {!!c.top_categories?.length && (
+        <div className="flex flex-wrap gap-1.5 mt-3">
+          {c.top_categories.map((t) => <span key={t.slug} className="text-xs bg-raised text-ink-2 border border-line rounded-md px-2 py-0.5">{t.name}</span>)}
         </div>
-        <p className="font-bold text-gray-900">{c.name}{c.is_featured && <span className="ml-2 text-[10px] uppercase bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">Featured</span>}</p>
-        {c.tagline && <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">{c.tagline}</p>}
-        {(c.city || c.state) && <p className="text-xs text-gray-400 mt-1 flex items-center gap-1"><MapPin size={11} /> {[c.city, c.state].filter(Boolean).join(", ")}</p>}
-        <div className="flex flex-wrap gap-1 mt-2">
-          {(c.top_categories || []).map((t) => <span key={t.slug} className="text-[10px] bg-gray-100 text-gray-600 rounded-full px-2 py-0.5">{t.name}</span>)}
-        </div>
-        <p className="text-xs text-gray-500 mt-auto pt-3 flex flex-wrap items-center gap-x-2">{c.product_count ?? 0} products{c.brand_count ? ` · ${c.brand_count} brands` : ""}<RatingBadge rating={c.rating} /></p>
+      )}
+      <div className="mt-auto pt-4 grid grid-cols-3 gap-2 text-center border-t border-line -mx-4 px-4 mt-4">
+        <div className="pt-3"><p className="font-display font-bold text-ink text-lg leading-none">{(c.product_count ?? 0).toLocaleString()}</p><p className="text-xs text-ink-3 mt-1">products</p></div>
+        <div className="pt-3"><p className="font-display font-bold text-ink text-lg leading-none">{c.brand_count ?? 0}</p><p className="text-xs text-ink-3 mt-1">brands</p></div>
+        <div className="pt-3">{c.rating?.average != null && c.rating.count > 0 ? <><p className="font-display font-bold text-ink text-lg leading-none">{c.rating.average.toFixed(1)}</p><p className="text-xs text-ink-3 mt-1">{c.rating.count} reviews</p></> : <><p className="font-display font-bold text-ink-3 text-lg leading-none">–</p><p className="text-xs text-ink-3 mt-1">no reviews</p></>}</div>
       </div>
-    </button>
-  );
-};
+    </div>
+  </Link>
+);
 
 export const BrandTile: React.FC<{ b: { name: string; slug: string; logo_url?: string | null; product_count?: number; relationship?: string } }> = ({ b }) => (
-  <Link to={`/brands/${b.slug}`} className="bg-white rounded-xl border border-gray-200 p-3 flex items-center gap-3 hover:shadow-md transition-shadow min-w-0">
-    <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
-      {b.logo_url ? <img src={b.logo_url} alt="" className="w-full h-full object-contain" /> : <span className="font-black text-gray-400">{b.name[0]}</span>}
+  <Link to={`/brands/${b.slug}`} className="group bg-surface rounded-xl border border-line p-3 flex items-center gap-3 hover:border-line-strong hover:shadow-md min-w-0">
+    <div className="w-14 h-14 rounded-lg bg-[#fff] ring-1 ring-line grid place-items-center overflow-hidden shrink-0">
+      {b.logo_url ? <img src={b.logo_url} alt="" className="w-full h-full object-contain p-1.5" /> : <span className="font-display text-lg font-extrabold text-[#0F1B2D]">{b.name[0]}</span>}
     </div>
     <div className="min-w-0">
-      <p className="font-semibold text-sm text-gray-900 truncate">{b.name}</p>
-      {b.product_count !== undefined && <p className="text-xs text-gray-400">{b.product_count} products</p>}
-      {b.relationship && b.relationship !== "reseller" && <p className="text-[10px] text-blue-700 font-bold uppercase">{b.relationship.replace(/_/g, " ")}</p>}
+      <p className="font-semibold text-sm text-ink truncate group-hover:text-brand-text">{b.name}</p>
+      {b.product_count !== undefined && <p className="text-[13px] text-ink-3">{b.product_count} products</p>}
+      {b.relationship && b.relationship !== "reseller" && <p className="text-xs text-brand-text font-medium capitalize">{b.relationship.replace(/_/g, " ")}</p>}
     </div>
   </Link>
 );
 
 export const CategoryTile: React.FC<{ c: { name: string; slug: string; image_url?: string | null; product_count?: number } }> = ({ c }) => (
-  <Link to={`/categories/${c.slug}`} className="group bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-    <div className="aspect-[4/3] bg-gradient-to-br from-blue-50 to-gray-100 flex items-center justify-center overflow-hidden">
-      {c.image_url ? <img src={c.image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" /> : <span className="text-3xl font-black text-blue-200">{c.name[0]}</span>}
+  <Link to={`/categories/${c.slug}`} className="group block">
+    <div className={`aspect-square rounded-xl border overflow-hidden grid place-items-center group-hover:shadow-md ${c.image_url ? "bg-surface border-line group-hover:border-line-strong" : "bg-brand-soft border-transparent"}`}>
+      {c.image_url ? <img src={c.image_url} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-300" /> : (
+        <span className="font-display text-5xl font-extrabold text-brand-text/80 group-hover:scale-110 transition-transform" style={{ fontStretch: "125%" }} aria-hidden="true">{c.name.trim()[0]?.toUpperCase()}</span>
+      )}
     </div>
-    <div className="p-2.5">
-      <p className="font-semibold text-sm text-gray-900 line-clamp-1">{c.name}</p>
-      {c.product_count !== undefined && <p className="text-xs text-gray-400">{c.product_count} products</p>}
-    </div>
+    <p className="mt-2 font-semibold text-sm text-ink line-clamp-1 group-hover:text-brand-text">{c.name}</p>
+    {c.product_count !== undefined && <p className="text-[13px] text-ink-3">{c.product_count.toLocaleString()} products</p>}
   </Link>
 );
 
-export const SectionTitle: React.FC<{ title: string; subtitle?: string; to?: string; linkLabel?: string; onDark?: boolean }> = ({ title, subtitle, to, linkLabel = "See all", onDark }) => (
-  <div className="flex items-end justify-between gap-4 mb-4">
-    <div>
-      <h2 className={`text-2xl font-black ${onDark ? "text-gray-900 dark:text-white" : "text-gray-900"}`}>{title}</h2>
-      {subtitle && <p className={`text-sm mt-0.5 ${onDark ? "text-gray-500 dark:text-gray-400" : "text-gray-500"}`}>{subtitle}</p>}
+export const SectionTitle: React.FC<{ title: string; subtitle?: string; to?: string; linkLabel?: string; onDark?: boolean }> = ({ title, subtitle, to, linkLabel = "See all" }) => (
+  <div className="flex items-end justify-between gap-4 mb-5">
+    <div className="min-w-0">
+      <h2 className="font-display text-[1.6rem] md:text-[1.9rem] font-extrabold text-ink leading-tight">{title}</h2>
+      {subtitle && <p className="text-[15px] text-ink-2 mt-1">{subtitle}</p>}
     </div>
-    {to && <Link to={to} className="text-sm font-bold text-blue-600 hover:underline shrink-0">{linkLabel} →</Link>}
+    {to && (
+      <Link to={to} className="inline-flex items-center gap-1 h-9 pl-3 pr-2 rounded-lg text-sm font-semibold text-ink border border-line bg-surface hover:border-line-strong shrink-0">
+        {linkLabel} <ChevronRight size={16} />
+      </Link>
+    )}
+  </div>
+);
+
+export const GridSkeleton: React.FC<{ count?: number; cols?: string }> = ({ count = 8, cols = "grid-cols-2 md:grid-cols-3 xl:grid-cols-4" }) => (
+  <div className={`grid ${cols} gap-3 sm:gap-4`} aria-busy="true" aria-label="Loading products">
+    {Array.from({ length: count }, (_, i) => (
+      <div key={i} className="rounded-xl border border-line bg-surface p-3">
+        <div className="aspect-square rounded-lg bg-raised animate-pulse" />
+        <div className="h-3 w-1/3 rounded bg-raised animate-pulse mt-3" />
+        <div className="h-4 w-4/5 rounded bg-raised animate-pulse mt-2" />
+        <div className="h-5 w-1/2 rounded bg-raised animate-pulse mt-3" />
+      </div>
+    ))}
   </div>
 );

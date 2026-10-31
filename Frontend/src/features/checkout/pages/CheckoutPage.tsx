@@ -187,7 +187,7 @@ export const CheckoutPage = () => {
           <ShoppingBag size={24} />
         </div>
         <div>
-          <h1 className="text-4xl font-black text-gray-900 dark:text-white">Secure Checkout</h1>
+          <h1 className="text-4xl font-black text-gray-900">Secure Checkout</h1>
           {cartInfo && cartId && <p className="text-sm text-gray-500 mt-1">Checking out the cart <b>{cartInfo.name}</b></p>}
         </div>
       </div>
@@ -341,7 +341,7 @@ export const CheckoutPage = () => {
                   className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-xl text-sm bg-white text-gray-900 uppercase"
                 />
               </div>
-              <button disabled={!promoInput.trim() || refreshing} className="px-4 py-2 rounded-xl bg-gray-900 text-white text-sm font-bold disabled:opacity-40">Apply</button>
+              <button disabled={!promoInput.trim() || refreshing} className="px-4 py-2 rounded-xl bg-solid text-white text-sm font-bold disabled:opacity-40">Apply</button>
             </form>
             {promoCodes.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-4">

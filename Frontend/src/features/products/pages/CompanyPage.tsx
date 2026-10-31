@@ -25,7 +25,7 @@ export const CompanyPage: React.FC = () => {
   if (!company) return <div className="min-h-screen p-10 text-center text-gray-500">Loading...</div>;
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#191919] text-gray-900 dark:text-gray-200">
+    <div className="min-h-screen bg-white text-gray-900">
       <div className="bg-gray-50 border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-8 flex flex-wrap items-center gap-5">
           <div className="w-20 h-20 rounded-2xl bg-white border border-gray-200 overflow-hidden flex items-center justify-center">
@@ -33,7 +33,7 @@ export const CompanyPage: React.FC = () => {
           </div>
           <div className="flex-1 min-w-[220px]">
             <Link to="/companies" className="text-xs text-blue-600 hover:underline">← All companies</Link>
-            <h1 className="text-3xl font-black text-gray-900">{company.name}</h1>
+            <h1 className="font-display text-3xl md:text-[2.15rem] font-extrabold text-ink leading-tight">{company.name}</h1>
             <div className="flex flex-wrap gap-4 text-sm text-gray-500 mt-1">
               {(company.city || company.state) && <span className="flex items-center gap-1"><MapPin size={14} /> {[company.city, company.state].filter(Boolean).join(", ")}</span>}
               {company.website && <a href={company.website} target="_blank" rel="noreferrer noopener" className="flex items-center gap-1 hover:text-blue-600"><Globe size={14} /> Website</a>}
@@ -47,9 +47,9 @@ export const CompanyPage: React.FC = () => {
       <div className="max-w-[1400px] mx-auto px-4 py-8">
         {company.brands.length > 1 && (
           <div className="flex flex-wrap gap-2 mb-6">
-            <button onClick={() => setBrand("")} className={`px-3 py-1.5 rounded-full text-sm font-semibold border ${!brand ? "bg-gray-900 text-white border-gray-900" : "border-gray-200 text-gray-600"}`}>All brands</button>
+            <button onClick={() => setBrand("")} className={`px-3 py-1.5 rounded-full text-sm font-semibold border ${!brand ? "bg-solid text-white border-gray-900" : "border-gray-200 text-gray-600"}`}>All brands</button>
             {company.brands.map((b) => (
-              <button key={b.id} onClick={() => setBrand(b.name)} className={`px-3 py-1.5 rounded-full text-sm font-semibold border ${brand === b.name ? "bg-gray-900 text-white border-gray-900" : "border-gray-200 text-gray-600"}`}>{b.name}</button>
+              <button key={b.id} onClick={() => setBrand(b.name)} className={`px-3 py-1.5 rounded-full text-sm font-semibold border ${brand === b.name ? "bg-solid text-white border-gray-900" : "border-gray-200 text-gray-600"}`}>{b.name}</button>
             ))}
           </div>
         )}

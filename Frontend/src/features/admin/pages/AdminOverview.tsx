@@ -18,7 +18,7 @@ const Change: React.FC<{ value: number | null; invert?: boolean }> = ({ value, i
 const Tile: React.FC<{ label: string; value: string | number; change?: number | null; invert?: boolean; hint?: string }> = ({ label, value, change, invert, hint }) => (
   <div className="bg-white border border-gray-200 rounded-2xl p-4">
     <p className="text-[11px] uppercase font-bold text-gray-500 tracking-wide">{label}</p>
-    <p className="text-2xl font-black text-gray-900 mt-1">{value}</p>
+    <p className="font-display text-2xl font-extrabold text-ink mt-1">{value}</p>
     <div className="flex items-center gap-2 mt-1">{change !== undefined && <Change value={change} invert={invert} />}{hint && <span className="text-xs text-gray-400">{hint}</span>}</div>
   </div>
 );
@@ -56,7 +56,7 @@ const SalesChart: React.FC<{ series: { date: string; gmv: number; orders: number
         <line x1={L} x2={W - 4} y1={H - B} y2={H - B} stroke="#9ca3af" strokeWidth={1} />
       </svg>
       {hover !== null && (
-        <div className="absolute top-1 pointer-events-none bg-gray-900 text-white text-xs rounded-lg px-2.5 py-1.5 shadow" style={{ left: `${((L + hover * step + step / 2) / W) * 100}%`, transform: "translateX(-50%)" }}>
+        <div className="absolute top-1 pointer-events-none bg-solid text-white text-xs rounded-lg px-2.5 py-1.5 shadow" style={{ left: `${((L + hover * step + step / 2) / W) * 100}%`, transform: "translateX(-50%)" }}>
           <b>{series[hover].date}</b><br />{money(series[hover].gmv)} · {series[hover].orders} order(s)
         </div>
       )}
@@ -78,12 +78,12 @@ export const AdminOverview: React.FC = () => {
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black text-gray-900">Marketplace overview</h1>
+          <h1 className="font-display text-2xl font-extrabold text-ink">Marketplace overview</h1>
           <p className="text-sm text-gray-500">Last {days} days, compared with the {days} days before</p>
         </div>
         <div className="flex gap-1">
           {[7, 30, 90, 365].map((n) => (
-            <button key={n} onClick={() => setDays(n)} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${days === n ? "bg-gray-900 text-white" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>{n === 365 ? "1 year" : `${n} days`}</button>
+            <button key={n} onClick={() => setDays(n)} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${days === n ? "bg-solid text-white" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>{n === 365 ? "1 year" : `${n} days`}</button>
           ))}
         </div>
       </div>

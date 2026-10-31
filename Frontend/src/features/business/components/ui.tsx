@@ -1,34 +1,34 @@
 // Small shared building blocks for the back office.
 import React from "react";
-import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
 
 export const PageHeader: React.FC<{ title: string; subtitle?: string; actions?: React.ReactNode }> = ({ title, subtitle, actions }) => (
   <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
-    <div>
-      <h1 className="text-2xl font-black text-gray-900">{title}</h1>
-      {subtitle && <p className="text-sm text-gray-500 mt-1">{subtitle}</p>}
+    <div className="min-w-0">
+      <h1 className="font-display text-[1.65rem] md:text-[1.9rem] font-extrabold text-ink leading-tight">{title}</h1>
+      {subtitle && <p className="text-[15px] text-ink-2 mt-1">{subtitle}</p>}
     </div>
     {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
   </div>
 );
 
 export const Card: React.FC<{ className?: string; children: React.ReactNode }> = ({ className = "", children }) => (
-  <div className={`bg-white text-gray-900 border border-gray-200 rounded-2xl shadow-sm ${className}`}>{children}</div>
+  <div className={`bg-surface text-ink border border-line rounded-xl ${className}`}>{children}</div>
 );
 
 export const Spinner: React.FC<{ label?: string }> = ({ label }) => (
-  <div className="flex flex-col items-center justify-center py-16 text-gray-500">
-    <Loader2 className="animate-spin text-blue-600 mb-2" size={28} />
+  <div className="flex flex-col items-center justify-center py-16 text-ink-3" role="status">
+    <Loader2 className="animate-spin text-brand mb-2" size={24} />
     {label && <p className="text-sm">{label}</p>}
   </div>
 );
 
 export const EmptyState: React.FC<{ icon?: React.ReactNode; title: string; text?: string; action?: React.ReactNode }> = ({ icon, title, text, action }) => (
   <div className="text-center py-16 px-4">
-    {icon && <div className="flex justify-center text-gray-300 mb-3">{icon}</div>}
-    <p className="font-bold text-gray-900">{title}</p>
-    {text && <p className="text-sm text-gray-500 mt-1">{text}</p>}
-    {action && <div className="mt-4">{action}</div>}
+    {icon && <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-raised grid place-items-center text-ink-3 [&_svg]:w-6 [&_svg]:h-6">{icon}</div>}
+    <p className="font-semibold text-ink">{title}</p>
+    {text && <p className="text-sm text-ink-3 mt-1 max-w-sm mx-auto">{text}</p>}
+    {action && <div className="mt-5">{action}</div>}
   </div>
 );
 
@@ -88,54 +88,80 @@ const STATUS_STYLES: Record<string, string> = {
   unchanged: "bg-gray-100 text-gray-600",
 };
 
-export const StatusBadge: React.FC<{ status?: string | null }> = ({ status }) => (
-  <span className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wide ${STATUS_STYLES[status || ""] || "bg-gray-100 text-gray-700"}`}>
-    {(status || "unknown").replace(/_/g, " ")}
-  </span>
-);
+type Tone = "neutral" | "info" | "success" | "warning" | "danger";
+const TONE: Record<Tone, { chip: string; dot: string }> = {
+  neutral: { chip: "bg-raised text-ink-2 ring-line", dot: "bg-ink-3" },
+  info: { chip: "bg-blue-50 text-blue-800 ring-blue-200", dot: "bg-blue-500" },
+  success: { chip: "bg-emerald-50 text-emerald-800 ring-emerald-200", dot: "bg-emerald-500" },
+  warning: { chip: "bg-amber-50 text-amber-800 ring-amber-200", dot: "bg-amber-500" },
+  danger: { chip: "bg-red-50 text-red-800 ring-red-200", dot: "bg-red-500" },
+};
+// every status the back office shows, grouped into five meanings
+const toneOf = (status: string): Tone => {
+  const cls = STATUS_STYLES[status] || "";
+  if (/green|teal/.test(cls)) return "success";
+  if (/amber|orange/.test(cls)) return "warning";
+  if (/red/.test(cls)) return "danger";
+  if (/blue|indigo|purple/.test(cls)) return "info";
+  return "neutral";
+};
+
+export const StatusBadge: React.FC<{ status?: string | null }> = ({ status }) => {
+  const t = TONE[toneOf(status || "")];
+  const label = (status || "unknown").replace(/_/g, " ");
+  return (
+    <span className={`inline-flex items-center gap-1.5 pl-2 pr-2.5 py-0.5 rounded-full text-xs font-medium ring-1 ring-inset whitespace-nowrap ${t.chip} ${status === "void" ? "line-through" : ""}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${t.dot}`} aria-hidden="true" />
+      {label.charAt(0).toUpperCase() + label.slice(1)}
+    </span>
+  );
+};
 
 export const Pagination: React.FC<{ page: number; totalPages: number; onChange: (p: number) => void }> = ({ page, totalPages, onChange }) =>
   totalPages > 1 ? (
-    <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-100 text-sm">
-      <button disabled={page <= 1} onClick={() => onChange(page - 1)} className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30" aria-label="Previous page">
-        <ChevronLeft size={18} />
+    <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-line text-sm">
+      <button disabled={page <= 1} onClick={() => onChange(page - 1)} className="w-8 h-8 grid place-items-center rounded-lg border border-line hover:bg-raised disabled:opacity-30" aria-label="Previous page">
+        <ChevronLeft size={16} />
       </button>
-      <span className="text-gray-600">
-        Page {page} of {totalPages}
+      <span className="text-ink-2 px-1">
+        Page <b className="text-ink font-semibold">{page}</b> of {totalPages}
       </span>
-      <button disabled={page >= totalPages} onClick={() => onChange(page + 1)} className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30" aria-label="Next page">
-        <ChevronRight size={18} />
+      <button disabled={page >= totalPages} onClick={() => onChange(page + 1)} className="w-8 h-8 grid place-items-center rounded-lg border border-line hover:bg-raised disabled:opacity-30" aria-label="Next page">
+        <ChevronRight size={16} />
       </button>
     </div>
   ) : null;
 
 export const money = (n: unknown) => {
   const v = Number(n || 0);
-  return `${v < 0 ? "-" : ""}$${Math.abs(v).toFixed(2)}`;
+  return `${v < 0 ? "-" : ""}$${Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 export const dateTime = (d?: string | null) => (d ? new Date(d).toLocaleString() : "—");
 export const dateOnly = (d?: string | null) => (d ? new Date(d).toLocaleDateString() : "—");
 
 // inputBase has no width so it can be combined with w-auto / w-64 etc.
-export const inputBase = "px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-gray-900 text-sm";
+export const inputBase = "h-10 px-3 border border-line-strong rounded-lg bg-surface text-ink text-sm placeholder:text-ink-3 hover:border-ink-3/50 focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none [&:is(textarea)]:h-auto [&:is(textarea)]:py-2";
 export const inputCls = `${inputBase} w-full`;
-export const btnPrimary = "inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold text-sm hover:bg-blue-700 disabled:opacity-50";
-export const btnSecondary = "inline-flex items-center gap-2 border border-gray-300 bg-white text-gray-700 px-4 py-2 rounded-lg font-semibold text-sm hover:bg-gray-50 disabled:opacity-50";
-export const btnDanger = "inline-flex items-center gap-2 border border-red-200 bg-white text-red-600 px-4 py-2 rounded-lg font-semibold text-sm hover:bg-red-50 disabled:opacity-50";
+export const btnPrimary = "inline-flex items-center justify-center gap-2 h-10 bg-brand text-white px-4 rounded-lg font-semibold text-sm hover:bg-brand-hover disabled:opacity-50";
+export const btnSecondary = "inline-flex items-center justify-center gap-2 h-10 border border-line-strong bg-surface text-ink px-4 rounded-lg font-semibold text-sm hover:bg-raised disabled:opacity-50";
+export const btnDanger = "inline-flex items-center justify-center gap-2 h-10 border border-red-200 bg-surface text-red-600 px-4 rounded-lg font-semibold text-sm hover:bg-red-50 disabled:opacity-50";
 
 export const Field: React.FC<{ label: string; hint?: string; children: React.ReactNode }> = ({ label, hint, children }) => (
   <label className="block">
-    <span className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">{label}</span>
+    <span className="block text-sm font-medium text-ink mb-1.5">{label}</span>
     {children}
-    {hint && <span className="block text-xs text-gray-400 mt-1">{hint}</span>}
+    {hint && <span className="block text-xs text-ink-3 mt-1.5">{hint}</span>}
   </label>
 );
 
 /** Small labelled number tile for summaries. */
 export const Stat: React.FC<{ label: string; value: React.ReactNode; tone?: "default" | "warn" | "good" }> = ({ label, value, tone = "default" }) => (
-  <div className={`rounded-xl p-3 ${tone === "warn" ? "bg-red-50" : tone === "good" ? "bg-green-50" : "bg-gray-50"}`}>
-    <p className="text-[10px] uppercase font-bold text-gray-400">{label}</p>
-    <p className={`text-lg font-black ${tone === "warn" ? "text-red-700" : tone === "good" ? "text-green-700" : "text-gray-900"}`}>{value}</p>
+  <div className="rounded-lg p-3.5 bg-raised border border-line">
+    <p className="text-[13px] text-ink-3 flex items-center gap-1.5">
+      {tone !== "default" && <span className={`w-1.5 h-1.5 rounded-full ${tone === "warn" ? "bg-red-500" : "bg-emerald-500"}`} aria-hidden="true" />}
+      {label}
+    </p>
+    <p className={`font-display text-xl font-extrabold mt-0.5 ${tone === "warn" ? "text-red-700" : tone === "good" ? "text-emerald-700" : "text-ink"}`}>{value}</p>
   </div>
 );
 
@@ -155,21 +181,35 @@ export const FilterTabs: React.FC<{ value: string; onChange: (v: string) => void
   </div>
 );
 
-export const Modal: React.FC<{ title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }> = ({ title, onClose, children, wide }) => (
-  <div className="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4" onMouseDown={onClose}>
-    <div
-      className={`bg-white text-gray-900 rounded-2xl shadow-2xl w-full ${wide ? "max-w-3xl" : "max-w-lg"} max-h-[90vh] overflow-y-auto`}
-      onMouseDown={(e) => e.stopPropagation()}
-      role="dialog"
-      aria-modal="true"
-    >
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white">
-        <h2 className="font-bold text-lg text-gray-900">{title}</h2>
-        <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl leading-none" aria-label="Close">
-          ✕
-        </button>
+export const Modal: React.FC<{ title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }> = ({ title, onClose, children, wide }) => {
+  const box = React.useRef<HTMLDivElement>(null);
+  // Escape closes; focus moves into the dialog and back out when it closes
+  React.useEffect(() => {
+    const prev = document.activeElement as HTMLElement | null;
+    box.current?.focus();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("keydown", onKey); prev?.focus?.(); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <div className="fixed inset-0 z-[100] bg-night/60 backdrop-blur-[2px] flex items-center justify-center p-4" onMouseDown={onClose}>
+      <div
+        ref={box}
+        tabIndex={-1}
+        className={`bg-surface text-ink rounded-2xl shadow-xl border border-line w-full ${wide ? "max-w-3xl" : "max-w-lg"} max-h-[90vh] overflow-y-auto outline-none`}
+        onMouseDown={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-line sticky top-0 bg-surface z-10">
+          <h2 className="font-display font-bold text-lg text-ink">{title}</h2>
+          <button onClick={onClose} className="w-8 h-8 -mr-2 grid place-items-center rounded-lg text-ink-3 hover:text-ink hover:bg-raised" aria-label="Close">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-6">{children}</div>
       </div>
-      <div className="p-6">{children}</div>
     </div>
-  </div>
-);
+  );
+};

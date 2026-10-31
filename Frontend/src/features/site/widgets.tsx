@@ -39,17 +39,17 @@ export const AnnouncementBar: React.FC = () => {
 };
 
 const BOX_STYLE: Record<NoticeStyle, { cls: string; icon: React.ReactNode }> = {
-  warning: { cls: "bg-amber-50 border-amber-300 text-amber-900", icon: <AlertTriangle size={18} className="text-amber-600 shrink-0" /> },
+  warning: { cls: "bg-amber-50 border-amber-200 text-amber-900", icon: <AlertTriangle size={18} className="text-amber-600 shrink-0" /> },
   info: { cls: "bg-blue-50 border-blue-200 text-blue-900", icon: <Info size={18} className="text-blue-600 shrink-0" /> },
-  promo: { cls: "bg-pink-50 border-pink-200 text-pink-900", icon: <Megaphone size={18} className="text-pink-600 shrink-0" /> },
-  dark: { cls: "bg-gray-900 border-gray-900 text-white", icon: <Info size={18} className="shrink-0" /> },
+  promo: { cls: "bg-brand-soft border-blue-200 text-ink", icon: <Megaphone size={18} className="text-brand-text shrink-0" /> },
+  dark: { cls: "bg-night border-night text-white", icon: <Info size={18} className="shrink-0" /> },
 };
 
 export const NoticeList: React.FC<{ notices: Notice[]; className?: string }> = ({ notices, className = "" }) =>
   notices.length ? (
     <div className={`space-y-2 ${className}`}>
       {notices.map((n) => (
-        <div key={n.id} role="note" className={`flex gap-3 items-start border rounded-xl px-4 py-3 text-sm ${BOX_STYLE[n.style].cls}`}>
+        <div key={n.id} role="note" className={`flex gap-3 items-start border rounded-lg px-4 py-3 text-sm ${BOX_STYLE[n.style].cls}`}>
           {BOX_STYLE[n.style].icon}
           <p>{n.title && <b className="mr-1">{n.title}:</b>}{n.text}</p>
         </div>
@@ -82,7 +82,7 @@ export const BackToTop: React.FC = () => {
   if (!show) return null;
   return (
     <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} aria-label="Back to top"
-      className="fixed z-40 right-4 bottom-24 md:bottom-28 w-11 h-11 rounded-full bg-gray-900/85 text-white shadow-lg flex items-center justify-center hover:bg-gray-900">
+      className="fixed z-40 left-4 bottom-20 md:left-auto md:right-24 md:bottom-7 w-11 h-11 rounded-full bg-surface text-ink border border-line shadow-lg flex items-center justify-center hover:bg-raised">
       <ArrowUp size={20} />
     </button>
   );
@@ -94,11 +94,11 @@ export const CompareBar: React.FC = () => {
   const location = useLocation();
   if (!ids.length || location.pathname === "/compare" || location.pathname.startsWith("/business") || location.pathname.startsWith("/admin")) return null;
   return (
-    <div className="fixed z-40 left-1/2 -translate-x-1/2 bottom-20 md:bottom-6 bg-white text-gray-900 border border-gray-200 shadow-2xl rounded-full pl-4 pr-2 py-2 flex items-center gap-3 text-sm">
-      <GitCompareArrows size={16} className="text-blue-600" />
+    <div className="fixed z-40 left-1/2 -translate-x-1/2 bottom-20 md:bottom-6 bg-night text-white shadow-xl rounded-full pl-4 pr-2 py-2 flex items-center gap-3 text-sm">
+      <GitCompareArrows size={16} className="text-signal" />
       <span className="font-semibold">{ids.length} to compare</span>
-      <Link to="/compare" className="bg-blue-600 text-white font-bold rounded-full px-4 py-1.5 hover:bg-blue-700">Compare</Link>
-      <button onClick={clear} aria-label="Clear compare list" className="p-1.5 text-gray-400 hover:text-gray-700"><X size={16} /></button>
+      <Link to="/compare" className="bg-brand text-white font-semibold rounded-full px-4 py-1.5 hover:bg-brand-hover">Compare now</Link>
+      <button onClick={clear} aria-label="Clear compare list" className="p-1.5 text-white/60 hover:text-white"><X size={16} /></button>
     </div>
   );
 };

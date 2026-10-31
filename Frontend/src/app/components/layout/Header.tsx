@@ -4,7 +4,7 @@ import { useAuth } from "../../../features/auth/context/AuthContext";
 import { useAppSelector } from "../../../app/hooks";
 import { Link, useNavigate } from "react-router-dom";
 import { NotificationBell } from "../../../features/notifications/notifications";
-import { useLook, useSite } from "../../../features/site/SiteContext";
+import { useClassicLook as useLook, useSite } from "../../../features/site/SiteContext";
 import { MainNav, MobileMenu } from "../../../features/site/MainNav";
 import { SearchBox } from "../../../features/site/SearchBox";
 import { AnnouncementBar } from "../../../features/site/widgets";
@@ -35,7 +35,7 @@ export const Header: React.FC = () => {
   const ModeIcon = mode === "dark" ? Sun : Moon;
 
   return (
-    <>
+    <div className="classic contents">
       <AnnouncementBar />
 
       {/* desktop */}
@@ -126,6 +126,6 @@ export const Header: React.FC = () => {
           )}
         </div>
       </nav>
-    </>
+    </div>
   );
 };

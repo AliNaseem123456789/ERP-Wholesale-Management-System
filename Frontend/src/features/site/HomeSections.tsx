@@ -5,7 +5,6 @@ import { Headphones, Gift, Star, Truck, Shield, Clock, Tag, Users, Package, Cred
 import type { Product } from "../products/types/product.types";
 import { HomeSection, siteApi } from "./api";
 import { Hero } from "./Hero";
-import { useLook } from "./SiteContext";
 import { useRecentlyViewed, clearViewed } from "./browserLists";
 import { ProductGrid, SectionTitle, CategoryTile, BrandTile, CompanyCard } from "../marketplace/components";
 import { BannerStrip } from "../marketplace/pages";
@@ -19,10 +18,10 @@ const SmartLink: React.FC<{ href?: string; className?: string; children: React.R
 /** A product row as a grid, or as a row that scrolls sideways. */
 export const ProductRow: React.FC<{ products: Product[]; layout?: string }> = ({ products, layout }) =>
   layout === "carousel" ? (
-    <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-3 -mx-1 px-1">
-      {products.map((p) => <div key={p.id} className="snap-start shrink-0 w-[46%] sm:w-[30%] md:w-[23%] lg:w-[18%]"><ProductCard product={p} /></div>)}
+    <div className="no-scrollbar flex gap-3 sm:gap-4 overflow-x-auto snap-x snap-mandatory pb-2 -mx-4 px-4 sm:-mx-6 sm:px-6 scroll-px-4 sm:scroll-px-6">
+      {products.map((p) => <div key={p.id} className="snap-start shrink-0 w-[62%] sm:w-[36%] md:w-[28%] lg:w-[22%] xl:w-[18.6%]"><ProductCard product={p} /></div>)}
     </div>
-  ) : <ProductGrid products={products} cols="grid-cols-2 md:grid-cols-4 lg:grid-cols-5" />;
+  ) : <ProductGrid products={products} cols="grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" />;
 
 /** The visitor's recently viewed products (kept in this browser). */
 export const RecentlyViewed: React.FC<{ title?: string; exclude?: number | string; onDark?: boolean; max?: number }> = ({ title = "Recently viewed", exclude, onDark, max = 10 }) => {
@@ -44,7 +43,7 @@ export const RecentlyViewed: React.FC<{ title?: string; exclude?: number | strin
     <section>
       <div className="flex items-end justify-between gap-4">
         <SectionTitle title={title} onDark={onDark} />
-        <button onClick={clearViewed} className="text-sm text-gray-500 hover:underline mb-4">Clear</button>
+        <button onClick={clearViewed} className="text-sm font-medium text-ink-3 hover:text-ink mb-6">Clear</button>
       </div>
       <ProductRow products={products} layout="carousel" />
     </section>
@@ -52,10 +51,9 @@ export const RecentlyViewed: React.FC<{ title?: string; exclude?: number | strin
 };
 
 const Wrap: React.FC<{ children: React.ReactNode; full?: boolean }> = ({ children, full }) =>
-  full ? <>{children}</> : <div className="max-w-7xl mx-auto px-4 md:px-6">{children}</div>;
+  full ? <>{children}</> : <div className="max-w-7xl mx-auto px-4 sm:px-6">{children}</div>;
 
 export const HomeSectionView: React.FC<{ s: HomeSection }> = ({ s }) => {
-  const look = useLook();
   const title = s.title ? <SectionTitle title={s.title} subtitle={s.subtitle || undefined} to={s.link || undefined} onDark /> : null;
   switch (s.type) {
     case "hero":
@@ -63,7 +61,14 @@ export const HomeSectionView: React.FC<{ s: HomeSection }> = ({ s }) => {
     case "banners":
       return <Wrap><BannerStrip banners={s.banners as any} /></Wrap>;
     case "categories":
-      return <Wrap>{title}<div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">{s.categories!.map((c) => <CategoryTile key={c.id} c={c} />)}</div></Wrap>;
+      return (
+        <Wrap>
+          {title}
+          <div className="no-scrollbar flex gap-3 sm:gap-4 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-4 lg:grid-cols-8 sm:overflow-visible">
+            {s.categories!.map((c) => <div key={c.id} className="w-[30%] shrink-0 sm:w-auto"><CategoryTile c={c} /></div>)}
+          </div>
+        </Wrap>
+      );
     case "products":
       return <Wrap>{title}<ProductRow products={s.products!} layout={s.layout} /></Wrap>;
     case "collections":
@@ -77,16 +82,20 @@ export const HomeSectionView: React.FC<{ s: HomeSection }> = ({ s }) => {
         </Wrap>
       );
     case "brands":
-      return <Wrap>{title}<div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">{s.brands!.map((b) => <BrandTile key={b.id} b={b} />)}</div></Wrap>;
+      return <Wrap>{title}<div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">{s.brands!.map((b) => <BrandTile key={b.id} b={b} />)}</div></Wrap>;
     case "suppliers":
-      return <Wrap>{title}<div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">{s.companies!.map((c) => <CompanyCard key={c.id} c={c} />)}</div></Wrap>;
+      return (
+        <section className="bg-surface border-y border-line py-12 md:py-14">
+          <Wrap>{title}<div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">{s.companies!.map((c) => <CompanyCard key={c.id} c={c} />)}</div></Wrap>
+        </section>
+      );
     case "feature_tiles":
       return (
         <Wrap>
           {title}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {s.tiles!.map((t) => (
-              <SmartLink key={t.key} href={t.link || undefined} className="group relative block aspect-[2/1] w-full overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
+              <SmartLink key={t.key} href={t.link || undefined} className="group relative block aspect-[2/1] w-full overflow-hidden rounded-xl border border-line bg-raised">
                 <img src={t.image} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
               </SmartLink>
             ))}
@@ -97,25 +106,30 @@ export const HomeSectionView: React.FC<{ s: HomeSection }> = ({ s }) => {
       if (s.layout === "banner") {
         return (
           <Wrap>
-            <div className="relative overflow-hidden rounded-2xl bg-gray-900 text-white">
-              {s.image_url && <img src={s.image_url} alt={s.image_alt || ""} className="absolute inset-0 w-full h-full object-cover opacity-50" />}
-              <div className="relative p-8 md:p-12 max-w-2xl">
-                {s.title && <h2 className="text-2xl md:text-4xl font-black">{s.title}</h2>}
-                {s.text && <p className="mt-3 text-white/90 whitespace-pre-line">{s.text}</p>}
-                {s.link && <SmartLink href={s.link} className="inline-block mt-6 bg-white text-gray-900 font-bold px-5 py-2.5 rounded-lg">{s.link_label || "Learn more"}</SmartLink>}
+            <div className="relative overflow-hidden rounded-2xl bg-night text-white grid md:grid-cols-[1.1fr_1fr] min-h-[300px]">
+              <div className="relative z-10 p-8 md:p-12 flex flex-col justify-center">
+                {s.title && <h2 className="font-display text-3xl md:text-[2.6rem] font-extrabold leading-[1.05]">{s.title}</h2>}
+                {s.text && <p className="mt-4 text-white/70 text-lg leading-relaxed whitespace-pre-line max-w-lg">{s.text}</p>}
+                {s.link && <div><SmartLink href={s.link} className="inline-flex items-center gap-2 mt-7 h-12 px-6 rounded-lg bg-signal text-signal-ink font-semibold hover:brightness-105">{s.link_label || "Learn more"}</SmartLink></div>}
               </div>
+              {s.image_url && (
+                <div className="absolute inset-0 md:relative">
+                  <img src={s.image_url} alt={s.image_alt || ""} className="absolute inset-0 w-full h-full object-cover opacity-30 md:opacity-100" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-night via-night/40 to-transparent hidden md:block" />
+                </div>
+              )}
             </div>
           </Wrap>
         );
       }
       return (
         <Wrap>
-          <div className={`bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-6 md:p-10 ${s.layout === "split" && s.image_url ? "grid md:grid-cols-2 gap-8 items-center" : ""}`}>
-            <div>
-              {s.title && <h2 className="text-2xl font-black text-gray-900 dark:text-white">{s.title}</h2>}
-              {s.subtitle && <p className="text-gray-500 mt-1">{s.subtitle}</p>}
-              {s.text && <p className="mt-3 text-gray-700 dark:text-gray-300 whitespace-pre-line">{s.text}</p>}
-              {s.link && <SmartLink href={s.link} className="inline-block mt-5 bg-blue-600 text-white font-bold px-5 py-2.5 rounded-lg">{s.link_label || "Learn more"}</SmartLink>}
+          <div className={`bg-surface rounded-2xl border border-line p-6 md:p-10 ${s.layout === "split" && s.image_url ? "grid md:grid-cols-2 gap-10 items-center" : ""}`}>
+            <div className="max-w-2xl">
+              {s.title && <h2 className="font-display text-2xl md:text-3xl font-extrabold text-ink">{s.title}</h2>}
+              {s.subtitle && <p className="text-ink-2 mt-1.5 text-lg">{s.subtitle}</p>}
+              {s.text && <p className="mt-4 text-ink-2 leading-relaxed whitespace-pre-line">{s.text}</p>}
+              {s.link && <SmartLink href={s.link} className="inline-flex items-center mt-6 h-11 px-5 rounded-lg bg-brand text-white font-semibold hover:bg-brand-hover">{s.link_label || "Learn more"}</SmartLink>}
             </div>
             {s.layout === "split" && s.image_url && <img src={s.image_url} alt={s.image_alt || ""} className="w-full rounded-xl object-cover" />}
           </div>
@@ -123,26 +137,25 @@ export const HomeSectionView: React.FC<{ s: HomeSection }> = ({ s }) => {
       );
     case "features": {
       const items = s.items || [];
-      const left = items.slice(0, Math.ceil(items.length / 2));
-      const right = items.slice(Math.ceil(items.length / 2));
-      const Item = ({ it }: { it: any }) => {
-        const I = ICONS[it.icon] || Star;
-        return (
-          <div className="flex items-start gap-4">
-            <div className={look.clean ? "text-blue-300" : "text-yellow-400"}><I size={22} /></div>
-            <div><h3 className="font-semibold text-lg">{it.title}</h3>{it.text && <p className="text-sm text-gray-200 leading-relaxed">{it.text}</p>}</div>
-          </div>
-        );
-      };
       return (
-        <section className="relative py-12 px-6 text-white" style={look.clean ? { background: "linear-gradient(135deg,#0f172a,#1e3a8a)" } : { backgroundImage: "url('/logos/galaxy.jpeg')", backgroundSize: "cover", backgroundPosition: "center" }}>
-          {!look.clean && <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />}
-          <div className="relative max-w-6xl mx-auto">
-            {s.title && <h2 className="text-center text-2xl md:text-4xl font-semibold tracking-wide mb-12 uppercase">{s.title}</h2>}
-            <div className={`grid grid-cols-1 ${s.image_url ? "md:grid-cols-3" : "md:grid-cols-2"} gap-10 items-center`}>
-              <div className="space-y-10">{left.map((it, i) => <Item key={i} it={it} />)}</div>
-              {s.image_url && <div className="hidden md:flex justify-center"><img src={s.image_url} alt={s.image_alt || ""} loading="lazy" className="max-h-80 drop-shadow-[0_25px_50px_rgba(0,0,0,0.8)]" /></div>}
-              <div className="space-y-10">{right.map((it, i) => <Item key={i} it={it} />)}</div>
+        <section className="bg-night text-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-14 md:py-16 grid gap-10 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,2fr)] items-start">
+            <div>
+              {s.title && <h2 className="font-display text-3xl md:text-[2.4rem] font-extrabold leading-[1.05]">{s.title}</h2>}
+              {s.subtitle && <p className="mt-3 text-white/65 text-lg">{s.subtitle}</p>}
+              {s.image_url && <img src={s.image_url} alt={s.image_alt || ""} loading="lazy" className="hidden lg:block mt-8 max-h-56 object-contain drop-shadow-[0_20px_40px_rgba(0,0,0,0.6)]" />}
+            </div>
+            <div className="grid sm:grid-cols-2 gap-px bg-white/10 rounded-xl overflow-hidden ring-1 ring-white/10">
+              {items.map((it, i) => {
+                const I = ICONS[it.icon] || Star;
+                return (
+                  <div key={i} className="bg-night p-6 md:p-7">
+                    <span className="w-10 h-10 rounded-lg bg-signal/15 text-signal grid place-items-center"><I size={20} /></span>
+                    <h3 className="mt-4 font-semibold text-lg text-white">{it.title}</h3>
+                    {it.text && <p className="mt-1.5 text-[15px] text-white/65 leading-relaxed">{it.text}</p>}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </section>
@@ -152,14 +165,16 @@ export const HomeSectionView: React.FC<{ s: HomeSection }> = ({ s }) => {
       const items = s.items || [];
       if (!items.length) return null;
       return (
-        <section className="bg-gray-100 dark:bg-gray-900 py-6 overflow-hidden" aria-label={s.title || "Brands we work with"}>
-          {s.title && <p className="text-center font-bold text-gray-700 dark:text-gray-200 mb-4">{s.title}</p>}
-          <div className="relative flex w-max animate-logo-strip motion-reduce:animate-none items-center">
+        <section className="py-10 overflow-hidden" aria-label={s.title || "Brands we work with"}>
+          {s.title && <p className="text-center text-sm font-medium text-ink-3 mb-6">{s.title}</p>}
+          <div className="relative [mask-image:linear-gradient(90deg,transparent,#000_8%,#000_92%,transparent)]">
+          <div className="relative flex w-max animate-logo-strip motion-reduce:animate-none items-center hover:[animation-play-state:paused]">
             {[...items, ...items].map((l, i) => (
-              <SmartLink key={i} href={l.link || undefined} className="flex items-center justify-center px-6">
-                <img src={l.image_url} alt={i < items.length ? l.alt || "" : ""} className="h-14 w-auto object-contain" draggable={false} loading="lazy" />
+              <SmartLink key={i} href={l.link || undefined} className="flex items-center justify-center px-8">
+                <img src={l.image_url} alt={i < items.length ? l.alt || "" : ""} className="h-10 w-auto object-contain grayscale opacity-60 hover:opacity-100 mix-blend-multiply dark:invert dark:mix-blend-screen" draggable={false} loading="lazy" />
               </SmartLink>
             ))}
+          </div>
           </div>
           <style>{`@keyframes logo-strip{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}.animate-logo-strip{animation:logo-strip 30s linear infinite}`}</style>
         </section>
@@ -173,11 +188,11 @@ export const HomeSectionView: React.FC<{ s: HomeSection }> = ({ s }) => {
 };
 
 /** Full-width sections touch the edges; the rest sit in the page width with spacing. */
-const FULL = new Set(["hero", "features", "logos"]);
+const FULL = new Set(["hero", "features", "logos", "suppliers"]);
 export const HomeSections: React.FC<{ sections: HomeSection[] }> = ({ sections }) => (
-  <div className="pb-12">
+  <div className="pb-4">
     {sections.map((s, i) => (
-      <div key={s.id} className={FULL.has(s.type) ? (i ? "mt-12" : "") : "mt-10 md:mt-12"}>
+      <div key={s.id} className={FULL.has(s.type) ? (i ? "mt-14 md:mt-16" : "") : "mt-12 md:mt-14"}>
         <HomeSectionView s={s} />
       </div>
     ))}

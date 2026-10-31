@@ -54,7 +54,7 @@ export const CategoryProductsPage: React.FC<CategoryProductsPageProps> = ({
     );
 
   return (
-    <div className="min-h-screen p-6 bg-white dark:bg-[#191919] text-black dark:text-gray-200">
+    <div className="min-h-screen p-6 bg-white text-black">
       <button
         className="text-cyan-400 hover:text-cyan-300 mb-6 flex items-center gap-2 transition-colors"
         onClick={() => onNavigate("/")}

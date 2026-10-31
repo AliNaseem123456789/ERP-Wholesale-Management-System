@@ -130,7 +130,7 @@ export const SavedCartsTab: React.FC = () => {
 
         <div className="bg-white border rounded-2xl p-6 shadow-sm flex flex-col md:flex-row justify-between gap-6">
           <div>
-            <h2 className="text-2xl font-black text-gray-900">
+            <h2 className="font-display text-2xl font-extrabold text-ink">
               {detailData.cart_name}
             </h2>
             <div className="flex flex-wrap gap-4 mt-3 text-sm text-gray-500">

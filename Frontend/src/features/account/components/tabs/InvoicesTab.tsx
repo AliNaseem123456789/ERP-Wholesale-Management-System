@@ -32,7 +32,7 @@ export const InvoicesTab: React.FC = () => {
         )}
         <div className="ml-auto flex gap-1">
           {FILTERS.map((f) => (
-            <button key={f.value} onClick={() => setStatus(f.value)} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${status === f.value ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>{f.label}</button>
+            <button key={f.value} onClick={() => setStatus(f.value)} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${status === f.value ? "bg-solid text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>{f.label}</button>
           ))}
         </div>
       </div>

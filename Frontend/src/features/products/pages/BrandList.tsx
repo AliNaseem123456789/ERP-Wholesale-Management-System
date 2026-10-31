@@ -19,8 +19,8 @@ export const BrandList: React.FC = () => {
     return <div className="min-h-screen p-6 text-gray-400">No brands found.</div>;
 
   return (
-    <div className="min-h-screen p-6 bg-white dark:bg-[#191919]">
-      <h1 className="text-3xl font-bold mb-8 text-center text-gray-900 dark:text-gray-200">
+    <div className="min-h-screen p-6 bg-white">
+      <h1 className="text-3xl font-bold mb-8 text-center text-gray-900">
         Available Brands
       </h1>
 
@@ -29,11 +29,11 @@ export const BrandList: React.FC = () => {
           {brands.map((brand) => (
             <div
               key={brand.id}
-              className="cursor-pointer bg-white dark:bg-[#11172a] border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-center justify-center
+              className="cursor-pointer bg-white border border-gray-200 rounded-lg p-4 flex items-center justify-center
                          hover:border-cyan-400 hover:shadow-[0_0_20px_rgba(34,211,238,0.25)] transition-all"
               onClick={() => handleBrandClick(brand.name)}
             >
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-200 truncate">
+              <h2 className="text-lg font-semibold text-gray-900 truncate">
                 {brand.name}
               </h2>
             </div>

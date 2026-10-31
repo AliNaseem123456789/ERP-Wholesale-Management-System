@@ -57,7 +57,7 @@ export const ComparePage: React.FC = () => {
     <PageShell>
       <Crumbs items={[{ label: "Home", to: "/" }, { label: "Compare" }]} />
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-        <h1 className="text-3xl font-black text-gray-900 flex items-center gap-2"><GitCompareArrows /> Compare products</h1>
+        <h1 className="font-display text-3xl md:text-[2.15rem] font-extrabold text-ink leading-tight flex items-center gap-2"><GitCompareArrows /> Compare products</h1>
         <button onClick={clear} className="text-sm font-semibold text-gray-500 hover:underline">Clear all</button>
       </div>
       <div className="overflow-x-auto bg-white border border-gray-200 rounded-2xl">

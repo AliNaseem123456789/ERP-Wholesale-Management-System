@@ -45,7 +45,7 @@ export const AddMemberForm: React.FC<Props> = ({ onBack, onSuccess }) => {
       </button>
 
       <div className="mb-8">
-        <h3 className="text-2xl font-black text-gray-900">Add Staff Member</h3>
+        <h3 className="font-display text-2xl font-extrabold text-ink">Add Staff Member</h3>
         <p className="text-gray-500">
           Create a sub-account to delegate ordering tasks.
         </p>
