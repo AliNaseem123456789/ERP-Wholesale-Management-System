@@ -52,7 +52,7 @@ const tty = process.stdout.isTTY;
 const paint = (ms, text) => (!tty ? text : ms >= 1000 ? `\x1b[31m${text}\x1b[0m` : ms >= 300 ? `\x1b[33m${text}\x1b[0m` : `\x1b[32m${text}\x1b[0m`);
 
 const requestTiming = (req, res, next) => {
-  const store = { start: performance.now(), queries: [] };
+  const store = { start: performance.now(), queries: [], req };
   const writeHead = res.writeHead;
   // the header has to go out with the response, so it reports what happened up to that moment
   res.writeHead = function (...args) {
@@ -92,4 +92,7 @@ if (enabled) {
   }, 10000).unref();
 }
 
-module.exports = { requestTiming, trackQuery, summarize };
+/** The request being handled right now (null outside a request, e.g. in the scheduler). */
+const currentRequest = () => als.getStore()?.req || null;
+
+module.exports = { requestTiming, trackQuery, summarize, currentRequest };

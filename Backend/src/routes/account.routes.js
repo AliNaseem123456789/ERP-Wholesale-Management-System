@@ -11,14 +11,15 @@ const buying = require("../controllers/buying.controller");
 const sales = require("../controllers/customerSales.controller");
 const insights = require("../controllers/insights.controller");
 const { verifyTokenFromCookie } = require("../jwt");
+const { notForDemo } = require("../lib/demo");
 
 const router = express.Router();
 router.use(verifyTokenFromCookie);
 
 router.patch("/update-profile", updateProfile);
-router.post("/add-subaccount", addSubAccount);
+router.post("/add-subaccount", notForDemo("adding logins"), addSubAccount);
 router.get("/my-sub-accounts", getMySubAccounts);
-router.patch("/update-subaccount-permission", updateSubAccountPermission);
+router.patch("/update-subaccount-permission", notForDemo("changing logins"), updateSubAccountPermission);
 router.get("/my-history", getMyCreditHistory);
 
 // invoices & credit notes from sellers

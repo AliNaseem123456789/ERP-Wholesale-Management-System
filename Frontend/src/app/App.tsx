@@ -37,6 +37,7 @@ import { ResetPasswordPage } from "../features/auth/pages/ResetPasswordPage";
 import { VerifyEmailPage } from "../features/auth/pages/VerifyEmailPage";
 import { AcceptInvitePage } from "../features/auth/pages/AcceptInvitePage";
 import { VerifyEmailBanner } from "../features/auth/components/VerifyEmailBanner";
+import { DemoBanner } from "../features/auth/components/DemoBanner";
 import { DealsPage, ProductsPage as MarketProducts, CategoriesPage, CategoryPage, BrandsPage, BrandPage, CompaniesDirectoryPage } from "../features/marketplace/pages";
 import { StorefrontPage, CollectionPage } from "../features/marketplace/storefront";
 import { ComparePage } from "../features/site/ComparePage";
@@ -141,6 +142,7 @@ function App() {
     <>
       <ScrollToTop />
       <Header />
+      <DemoBanner />
       <VerifyEmailBanner />
 
       <main className="flex-1">

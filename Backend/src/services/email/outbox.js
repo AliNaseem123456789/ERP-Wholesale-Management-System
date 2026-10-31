@@ -34,6 +34,13 @@ const getTransporter = () => {
 const queueEmail = async ({ to, template, data = {}, companyId = null, attachments = null, db = prisma }) => {
   try {
     if (!to) return null;
+    // a shared demo login only emails demo addresses, so visitors can't use it to mail strangers
+    const { isDemoEmail } = require("../../lib/demo");
+    const actor = require("../../lib/requestTiming").currentRequest()?.user?.email;
+    if (isDemoEmail(actor) && !isDemoEmail(to)) {
+      console.log(`email to ${to} not queued: sent from the demo account ${actor}`);
+      return null;
+    }
     const render = templates[template];
     if (!render) throw new Error(`Unknown email template: ${template}`);
     const { subject, html, text } = render(data);
@@ -110,6 +117,14 @@ const sendBatch = async (limit) => {
 };
 
 const sendOne = async (transport, mail) => {
+  // example.com addresses (the demo's made-up people) can't receive mail; sending would only bounce
+  if (require("../../lib/demo").isDemoEmail(mail.to_email)) {
+    await prisma.email_outbox.update({
+      where: { id: mail.id },
+      data: { status: "skipped", attempts: { increment: 1 }, last_error: "Demo address (example.com): not sent" },
+    });
+    return;
+  }
   try {
     if (!transport) {
       // No SMTP configured: print the email so links can be used during development.

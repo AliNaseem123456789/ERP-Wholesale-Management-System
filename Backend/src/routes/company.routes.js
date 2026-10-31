@@ -3,6 +3,7 @@
 const express = require("express");
 const multer = require("multer");
 const { verifyTokenFromCookie } = require("../jwt");
+const { notForDemo } = require("../lib/demo");
 const { companyContext, requirePermission: perm } = require("../middlware/companyContext");
 const business = require("../controllers/company/business.controller");
 const team = require("../controllers/company/team.controller");
@@ -71,9 +72,9 @@ router.get("/dashboard", perm("dashboard.view"), business.dashboard);
 router.get("/audit", perm("audit.view"), business.auditLog);
 
 router.get("/members", perm("members.view"), team.listMembers);
-router.patch("/members/:id", perm("members.manage"), team.updateMember);
-router.delete("/members/:id", perm("members.manage"), team.removeMember);
-router.post("/invitations", perm("members.manage"), team.inviteMember);
+router.patch("/members/:id", perm("members.manage"), notForDemo("changing team logins"), team.updateMember);
+router.delete("/members/:id", perm("members.manage"), notForDemo("removing team logins"), team.removeMember);
+router.post("/invitations", perm("members.manage"), notForDemo("inviting people by email"), team.inviteMember);
 router.delete("/invitations/:id", perm("members.manage"), team.revokeInvitation);
 
 router.get("/products", perm("products.view"), products.listProducts);
@@ -283,8 +284,8 @@ router.delete("/compliance/licenses/:id", perm("customers.manage"), compliancec.
 router.get("/reports/catalog", perm("company.view"), reportsHub.catalog);
 router.get("/reports/run/:key", perm("company.view"), reportsHub.runNow);
 router.get("/reports/schedules", perm("company.view"), reportsHub.listSchedules);
-router.post("/reports/schedules", perm("company.view"), reportsHub.createSchedule);
-router.patch("/reports/schedules/:id", perm("company.view"), reportsHub.updateSchedule);
+router.post("/reports/schedules", perm("company.view"), notForDemo("emailing reports"), reportsHub.createSchedule);
+router.patch("/reports/schedules/:id", perm("company.view"), notForDemo("emailing reports"), reportsHub.updateSchedule);
 router.delete("/reports/schedules/:id", perm("company.view"), reportsHub.deleteSchedule);
 router.post("/reports/schedules/:id/run", perm("company.view"), reportsHub.runScheduleNow);
 router.get("/reports/runs", perm("company.view"), reportsHub.listRuns);
